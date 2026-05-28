@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import ProfileList from './profileList'
+import ProfileList from '../../components/profileList'
 import type { ChildProfile } from '@/types/profile'
 
 export default async function Page() {
