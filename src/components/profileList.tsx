@@ -1,7 +1,7 @@
 import ProfileCard from "@/components/profileCard";
 import type { ChildProfile } from "@/types/profile";
 
-export default function ProfileList({ profiles }: { profiles: ChildProfile[] }) {
+export function ProfileList({ profiles }: { profiles: ChildProfile[] }) {
     if (profiles.length === 0) {
         return <p className="text-gray-500">No children found.</p>
     }
