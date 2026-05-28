@@ -1,6 +1,7 @@
 import { getChildrenProfiles } from './actions'
-import { SearchBar } from './searchBar'
-import ProfileList from './profileList'
+import { RegisterChildButton } from '../../../../components/registerChildButton'
+import { SearchBar } from '../../../../components/searchBar'
+import { ProfileList } from '../../../../components/profileList'
 
 export default async function Page() {
   const { profiles, error } = await getChildrenProfiles()
@@ -31,7 +32,7 @@ export default async function Page() {
       {/* Error System Bound Panel */}
       {error && (
         <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">
-          ⚠️ System warning: {error}
+          Error loading data: {error}
         </div>
       )}
 
