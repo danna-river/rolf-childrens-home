@@ -1,7 +1,7 @@
-import { getChildrenProfiles } from './actions'
-import { RegisterChildButton } from '../../../../components/registerChildButton'
-import { SearchBar } from '../../../../components/searchBar'
-import { ProfileList } from '../../../../components/profileList'
+import { getChildrenProfiles } from '@/components/actions'
+import { RegisterChildButton } from '@/components/registerChildButton'
+import { SearchBar } from '@/components/searchBar'
+import { ProfileList } from '@/components/profileList'
 
 export default async function Page() {
   const { profiles, error } = await getChildrenProfiles()
