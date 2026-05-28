@@ -10,8 +10,8 @@ export const mockChildProfiles: ChildProfile[] = [
         birthDay: 1,
         age: 20,
         country: "United States",
-        createdAt: new Date("2026-05-27"),
-        profilePictureURL: "https://via.placeholder.com/150",
+        createdAt: new Date(2026, 4, 28),
+        profilePictureURL: "https://a.espncdn.com/i/headshots/nba/players/full/1966.png",
     },
     {
         id: "2",
@@ -22,7 +22,7 @@ export const mockChildProfiles: ChildProfile[] = [
         birthDay: 2,
         age: 20,
         country: "United States",
-        createdAt: new Date("2026-05-27"),
+        createdAt: new Date(2026, 4, 28),
         profilePictureURL: "https://via.placeholder.com/150",
     },
 ];
