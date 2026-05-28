@@ -9,4 +9,5 @@ export interface ChildProfile {
     country: string;
     createdAt: Date;
     profilePictureURL: string;
+    status: string;
 }

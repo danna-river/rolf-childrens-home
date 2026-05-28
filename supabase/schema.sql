@@ -309,3 +309,18 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
+
+
+-- ─── GRANTS ──────────────────────────────────────────────────
+-- "Automatically expose new tables" is OFF, so grants must be explicit.
+-- RLS policies still control row-level access.
+
+grant usage on schema public to anon, authenticated;
+
+grant select, insert, update, delete
+  on profiles, children, sponsorships, child_media, child_updates
+  to anon, authenticated;
+
+grant all
+  on profiles, children, sponsorships, child_media, child_updates
+  to service_role;

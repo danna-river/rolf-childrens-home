@@ -12,6 +12,7 @@ export const mockChildProfiles: ChildProfile[] = [
         country: "United States",
         createdAt: new Date(2026, 4, 28),
         profilePictureURL: "https://a.espncdn.com/i/headshots/nba/players/full/1966.png",
+        status: "active",
     },
     {
         id: "2",
@@ -24,5 +25,6 @@ export const mockChildProfiles: ChildProfile[] = [
         country: "United States",
         createdAt: new Date(2026, 4, 28),
         profilePictureURL: "https://via.placeholder.com/150",
+        status: "active",
     },
 ];
