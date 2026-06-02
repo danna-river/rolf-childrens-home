@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 
-export default function StaffLayout({ children }: { children: React.ReactNode }) {
+export function StaffLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-blue-600 text-white p-4">

@@ -3,6 +3,9 @@ import { ChildProfile } from "@/types/profile";
 export default function ProfileCard({ profile }: { profile: ChildProfile }) {
     const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "Unnamed"
     const isActive = profile.status === "active"
+    const displayDate = profile.createdAt 
+        ? new Date(profile.createdAt).toLocaleDateString() 
+        : "No date recorded"
 
     return (
         <article className="rounded-xl border p-4 flex gap-4 items-start">

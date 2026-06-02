@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- ─── PROFILES ────────────────────────────────────────────────
--- Extends Supabase Auth users with role, display name, and country.
+-- Extends Supabase Auth users with role, display name, and countries.
 -- Created automatically via trigger when a user is added to Auth.
 
 create table if not exists profiles (
@@ -12,9 +12,8 @@ create table if not exists profiles (
   email        text not null,
   full_name    text,
   role         text not null check (role in ('admin', 'data_inputer', 'donor')),
-  -- For data_inputers: limits which children they can see/edit (must match children.country).
-  -- Null for admins (can see all) and donors (access controlled via sponsorships).
-  country      text,
+  -- 🇺🇬 Array structure lets an inputer manage multiple regions seamlessly (e.g., {"Uganda", "Kenya"})
+  country      text[] default '{}'::text[],
   created_at   timestamptz not null default now()
 );
 
@@ -59,14 +58,14 @@ create table if not exists children (
   birth_day         int,
   profile_photo     text,                        -- S3 key for profile photo
   age               int,
-  country           text,
+  country           text,                        -- Single country string representing the child's home
   bio               text,
   notes             text,
   status            text not null default 'active'
                     check (status in ('active', 'inactive')),
   created_by        uuid references profiles(id),
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now(),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
   edit_log          jsonb not null default '[]'::jsonb  -- [{edited_by, edited_at}, ...]
 );
 
@@ -79,7 +78,7 @@ create policy "children: admin all"
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
--- Data inputers: SELECT any child in their country
+-- Data inputers: SELECT any child if the child's country exists inside their whitelisted array
 create policy "children: data_inputer select"
   on children for select
   using (
@@ -87,11 +86,11 @@ create policy "children: data_inputer select"
       select 1 from profiles p
       where p.id = auth.uid()
         and p.role = 'data_inputer'
-        and p.country = children.country
+        and children.country = any(p.country)
     )
   );
 
--- Data inputers: INSERT new children (country on child must match their own country)
+-- Data inputers: INSERT new children (The target child's country field must exist within their profile array)
 create policy "children: data_inputer insert"
   on children for insert
   with check (
@@ -99,11 +98,11 @@ create policy "children: data_inputer insert"
       select 1 from profiles p
       where p.id = auth.uid()
         and p.role = 'data_inputer'
-        and p.country = country
+        and country = any(p.country)
     )
   );
 
--- Data inputers: UPDATE any child in their country
+-- Data inputers: UPDATE any child in their whitelisted countries
 create policy "children: data_inputer update"
   on children for update
   using (
@@ -111,11 +110,9 @@ create policy "children: data_inputer update"
       select 1 from profiles p
       where p.id = auth.uid()
         and p.role = 'data_inputer'
-        and p.country = children.country
+        and children.country = any(p.country)
     )
   );
-
--- Data inputers have NO delete policy — deletes are blocked at the RLS level.
 
 -- Donors: read-only, only active children assigned to them via sponsorships
 create policy "children: donor assigned read"
@@ -160,7 +157,6 @@ create policy "sponsorships: donor own read"
 
 
 -- ─── CHILD MEDIA ─────────────────────────────────────────────
--- Stores S3 keys only. Actual files live in a private S3 bucket.
 
 create table if not exists child_media (
   id           uuid primary key default gen_random_uuid(),
@@ -185,7 +181,7 @@ create policy "child_media: admin all"
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
--- Data inputers: manage media for any child in their country
+-- Data inputers: manage media for any child inside their country array whitelist
 create policy "child_media: data_inputer country"
   on child_media for all
   using (
@@ -194,7 +190,7 @@ create policy "child_media: data_inputer country"
       join children c on c.id = child_media.child_id
       where p.id = auth.uid()
         and p.role = 'data_inputer'
-        and p.country = c.country
+        and c.country = any(p.country)
     )
   );
 
@@ -223,7 +219,7 @@ create table if not exists child_updates (
   body              text not null,
   visible_to_donor  boolean not null default false,
   created_by        uuid references profiles(id),
-  created_at        timestamptz not null default now()
+  created_at   timestamptz not null default now()
 );
 
 alter table child_updates enable row level security;
@@ -235,7 +231,7 @@ create policy "child_updates: admin all"
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
--- Data inputers: manage updates for children in their country
+-- Data inputers: manage updates for children in their country array whitelist
 create policy "child_updates: data_inputer country"
   on child_updates for all
   using (
@@ -244,7 +240,7 @@ create policy "child_updates: data_inputer country"
       join children c on c.id = child_updates.child_id
       where p.id = auth.uid()
         and p.role = 'data_inputer'
-        and p.country = c.country
+        and c.country = any(p.country)
     )
   );
 
@@ -265,7 +261,6 @@ create policy "child_updates: donor assigned visible read"
 
 
 -- ─── TRIGGER: audit children edits ───────────────────────────
--- On every UPDATE: bumps updated_at and appends an entry to edit_log.
 
 create or replace function audit_children_edit()
 returns trigger language plpgsql security definer as $$
@@ -281,39 +276,52 @@ begin
 end;
 $$;
 
+drop trigger if exists children_audit on children;
 create trigger children_audit
   before update on children
   for each row execute function audit_children_edit();
 
 
 -- ─── TRIGGER: create profile on auth user creation ────────────
--- Admin creates users via Supabase Auth admin API with user_metadata:
---   { full_name, role, country }
--- This trigger copies that into the profiles table automatically.
+-- Automatically extracts metadata context and builds arrays dynamically.
+-- Replaces raw text arrays passed down by the dashboard administration setup seamlessly.
 
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer as $$
+declare
+  country_raw text;
+  country_array text[];
 begin
+  country_raw := new.raw_user_meta_data->>'country';
+  
+  -- If country payload metadata string is present, convert comma-separated values into a Postgres text array
+  if country_raw is not null and country_raw <> '' then
+    country_array := string_to_array(country_raw, ',');
+    -- Clean leading/trailing spaces from items in array
+    select array_agg(trim(val)) into country_array from unnest(country_array) as val;
+  else
+    country_array := array[]::text[];
+  end if;
+
   insert into profiles (id, email, full_name, role, country)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
     coalesce(new.raw_user_meta_data->>'role', 'donor'),
-    new.raw_user_meta_data->>'country'   -- null for admins and donors
+    country_array
   );
   return new;
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
 
 
 -- ─── GRANTS ──────────────────────────────────────────────────
--- "Automatically expose new tables" is OFF, so grants must be explicit.
--- RLS policies still control row-level access.
 
 grant usage on schema public to anon, authenticated;
 
