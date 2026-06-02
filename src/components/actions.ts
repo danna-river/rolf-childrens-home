@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ChildProfile } from '@/types/profile'
+import { createClient } from '@/lib/supabase/server'
 
 // Define what the raw PostgreSQL database row looks like
 interface DBChildRow {
@@ -16,39 +17,39 @@ interface DBChildRow {
   status: string
 }
 
-export async function getChildrenProfiles(country?: string): Promise<{ profiles: ChildProfile[]; error: string | null }> {
-  const supabase = createAdminClient()
+export async function getChildrenProfiles(allowedCountries?: string[]) {
+  const supabase = await createClient()
 
   let query = supabase
     .from('children')
-    .select('id, first_name, last_name, birth_year, birth_month, birth_day, age, country, created_at, profile_photo, status')
+    .select('*')
 
-  if (country) query = query.eq('country', country)
+  if (allowedCountries && allowedCountries.length > 0) {
+    query = query.in('country', allowedCountries)
+  }
 
-  const { data: children, error } = await query.order('created_at', { ascending: false })
+  // Cast the network payload to your raw database layout type
+  const { data, error } = await query as { data: DBChildRow[] | null; error: any }
 
   if (error) {
-    console.error('Error fetching children from Supabase:', error)
+    console.error('❌ FETCH ACTIONS: Failed to query children registry:', error.message)
     return { profiles: [], error: error.message }
   }
 
-  // Map database data safely into frontend types using nullish coalescing (??)
-  const mappedProfiles = (children ?? []).map((child) => {
-    const c = child as DBChildRow
-    return {
-      id: c.id,
-      firstName: c.first_name ?? '',
-      lastName: c.last_name ?? '',
-      birthYear: c.birth_year ?? 0,
-      birthMonth: c.birth_month ?? 0,
-      birthDay: c.birth_day ?? 0,
-      age: c.age ?? 0,
-      country: c.country ?? '',
-      createdAt: new Date(c.created_at),
-      profilePictureURL: '', // Placeholder for secure S3 signed URLs later
-      status: c.status,
-    }
-  })
+  // 🔄 Map snake_case database rows cleanly into your camelCase ChildProfile interface
+  const formattedProfiles: ChildProfile[] = (data || []).map((row) => ({
+    id: row.id,
+    firstName: row.first_name || '',
+    lastName: row.last_name || '',
+    birthYear: row.birth_year || 0,
+    birthMonth: row.birth_month || 0,
+    birthDay: row.birth_day || 0,
+    age: row.age || 0,
+    country: row.country || '',
+    createdAt: row.created_at ? new Date(row.created_at) : new Date(), // Convert string string to Date object
+    profilePictureURL: row.profile_photo || '',
+    status: row.status || 'active'
+  }))
 
-  return { profiles: mappedProfiles, error: null }
+  return { profiles: formattedProfiles, error: null }
 }

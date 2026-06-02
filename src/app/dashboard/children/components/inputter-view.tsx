@@ -9,7 +9,7 @@ interface InputterViewProps {
 
 export async function InputterView({ assignedCountries }: InputterViewProps) {
   // Pass the user's array directly to the data fetcher
-  const { profiles = [], error } = await getChildrenProfiles()
+  const { profiles = [], error } = await getChildrenProfiles(assignedCountries)
 
   // Format the visual display label string based on their real table rows
   const regionalLabel = assignedCountries.length > 0 
