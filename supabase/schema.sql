@@ -11,7 +11,7 @@ create table if not exists profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   email        text not null,
   full_name    text,
-  role         text not null check (role in ('admin', 'data_inputer', 'donor')),
+  role         text not null check (role in ('admin', 'staff', 'donor')),
   -- 🇺🇬 Array structure lets an inputer manage multiple regions seamlessly (e.g., {"Uganda", "Kenya"})
   country      text[] default '{}'::text[],
   created_at   timestamptz not null default now()
@@ -83,37 +83,37 @@ create policy "children: admin all"
   );
 
 -- Data inputers: SELECT any child if the child's country exists inside their whitelisted array
-create policy "children: data_inputer select"
+create policy "children: staff select"
   on children for select
   using (
     exists (
       select 1 from profiles p
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and children.country = any(p.country)
     )
   );
 
 -- Data inputers: INSERT new children (The target child's country field must exist within their profile array)
-create policy "children: data_inputer insert"
+create policy "children: staff insert"
   on children for insert
   with check (
     exists (
       select 1 from profiles p
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and country = any(p.country)
     )
   );
 
 -- Data inputers: UPDATE any child in their whitelisted countries
-create policy "children: data_inputer update"
+create policy "children: staff update"
   on children for update
   using (
     exists (
       select 1 from profiles p
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and children.country = any(p.country)
     )
   );
@@ -186,14 +186,14 @@ create policy "child_media: admin all"
   );
 
 -- Data inputers: manage media for any child inside their country array whitelist
-create policy "child_media: data_inputer country"
+create policy "child_media: staff country"
   on child_media for all
   using (
     exists (
       select 1 from profiles p
       join children c on c.id = child_media.child_id
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and c.country = any(p.country)
     )
   );
@@ -236,14 +236,14 @@ create policy "child_updates: admin all"
   );
 
 -- Data inputers: manage updates for children in their country array whitelist
-create policy "child_updates: data_inputer country"
+create policy "child_updates: staff country"
   on child_updates for all
   using (
     exists (
       select 1 from profiles p
       join children c on c.id = child_updates.child_id
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and c.country = any(p.country)
     )
   );

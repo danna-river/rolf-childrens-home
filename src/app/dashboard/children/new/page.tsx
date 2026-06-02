@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { RegisterChildForm } from './RegisterChildForm'
 
 interface UserProfile {
-  role: 'admin' | 'data_inputer' | 'donor'
+  role: 'admin' | 'staff' | 'donor'
   country: string[] | null
 }
 
@@ -18,7 +18,7 @@ export default async function NewChildPage() {
     .eq('id', user.id)
     .single() as { data: UserProfile | null; error: unknown }
 
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'data_inputer')) {
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
     return redirect('/login?error=Unauthorized')
   }
 

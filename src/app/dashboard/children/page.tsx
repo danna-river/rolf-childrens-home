@@ -4,7 +4,7 @@ import { AdminView } from '@/app/dashboard/children/components/admin-view'
 import { StaffView } from '@/app/dashboard/children/components/staff-view'
 
 interface UserProfile {
-  role: 'admin' | 'data_inputer' | 'donor'
+  role: 'admin' | 'staff' | 'donor'
   country: string[] | null
 }
 
@@ -43,7 +43,7 @@ export default async function UnifiedChildrenPage({
     return <AdminView searchParams={searchParams} />
   }
 
-  if (sanitizedRole === 'data_inputer' || sanitizedRole === 'staff') {
+  if (sanitizedRole === 'staff' || sanitizedRole === 'staff') {
     const checkedCountries = Array.isArray(profile.country) ? profile.country : []
     return <StaffView assignedCountries={checkedCountries} searchParams={searchParams} />
   }
