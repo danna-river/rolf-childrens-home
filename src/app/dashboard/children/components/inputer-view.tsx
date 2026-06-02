@@ -3,11 +3,11 @@ import { RegisterChildButton } from '@/components/registerChildButton'
 import { SearchBar } from '@/components/searchBar'
 import { ProfileList } from '@/components/profileList'
 
-interface InputerViewProps {
+interface InputterViewProps {
   assignedCountries: string[]
 }
 
-export async function InputerView({ assignedCountries }: InputerViewProps) {
+export async function InputterView({ assignedCountries }: InputterViewProps) {
   // Pass the user's array directly to the data fetcher
   const { profiles = [], error } = await getChildrenProfiles()
 
