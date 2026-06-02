@@ -1,8 +1,21 @@
+"use client"
+
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useTransition } from 'react'
+
 interface SearchBarProps {
     totalCount: number;
 }
 
 export function SearchBar({ totalCount }: SearchBarProps) {
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const [isPending, startTransition] = useTransition()
+
+    const handleSearch = (term: string) => {
+      
+    }
+
     return (
         <div className="space-y-4">
       
