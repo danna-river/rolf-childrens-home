@@ -11,8 +11,8 @@ create table if not exists profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   email        text not null,
   full_name    text,
-  role         text not null check (role in ('admin', 'data_inputer', 'donor')),
-  -- 🇺🇬 Array structure lets an inputer manage multiple regions seamlessly (e.g., {"Uganda", "Kenya"})
+  role         text not null check (role in ('admin', 'staff', 'donor')),
+  -- 🇺🇬 Array structure lets staff manage multiple regions seamlessly (e.g., {"Uganda", "Kenya"})
   country      text[] default '{}'::text[],
   created_at   timestamptz not null default now()
 );
@@ -78,38 +78,38 @@ create policy "children: admin all"
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
--- Data inputers: SELECT any child if the child's country exists inside their whitelisted array
-create policy "children: data_inputer select"
+-- Staff: SELECT any child if the child's country exists inside their whitelisted array
+create policy "children: staff select"
   on children for select
   using (
     exists (
       select 1 from profiles p
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and children.country = any(p.country)
     )
   );
 
--- Data inputers: INSERT new children (The target child's country field must exist within their profile array)
-create policy "children: data_inputer insert"
+-- Staff: INSERT new children (The target child's country field must exist within their profile array)
+create policy "children: staff insert"
   on children for insert
   with check (
     exists (
       select 1 from profiles p
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and country = any(p.country)
     )
   );
 
--- Data inputers: UPDATE any child in their whitelisted countries
-create policy "children: data_inputer update"
+-- Staff: UPDATE any child in their whitelisted countries
+create policy "children: staff update"
   on children for update
   using (
     exists (
       select 1 from profiles p
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and children.country = any(p.country)
     )
   );
@@ -181,15 +181,15 @@ create policy "child_media: admin all"
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
--- Data inputers: manage media for any child inside their country array whitelist
-create policy "child_media: data_inputer country"
+-- Staff: manage media for any child inside their country array whitelist
+create policy "child_media: staff country"
   on child_media for all
   using (
     exists (
       select 1 from profiles p
       join children c on c.id = child_media.child_id
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and c.country = any(p.country)
     )
   );
@@ -231,15 +231,15 @@ create policy "child_updates: admin all"
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
--- Data inputers: manage updates for children in their country array whitelist
-create policy "child_updates: data_inputer country"
+-- Staff: manage updates for children in their country array whitelist
+create policy "child_updates: staff country"
   on child_updates for all
   using (
     exists (
       select 1 from profiles p
       join children c on c.id = child_updates.child_id
       where p.id = auth.uid()
-        and p.role = 'data_inputer'
+        and p.role = 'staff'
         and c.country = any(p.country)
     )
   );
@@ -287,28 +287,37 @@ create trigger children_audit
 -- Replaces raw text arrays passed down by the dashboard administration setup seamlessly.
 
 create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer
+set search_path = public
+as $$
 declare
   country_raw text;
   country_array text[];
+  role_raw text;
+  role_value text;
 begin
   country_raw := new.raw_user_meta_data->>'country';
-  
-  -- If country payload metadata string is present, convert comma-separated values into a Postgres text array
+
   if country_raw is not null and country_raw <> '' then
     country_array := string_to_array(country_raw, ',');
-    -- Clean leading/trailing spaces from items in array
     select array_agg(trim(val)) into country_array from unnest(country_array) as val;
   else
     country_array := array[]::text[];
   end if;
+
+  role_raw := lower(trim(coalesce(new.raw_user_meta_data->>'role', 'donor')));
+  role_value := case
+    when role_raw in ('data_inputer', 'data-inputer', 'data_inputter', 'data-inputter') then 'staff'
+    when role_raw in ('admin', 'staff', 'donor') then role_raw
+    else 'donor'
+  end;
 
   insert into profiles (id, email, full_name, role, country)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
-    coalesce(new.raw_user_meta_data->>'role', 'donor'),
+    role_value,
     country_array
   );
   return new;
