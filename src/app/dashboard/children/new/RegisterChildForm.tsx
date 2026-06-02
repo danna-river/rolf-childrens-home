@@ -39,12 +39,14 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const [form, setForm] = useState<FormData>({
     first_name: "", last_name: "", birthdate: "",
     year_joined: "", country: assignedCountries[0] ?? "",
-    career_aspiration: "", favorite_subject: "", hobby: "",
+    career_aspiration: "", favorite_subject: "", hobby: "I like to ",
   })
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
-  const photoRef = useRef<HTMLInputElement>(null)
-  const videoRef = useRef<HTMLInputElement>(null)
+  const photoCameraRef = useRef<HTMLInputElement>(null)
+  const photoUploadRef = useRef<HTMLInputElement>(null)
+  const videoCameraRef = useRef<HTMLInputElement>(null)
+  const videoUploadRef = useRef<HTMLInputElement>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -184,7 +186,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             <Field label="Favorite Subject *" htmlFor="subject">
               {(() => {
                 const presets = SUBJECTS.filter(s => s !== "Other")
-                const isOther = !presets.includes(form.favorite_subject)
+                const isOther = form.favorite_subject !== "" && !presets.includes(form.favorite_subject)
                 return (
                   <>
                     <div className="grid grid-cols-2 gap-2">
@@ -233,42 +235,62 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
             {/* Photo */}
             <Field label="Profile Photo" htmlFor="photo">
-              <input ref={photoRef} id="photo" type="file" accept="image/*" capture="environment"
+              <input ref={photoCameraRef} type="file" accept="image/*" capture="environment"
                 onChange={handlePhoto} className="hidden" />
-              <button type="button" onClick={() => photoRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 rounded-xl py-6 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors bg-white">
-                {photoPreview
-                  ? <img src={photoPreview} alt="preview" className="h-32 w-32 rounded-full object-cover" />
-                  : <>
-                      <span className="text-3xl">📷</span>
-                      <span className="text-sm text-gray-500">Take or choose a photo</span>
-                    </>
-                }
-              </button>
-              {photoPreview && (
-                <button type="button" onClick={() => { setPhotoPreview(null); if (photoRef.current) photoRef.current.value = "" }}
-                  className="text-xs text-red-500 mt-1">Remove photo</button>
+              <input ref={photoUploadRef} type="file" accept="image/*"
+                onChange={handlePhoto} className="hidden" />
+              {photoPreview ? (
+                <div className="flex flex-col items-center gap-2">
+                  <img src={photoPreview} alt="preview" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
+                  <button type="button"
+                    onClick={() => { setPhotoPreview(null); if (photoCameraRef.current) photoCameraRef.current.value = ""; if (photoUploadRef.current) photoUploadRef.current.value = "" }}
+                    className="text-xs text-red-500">Remove photo</button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => photoCameraRef.current?.click()}
+                    className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
+                    <span className="text-2xl">📷</span>
+                    <span className="text-xs font-medium text-gray-600">Take Photo</span>
+                  </button>
+                  <button type="button" onClick={() => photoUploadRef.current?.click()}
+                    className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
+                    <span className="text-2xl">🖼️</span>
+                    <span className="text-xs font-medium text-gray-600">Upload File</span>
+                  </button>
+                </div>
               )}
             </Field>
 
             {/* Video */}
             <Field label="Short Video (~30 sec)" htmlFor="video">
-              <input ref={videoRef} id="video" type="file" accept="video/*" capture="environment"
+              <input ref={videoCameraRef} type="file" accept="video/*" capture="environment"
                 onChange={handleVideo} className="hidden" />
-              <button type="button" onClick={() => videoRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 rounded-xl py-6 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors bg-white">
-                {videoPreview
-                  ? <video src={videoPreview} controls className="w-full rounded-xl max-h-48" />
-                  : <>
-                      <span className="text-3xl">🎥</span>
-                      <span className="text-sm text-gray-500">Record or choose a video</span>
-                      <span className="text-xs text-gray-400 text-center px-4">Child states their name, then does an activity</span>
-                    </>
-                }
-              </button>
-              {videoPreview && (
-                <button type="button" onClick={() => { setVideoPreview(null); if (videoRef.current) videoRef.current.value = "" }}
-                  className="text-xs text-red-500 mt-1">Remove video</button>
+              <input ref={videoUploadRef} type="file" accept="video/*"
+                onChange={handleVideo} className="hidden" />
+              {videoPreview ? (
+                <div className="flex flex-col gap-2">
+                  <video src={videoPreview} controls className="w-full rounded-xl max-h-48" />
+                  <button type="button"
+                    onClick={() => { setVideoPreview(null); if (videoCameraRef.current) videoCameraRef.current.value = ""; if (videoUploadRef.current) videoUploadRef.current.value = "" }}
+                    className="text-xs text-red-500">Remove video</button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button type="button" onClick={() => videoCameraRef.current?.click()}
+                      className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
+                      <span className="text-2xl">🎥</span>
+                      <span className="text-xs font-medium text-gray-600">Record Video</span>
+                    </button>
+                    <button type="button" onClick={() => videoUploadRef.current?.click()}
+                      className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
+                      <span className="text-2xl">📁</span>
+                      <span className="text-xs font-medium text-gray-600">Upload File</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 text-center">Child states their name, then does an activity</p>
+                </div>
               )}
             </Field>
           </div>
