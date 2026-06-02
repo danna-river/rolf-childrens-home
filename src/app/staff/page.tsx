@@ -5,8 +5,13 @@ import { ProfileList } from '@/components/profileList'
 
 const COUNTRY = 'Uganda'
 
-export default async function Page() {
-  const { profiles, error } = await getChildrenProfiles(COUNTRY)
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>
+}) {
+  const { search } = await searchParams
+  const { profiles, error } = await getChildrenProfiles(COUNTRY, search ?? '')
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

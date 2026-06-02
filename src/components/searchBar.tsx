@@ -1,8 +1,33 @@
+"use client";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRef, useState } from "react";
+
 interface SearchBarProps {
     totalCount: number;
 }
 
 export function SearchBar({ totalCount }: SearchBarProps) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const [inputValue, setInputValue] = useState(searchParams.get("search") ?? "");
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newSearchQuery = e.target.value;
+        setInputValue(newSearchQuery);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (newSearchQuery) {
+                params.set("search", newSearchQuery);
+            } else {
+                params.delete("search");
+            }
+            router.replace(`${pathname}?${params.toString()}`);
+        }, 300);
+    };
+
     return (
         <div className="space-y-4">
       
@@ -13,10 +38,11 @@ export function SearchBar({ totalCount }: SearchBarProps) {
             🔍
           </span>
           <input
-            type="text"
-            disabled
-            placeholder="Search functionality disabled for now..."
-            className="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-100 rounded-lg cursor-not-allowed text-gray-400 outline-none"
+            value={inputValue}
+            onChange={handleSearchChange}
+            maxLength={100}
+            placeholder="Search by name..."
+            className="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-800 outline-none"
           />
         </div>
       </div>
