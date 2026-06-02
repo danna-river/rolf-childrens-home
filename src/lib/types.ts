@@ -14,7 +14,7 @@ export interface Profile {
   email: string
   full_name: string | null
   role: Role
-  country: string | null   // data_inputers only; null for admins and donors
+  country: string[] | null   // data_inputers only; null for admins and donors
   created_at: string
 }
 
