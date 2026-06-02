@@ -1,43 +1,41 @@
-import { getChildrenProfiles } from '@/components/actions'
-import { RegisterChildButton } from '@/components/registerChildButton'
-import { SearchBar } from '@/components/searchBar'
-import { ProfileList } from '@/components/profileList'
+// src/app/dashboard/children/page.tsx
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { AdminView } from '@/app/dashboard/children/components/admin-view'
+import { InputterView } from '@/app/dashboard/children/components/inputter-view'
 
-export default async function Page() {
-  const { profiles, error } = await getChildrenProfiles()
+export default async function UnifiedChildrenPage() {
+  const supabase = await createClient()
 
-  return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md mb-1.5">
-            Admin Dashboard
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Children Registry
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            System overview tracking active child records.
-          </p>
-        </div>
+  // 1. Enforce active session check
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return redirect('/login')
+  }
 
-        {/* Register Child Button */}
-        <RegisterChildButton />
-      </div>
+  // 2. Fetch the user profile permissions token
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role, country')
+    .eq('id', user.id)
+    .single()
 
-      {/* Search Bar and Metrics */}
-      <SearchBar totalCount={profiles.length} />
+  if (profileError || !profile) {
+    return redirect('/login?error=Unauthorized')
+  }
 
-      {/* Error System Bound Panel */}
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">
-          Error loading data: {error}
-        </div>
-      )}
+  // 3. 🚦 Secure traffic direction via server components
+  switch ((profile as { role: string }).role) {
+    case 'SUPER_ADMIN':
+    case 'admin':
+      return <AdminView />
 
-      {/* Profiles Display List */}
-      <ProfileList profiles={profiles} />
-    </main>
-  )
+    case 'data_inputer':
+    case 'STAFF':
+      // Routing explicitly hands off to your renamed Inputer module setup
+      return <InputterView assignedCountries={(profile as { country: string[] }).country || []} />
+
+    default:
+      return redirect('/login?error=UnknownRole')
+  }
 }
