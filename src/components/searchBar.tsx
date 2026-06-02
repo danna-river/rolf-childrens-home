@@ -32,7 +32,7 @@ export function SearchBar({ totalCount }: SearchBarProps) {
         <div className="space-y-4">
       
       {/* Search Utilities Control Bar Layout */}
-      <div className="bg-white border border-gray-100 rounded-xl p-3 shadow-xs max-w-md">
+      <div className="bg-white border border-gray-100 rounded-xl p-3 shadow-xs w-full sm:max-w-md">
         <div className="relative flex items-center">
           <span className="absolute left-3.5 text-gray-400 pointer-events-none text-xs">
             🔍

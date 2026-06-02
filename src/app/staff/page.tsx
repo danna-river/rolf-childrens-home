@@ -34,9 +34,9 @@ export default async function Page({
 
       <SearchBar totalCount={profiles.length} />
 
-      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-xs flex flex-wrap gap-6">
-        <StatusFilter />
-        <SortFilter />
+      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-6 divide-y sm:divide-y-0 divide-gray-100">
+        <div className="pt-4 sm:pt-0 first:pt-0"><StatusFilter /></div>
+        <div className="pt-4 sm:pt-0"><SortFilter /></div>
       </div>
 
       {error && (
