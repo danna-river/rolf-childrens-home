@@ -2,7 +2,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { ChildProfile } from '@/types/profile'
 import { createClient } from '@/lib/supabase/server'
 
-// Define what the raw PostgreSQL database row looks like
 interface DBChildRow {
   id: string
   first_name: string | null
@@ -17,27 +16,58 @@ interface DBChildRow {
   status: string
 }
 
-export async function getChildrenProfiles(allowedCountries?: string[]) {
-  const supabase = await createClient()
-
-  let query = supabase
+export async function getCountries(): Promise<string[]> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
     .from('children')
-    .select('*')
+    .select('country')
+    .not('country', 'is', null)
+    .order('country')
+  const unique = [...new Set((data ?? []).map((r: { country: string | null }) => r.country as string))]
+  return unique
+}
 
-  if (allowedCountries && allowedCountries.length > 0) {
-    query = query.in('country', allowedCountries)
+export async function getChildrenProfiles(
+  countries?: string[],
+  search?: string,
+  status?: string,
+  sort?: string,
+  useSessionClient = false,
+): Promise<{ profiles: ChildProfile[]; error: string | null }> {
+  const supabase = useSessionClient ? await createClient() : createAdminClient()
+
+  let query = supabase.from('children').select('*')
+
+  if (countries && countries.length > 0) {
+    query = query.in('country', countries)
   }
 
-  // Cast the network payload to your raw database layout type
-  const { data, error } = await query as { data: DBChildRow[] | null; error: any }
+  if (search) {
+    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
+  }
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status)
+  }
+
+  if (sort === 'name_desc') {
+    query = query.order('first_name', { ascending: false })
+  } else if (sort === 'age_asc') {
+    query = query.order('age', { ascending: true })
+  } else if (sort === 'age_desc') {
+    query = query.order('age', { ascending: false })
+  } else {
+    query = query.order('first_name', { ascending: true })
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error('❌ FETCH ACTIONS: Failed to query children registry:', error.message)
     return { profiles: [], error: error.message }
   }
 
-  // 🔄 Map snake_case database rows cleanly into your camelCase ChildProfile interface
-  const formattedProfiles: ChildProfile[] = (data || []).map((row) => ({
+  const formattedProfiles: ChildProfile[] = ((data ?? []) as DBChildRow[]).map((row) => ({
     id: row.id,
     firstName: row.first_name || '',
     lastName: row.last_name || '',
@@ -46,9 +76,9 @@ export async function getChildrenProfiles(allowedCountries?: string[]) {
     birthDay: row.birth_day || 0,
     age: row.age || 0,
     country: row.country || '',
-    createdAt: row.created_at ? new Date(row.created_at) : new Date(), // Convert string string to Date object
+    createdAt: row.created_at ? new Date(row.created_at) : new Date(),
     profilePictureURL: row.profile_photo || '',
-    status: row.status || 'active'
+    status: row.status || 'active',
   }))
 
   return { profiles: formattedProfiles, error: null }

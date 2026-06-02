@@ -1,14 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { AdminView } from '@/app/dashboard/children/components/admin-view'
-import { InputterView } from '@/app/dashboard/children/components/inputter-view'
+import { StaffView } from '@/app/dashboard/children/components/staff-view'
 
 interface UserProfile {
-  role: 'admin' | 'data_inputer' | 'donor';
-  country: string[] | null;
+  role: 'admin' | 'data_inputer' | 'donor'
+  country: string[] | null
 }
 
-export default async function UnifiedChildrenPage() {
+type ChildrenSearchParams = {
+  search?: string
+  status?: string
+  country?: string | string[]
+  sort?: string
+}
+
+export default async function UnifiedChildrenPage({
+  searchParams,
+}: {
+  searchParams: Promise<ChildrenSearchParams>
+}) {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -20,7 +31,7 @@ export default async function UnifiedChildrenPage() {
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single() as { data: UserProfile | null; error: any }
+    .single() as { data: UserProfile | null; error: unknown }
 
   if (profileError || !profile) {
     return redirect('/login?error=Unauthorized')
@@ -29,12 +40,12 @@ export default async function UnifiedChildrenPage() {
   const sanitizedRole = profile.role.trim().toLowerCase()
 
   if (sanitizedRole === 'super_admin' || sanitizedRole === 'admin') {
-    return <AdminView />
+    return <AdminView searchParams={searchParams} />
   }
 
   if (sanitizedRole === 'data_inputer' || sanitizedRole === 'staff') {
     const checkedCountries = Array.isArray(profile.country) ? profile.country : []
-    return <InputterView assignedCountries={checkedCountries} />
+    return <StaffView assignedCountries={checkedCountries} searchParams={searchParams} />
   }
 
   return redirect('/login?error=Unauthorized')

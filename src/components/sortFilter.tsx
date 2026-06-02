@@ -1,0 +1,43 @@
+"use client"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
+
+const SORT_OPTIONS = [
+  { value: "name_asc", label: "Name A→Z" },
+  { value: "name_desc", label: "Name Z→A" },
+  { value: "age_asc", label: "Age ↑" },
+  { value: "age_desc", label: "Age ↓" },
+]
+
+export function SortFilter() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const current = searchParams.get("sort") ?? "name_asc"
+
+  const setSort = (sort: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("sort", sort)
+    router.replace(`${pathname}?${params.toString()}`)
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sort</span>
+      <div className="flex gap-2 flex-wrap">
+        {SORT_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setSort(opt.value)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              current === opt.value
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
