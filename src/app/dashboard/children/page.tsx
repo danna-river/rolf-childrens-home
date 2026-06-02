@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { AdminView } from './components/admin-view'
+import { AdminView } from '@/app/dashboard/children/components/admin-view'
 import { InputterView } from '@/app/dashboard/children/components/inputter-view'
 
 interface UserProfile {
