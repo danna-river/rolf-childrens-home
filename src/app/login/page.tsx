@@ -1,53 +1,25 @@
-// src/app/dashboard/children/page.tsx
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { AdminView } from '@/app/dashboard/children/components/admin-view'
-import { InputterView } from '@/app/dashboard/children/components/inputter-view'
+import { LoginForm } from '@/app/login/components/login-form'
 
-// Define the exact shape your old schema expects
-interface UserProfile {
-  role: 'admin' | 'data_inputer' | 'donor';
-  country: string[] | null;
-}
+export default function LoginPage() {
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-xs max-w-sm w-full space-y-6">
+        
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+            ROLF Core
+          </span>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight mt-3">
+            Staff Portal Login
+          </h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Authenticate to access your assigned regional workstation.
+          </p>
+        </div>
 
-export default async function UnifiedChildrenPage() {
-  const supabase = await createClient()
+        <LoginForm />
 
-  // 1. Authenticate browser session cookies
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    console.error("🔒 ORCHESTRATOR: No valid session token.")
-    return redirect('/login?error=SessionExpired')
-  }
-
-  // 2. Query the user profile row with explicit type casting
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role, country')
-    .eq('id', user.id)
-    .single() as { data: UserProfile | null; error: any } // 👈 Explicit type cast fixes the 'never' error
-
-  if (profileError || !profile) {
-    console.error(`❌ ORCHESTRATOR: Database profile match missing for ${user.id}:`, profileError?.message)
-    return redirect('/login?error=Unauthorized')
-  }
-
-  // 3. Normalize role parameter text safely
-  const sanitizedRole = profile.role.trim().toLowerCase()
-
-  if (sanitizedRole === 'super_admin' || sanitizedRole === 'admin') {
-    return <AdminView />
-  }
-
-  if (sanitizedRole === 'data_inputer' || sanitizedRole === 'staff') {
-    // Systemic Array Hand-off: Safe fallback to an empty array literal
-    const checkedCountries: string[] = Array.isArray(profile.country) 
-      ? profile.country 
-      : []
-
-    return <InputterView assignedCountries={checkedCountries} />
-  }
-
-  console.warn(`⚠️ ORCHESTRATOR: Access denied. Role classification '${profile.role}' is invalid.`)
-  return redirect('/login?error=UnknownRole')
+      </div>
+    </main>
+  )
 }

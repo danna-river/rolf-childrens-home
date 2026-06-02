@@ -1,41 +1,41 @@
-// src/app/dashboard/children/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { AdminView } from '@/app/dashboard/children/components/admin-view'
+import { AdminView } from './components/admin-view'
 import { InputterView } from '@/app/dashboard/children/components/inputter-view'
+
+interface UserProfile {
+  role: 'admin' | 'data_inputer' | 'donor';
+  country: string[] | null;
+}
 
 export default async function UnifiedChildrenPage() {
   const supabase = await createClient()
 
-  // 1. Enforce active session check
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
-    return redirect('/login')
+    return redirect('/login?error=SessionExpired')
   }
 
-  // 2. Fetch the user profile permissions token
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single()
+    .single() as { data: UserProfile | null; error: any }
 
   if (profileError || !profile) {
     return redirect('/login?error=Unauthorized')
   }
 
-  // 3. 🚦 Secure traffic direction via server components
-  switch ((profile as { role: string }).role) {
-    case 'SUPER_ADMIN':
-    case 'admin':
-      return <AdminView />
+  const sanitizedRole = profile.role.trim().toLowerCase()
 
-    case 'data_inputer':
-    case 'STAFF':
-      // Routing explicitly hands off to your renamed Inputer module setup
-      return <InputterView assignedCountries={(profile as { country: string[] }).country || []} />
-
-    default:
-      return redirect('/login?error=UnknownRole')
+  if (sanitizedRole === 'super_admin' || sanitizedRole === 'admin') {
+    return <AdminView />
   }
+
+  if (sanitizedRole === 'data_inputer' || sanitizedRole === 'staff') {
+    const checkedCountries = Array.isArray(profile.country) ? profile.country : []
+    return <InputterView assignedCountries={checkedCountries} />
+  }
+
+  return redirect('/login?error=Unauthorized')
 }
