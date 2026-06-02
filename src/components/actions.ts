@@ -16,13 +16,16 @@ interface DBChildRow {
   status: string
 }
 
-export async function getChildrenProfiles(): Promise<{ profiles: ChildProfile[]; error: string | null }> {
+export async function getChildrenProfiles(country?: string): Promise<{ profiles: ChildProfile[]; error: string | null }> {
   const supabase = createAdminClient()
 
-  const { data: children, error } = await supabase
+  let query = supabase
     .from('children')
     .select('id, first_name, last_name, birth_year, birth_month, birth_day, age, country, created_at, profile_photo, status')
-    .order('created_at', { ascending: false })
+
+  if (country) query = query.eq('country', country)
+
+  const { data: children, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching children from Supabase:', error)
