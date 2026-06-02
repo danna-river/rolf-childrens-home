@@ -16,7 +16,18 @@ interface DBChildRow {
   status: string
 }
 
-export async function getChildrenProfiles(country?: string, search?: string): Promise<{ profiles: ChildProfile[]; error: string | null }> {
+export async function getCountries(): Promise<string[]> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('children')
+    .select('country')
+    .not('country', 'is', null)
+    .order('country')
+  const unique = [...new Set((data ?? []).map((r: { country: string | null }) => r.country as string))]
+  return unique
+}
+
+export async function getChildrenProfiles(country?: string, search?: string, status?: string, sort?: string): Promise<{ profiles: ChildProfile[]; error: string | null }> {
   const supabase = createAdminClient()
 
   let query = supabase
@@ -27,7 +38,21 @@ export async function getChildrenProfiles(country?: string, search?: string): Pr
 
   if (search) query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
 
-  const { data: children, error } = await query.order('created_at', { ascending: false })
+  if (status && status !== 'all') {
+    query = query.eq('status', status)
+  }
+
+  if (sort === 'name_desc') {
+    query = query.order('first_name', { ascending: false })
+  } else if (sort === 'age_asc') {
+    query = query.order('age', { ascending: true })
+  } else if (sort === 'age_desc') {
+    query = query.order('age', { ascending: false })
+  } else {
+    query = query.order('first_name', { ascending: true })
+  }
+
+  const { data: children, error } = await query
 
   if (error) {
     console.error('Error fetching children from Supabase:', error)

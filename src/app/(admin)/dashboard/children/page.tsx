@@ -1,15 +1,21 @@
-import { getChildrenProfiles } from '@/components/actions'
+import { getChildrenProfiles, getCountries } from '@/components/actions'
 import { RegisterChildButton } from '@/components/registerChildButton'
 import { SearchBar } from '@/components/searchBar'
+import { StatusFilter } from '@/components/statusFilter'
+import { CountryFilter } from '@/components/countryFilter'
+import { SortFilter } from '@/components/sortFilter'
 import { ProfileList } from '@/components/profileList'
 
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>
+  searchParams: Promise<{ search?: string; status?: string; country?: string; sort?: string }>
 }) {
-  const { search } = await searchParams
-  const { profiles, error } = await getChildrenProfiles(undefined, search)
+  const { search, status, country, sort } = await searchParams
+  const [{ profiles, error }, countries] = await Promise.all([
+    getChildrenProfiles(country, search, status, sort),
+    getCountries(),
+  ])
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -33,6 +39,13 @@ export default async function Page({
 
       {/* Search Bar and Metrics */}
       <SearchBar totalCount={profiles.length} />
+
+      {/* Filters */}
+      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-xs flex flex-wrap gap-6">
+        <StatusFilter />
+        <CountryFilter countries={countries} />
+        <SortFilter />
+      </div>
 
       {/* Error System Bound Panel */}
       {error && (
