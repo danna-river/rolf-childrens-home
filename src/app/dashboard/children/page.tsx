@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { AdminView } from '@/app/dashboard/children/components/admin-view'
 import { StaffView } from '@/app/dashboard/children/components/staff-view'
-import { isAdminRole, isStaffRole, type UserProfile } from '@/lib/profiles'
+import { DonorView } from '@/app/dashboard/children/components/donor-view'
+import { isAdminRole, isDonorRole, isStaffRole, type UserProfile } from '@/lib/profiles'
 
 type ChildrenSearchParams = {
   search?: string
@@ -40,6 +41,10 @@ export default async function UnifiedChildrenPage({
   if (isStaffRole(profile.role)) {
     const checkedCountries = Array.isArray(profile.country) ? profile.country : []
     return <StaffView assignedCountries={checkedCountries} searchParams={searchParams} />
+  }
+
+  if (isDonorRole(profile.role)) {
+    return <DonorView />
   }
 
   return redirect('/login?error=Unauthorized')
