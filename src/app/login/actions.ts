@@ -77,7 +77,7 @@ export async function verifyOtpAction(email: string, token: string) {
         id: data.user.id,
         email: email,
         full_name: fullName,
-        role: null,
+        role: 'unapproved',
         country: null
       } as any)
 
