@@ -10,6 +10,7 @@ export type UpdateChildInput = {
   birth_day?: number
   age: number
   year_joined?: number
+  date_joined?: string
   country: string
   career_aspiration?: string
   favorite_subject?: string
@@ -38,6 +39,7 @@ export async function updateChildAction(
       birth_month: input.birth_month ?? null,
       birth_day: input.birth_day ?? null,
       year_joined: input.year_joined ?? null,
+      date_joined: input.date_joined ?? null,
       country: input.country,
       career_aspiration: input.career_aspiration ?? null,
       favorite_subject: input.favorite_subject ?? null,

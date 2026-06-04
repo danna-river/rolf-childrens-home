@@ -10,6 +10,7 @@ export interface ChildProfile {
     country: string;
     createdAt: Date;
     year_joined: number;
+    date_joined: string | null;
     profilePictureURL: string;
     status: string;
 }

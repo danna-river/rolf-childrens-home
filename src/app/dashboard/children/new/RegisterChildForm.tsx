@@ -19,6 +19,10 @@ type FormData = {
   hobby: string
 }
 
+function formatDate(dateStr: string): string {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 function calcAge(birthdate: string): number | null {
   if (!birthdate) return null
   const today = new Date()
@@ -105,6 +109,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       age: age ?? 0,
       birth_year: form.birthdate ? new Date(form.birthdate).getFullYear() : undefined,
       year_joined: form.year_joined ? new Date(form.year_joined).getFullYear() : undefined,
+      date_joined: form.year_joined || undefined,
       country: form.country,
       career_aspiration: form.career_aspiration.trim() || undefined,
       favorite_subject: form.favorite_subject || undefined,
@@ -176,7 +181,12 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                 </div>
               )}
             </Field>
-            {(isAdmin || assignedCountries.length > 1) && (
+            {isAdmin ? (
+              <Field label="Country *" htmlFor="country">
+                <input id="country" value={form.country} onChange={e => set("country", e.target.value)}
+                  placeholder="e.g. Uganda" className={inputClass} />
+              </Field>
+            ) : assignedCountries.length > 1 && (
               <Field label="Country *" htmlFor="country">
                 <select id="country" value={form.country} onChange={e => set("country", e.target.value)}
                   className={inputClass}>
@@ -326,9 +336,9 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
               <ReviewRow label="Name" value={`${form.first_name} ${form.last_name}`} />
-              <ReviewRow label="Date of Birth" value={form.birthdate} />
+              <ReviewRow label="Date of Birth" value={form.birthdate ? formatDate(form.birthdate) : "—"} />
               <ReviewRow label="Age" value={calcAge(form.birthdate)?.toString() ?? "—"} />
-              {form.year_joined && <ReviewRow label="Date Joined" value={form.year_joined} />}
+              {form.year_joined && <ReviewRow label="Date Joined" value={formatDate(form.year_joined)} />}
               <ReviewRow label="Country" value={form.country} />
               <ReviewRow label="Career Goal" value={form.career_aspiration} />
               <ReviewRow label="Favorite Subject" value={form.favorite_subject} />

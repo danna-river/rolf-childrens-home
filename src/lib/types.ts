@@ -31,6 +31,7 @@ export interface Child {
   age: number | null
   country: string | null
   year_joined: number | null
+  date_joined: string | null
   career_aspiration: string | null
   favorite_subject: string | null
   hobby: string | null

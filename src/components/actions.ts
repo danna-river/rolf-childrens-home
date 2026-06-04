@@ -14,6 +14,7 @@ interface DBChildRow {
   country: string | null
   created_at: string
   year_joined: number | null
+  date_joined: string | null
   profile_photo: string | null
   status: string
 }
@@ -25,6 +26,7 @@ export type RegisterChildInput = {
   age: number
   birth_year?: number
   year_joined?: number
+  date_joined?: string
   country: string
   career_aspiration?: string
   favorite_subject?: string
@@ -97,6 +99,7 @@ export async function getChildrenProfiles(
     country: row.country || '',
     createdAt: row.created_at ? new Date(row.created_at) : new Date(),
     year_joined: row.year_joined || 0,
+    date_joined: row.date_joined || null,
     profilePictureURL: row.profile_photo || '',
     status: row.status || 'active',
   }))

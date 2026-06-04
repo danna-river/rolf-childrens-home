@@ -52,6 +52,7 @@ export async function registerChildAction(
       age: input.age,
       birth_year: input.birth_year ?? null,
       year_joined: input.year_joined ?? null,
+      date_joined: input.date_joined ?? null,
       country: input.country,
       career_aspiration: input.career_aspiration ?? null,
       favorite_subject: input.favorite_subject ?? null,
