@@ -18,7 +18,7 @@ export async function loginAction(formData: FormData) {
     return { error: error.message }
   }
 
-  redirect('/dashboard/children')
+  redirect('/dashboard')
 }
 
 export async function signUpAction(formData: FormData) {
@@ -69,7 +69,7 @@ export async function signUpAction(formData: FormData) {
     }
   }
 
-  redirect('/dashboard/children')
+  redirect('/dashboard')
 
   /*
   return { success: true, email }
@@ -112,6 +112,14 @@ export async function verifyOtpAction(email: string, token: string) {
       }
     }
 
-    redirect('/dashboard/children')
+    redirect('/dashboard')
 }
 */
+
+export async function signOutAction() {
+  const supabase = await createClient()
+
+  await supabase.auth.signOut()
+
+  redirect('/login')
+}
