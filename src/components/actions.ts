@@ -78,7 +78,7 @@ export async function getChildrenProfiles(
   }
 
   if (search) {
-    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
+    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,id_rolf.ilike.%${search}%`)
   }
 
   if (status && status !== 'all') {
@@ -97,6 +97,10 @@ export async function getChildrenProfiles(
     query = query.order('age', { ascending: true })
   } else if (sort === 'age_desc') {
     query = query.order('age', { ascending: false })
+  } else if (sort === 'rolf_id_asc') {
+    query = query.order('id_rolf', { ascending: true, nullsFirst: false })
+  } else if (sort === 'rolf_id_desc') {
+    query = query.order('id_rolf', { ascending: false, nullsFirst: false })
   } else {
     query = query.order('first_name', { ascending: true })
   }
