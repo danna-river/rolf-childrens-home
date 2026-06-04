@@ -1,7 +1,9 @@
 // Shared TypeScript types mirroring the Supabase schema.
 // Keep in sync with supabase/schema.sql.
 
-export type Role = 'admin' | 'staff' | 'donor'
+import type { UserRole } from '@/lib/profiles'
+
+export type Role = UserRole
 
 export type ChildStatus = 'active' | 'inactive'
 
@@ -14,7 +16,7 @@ export interface Profile {
   email: string
   full_name: string | null
   role: Role
-  country: string[] | null   // staffs only; null for admins and donors
+  country: string[] | null   // staff only; null for admins and donors
   created_at: string
 }
 

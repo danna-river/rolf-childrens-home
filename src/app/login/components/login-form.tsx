@@ -3,7 +3,11 @@
 import { useState } from 'react'
 import { loginAction } from '@/app/login/actions'
 
-export function LoginForm() {
+interface LoginFormProps {
+  onSwitchToRegister: () => void
+}
+
+export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -63,6 +67,16 @@ export function LoginForm() {
       >
         {loading ? 'Authenticating...' : 'Sign In'}
       </button>
+
+      <div className="text-center pt-2">
+        <button
+          type="button"
+          onClick={onSwitchToRegister}
+          className="text-xs text-gray-400 hover:text-blue-600 transition-colors cursor-pointer"
+        >
+          Need an account? Register here
+        </button>
+      </div>
     </form>
   )
 }
