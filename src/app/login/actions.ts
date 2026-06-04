@@ -9,7 +9,6 @@ export async function loginAction(formData: FormData) {
 
   const supabase = await createClient()
 
-  // Authenticate credentials securely on the server
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -19,7 +18,73 @@ export async function loginAction(formData: FormData) {
     return { error: error.message }
   }
 
-  // Success! Everyone routes to the single unified workspace path.
-  // Our page orchestrator will dynamically handle layout distribution.
   redirect('/dashboard/children')
+}
+
+export async function signUpAction(formData: FormData) {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+  const firstName = formData.get('firstName') as string
+  const lastName = formData.get('lastName') as string
+
+  if (!email || !password || !firstName || !lastName) {
+    return { error: 'All registration fields are required.' }
+  }
+
+  const fullName = firstName + ' ' + lastName
+
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        'full_name': fullName,
+      }
+    },
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true, email }
+}
+
+export async function verifyOtpAction(email: string, token: string) {
+    const supabase = await createClient()
+
+    if (!email || !token || token.trim().length !== 6) {
+      return { error: 'A valid 6-digit verification code is required.' }
+    }
+    
+    const {data, error} = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'signup'
+    })
+    if (error) {
+      return { error: error.message }
+    }
+
+    if (data?.user) {
+      const fullName = data.user.user_metadata?.full_name
+
+      const { error } = await supabase
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        email: email,
+        full_name: fullName,
+        role: null,
+        country: null
+      } as any)
+
+      if (error) {
+        return { error: error.message }
+      }
+    }
+
+    redirect('/dashboard/children')
 }
