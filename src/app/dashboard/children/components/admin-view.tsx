@@ -6,6 +6,7 @@ import { CountryFilter } from '@/components/countryFilter'
 import { SortFilter } from '@/components/sortFilter'
 import { YearJoinedFilter } from '@/components/yearJoinedFilter'
 import { ProfileList } from '@/components/profileList'
+import { Pagination } from '@/components/pagination'
 
 type ChildrenSearchParams = {
   search?: string
@@ -13,6 +14,7 @@ type ChildrenSearchParams = {
   country?: string | string[]
   sort?: string
   yearJoined?: string
+  page?: string
 }
 
 function parseCountryFilter(country?: string | string[]): string[] | undefined {
@@ -25,10 +27,11 @@ export async function AdminView({
 }: {
   searchParams: Promise<ChildrenSearchParams>
 }) {
-  const { search, status, country, sort, yearJoined } = await searchParams
+  const { search, status, country, sort, yearJoined, page } = await searchParams
+  const currentPage = Math.max(1, parseInt(page ?? '1'))
   const countries = parseCountryFilter(country)
-  const [{ profiles, error }, countryOptions, joinedYears] = await Promise.all([
-    getChildrenProfiles(countries, search, status, sort, false, yearJoined),
+  const [{ profiles, error, total }, countryOptions, joinedYears] = await Promise.all([
+    getChildrenProfiles(countries, search, status, sort, false, yearJoined, currentPage),
     getCountries(),
     getJoinedYears(),
   ])
@@ -67,6 +70,7 @@ export async function AdminView({
       )}
 
       <ProfileList profiles={profiles} />
+      <Pagination total={total} currentPage={currentPage} />
     </main>
   )
 }

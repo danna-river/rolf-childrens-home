@@ -58,6 +58,8 @@ export async function getCountries(): Promise<string[]> {
   return unique
 }
 
+const PAGE_SIZE = 10
+
 export async function getChildrenProfiles(
   countries?: string[],
   search?: string,
@@ -65,10 +67,11 @@ export async function getChildrenProfiles(
   sort?: string,
   useSessionClient = false,
   yearJoined?: string,
-): Promise<{ profiles: ChildProfile[]; error: string | null }> {
+  page = 1,
+): Promise<{ profiles: ChildProfile[]; error: string | null; total: number }> {
   const supabase = useSessionClient ? await createClient() : createAdminClient()
 
-  let query = supabase.from('children').select('*')
+  let query = supabase.from('children').select('*', { count: 'exact' })
 
   if (countries && countries.length > 0) {
     query = query.in('country', countries)
@@ -98,11 +101,13 @@ export async function getChildrenProfiles(
     query = query.order('first_name', { ascending: true })
   }
 
-  const { data, error } = await query
+  const from = (page - 1) * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
+  const { data, error, count } = await query.range(from, to)
 
   if (error) {
     console.error('❌ FETCH ACTIONS: Failed to query children registry:', error.message)
-    return { profiles: [], error: error.message }
+    return { profiles: [], error: error.message, total: 0 }
   }
 
   const formattedProfiles: ChildProfile[] = ((data ?? []) as DBChildRow[]).map((row) => ({
@@ -122,5 +127,5 @@ export async function getChildrenProfiles(
     status: row.status || 'active',
   }))
 
-  return { profiles: formattedProfiles, error: null }
+  return { profiles: formattedProfiles, error: null, total: count ?? 0 }
 }

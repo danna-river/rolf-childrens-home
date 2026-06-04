@@ -5,6 +5,7 @@ import { StatusFilter } from '@/components/statusFilter'
 import { SortFilter } from '@/components/sortFilter'
 import { YearJoinedFilter } from '@/components/yearJoinedFilter'
 import { ProfileList } from '@/components/profileList'
+import { Pagination } from '@/components/pagination'
 import { StaffLayout } from '@/app/dashboard/children/components/staff-layout'
 
 type StaffSearchParams = {
@@ -12,6 +13,7 @@ type StaffSearchParams = {
   status?: string
   sort?: string
   yearJoined?: string
+  page?: string
 }
 
 interface StaffViewProps {
@@ -23,8 +25,9 @@ export async function StaffView({ assignedCountries, searchParams }: StaffViewPr
   const regionalLabel =
     assignedCountries.length > 0 ? assignedCountries.join(', ') : 'No Assigned Regions'
 
-  const { search, status, sort, yearJoined } = await searchParams
-  const [{ profiles, error }, joinedYears] = await Promise.all([
+  const { search, status, sort, yearJoined, page } = await searchParams
+  const currentPage = Math.max(1, parseInt(page ?? '1'))
+  const [{ profiles, error, total }, joinedYears] = await Promise.all([
     getChildrenProfiles(
       assignedCountries.length > 0 ? assignedCountries : undefined,
       search,
@@ -32,6 +35,7 @@ export async function StaffView({ assignedCountries, searchParams }: StaffViewPr
       sort,
       true,
       yearJoined,
+      currentPage,
     ),
     getJoinedYears(),
   ])
@@ -69,6 +73,7 @@ export async function StaffView({ assignedCountries, searchParams }: StaffViewPr
         )}
 
         <ProfileList profiles={profiles} />
+        <Pagination total={total} currentPage={currentPage} />
       </main>
     </StaffLayout>
   )
