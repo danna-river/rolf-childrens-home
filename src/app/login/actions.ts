@@ -41,6 +41,7 @@ export async function signUpAction(formData: FormData) {
     options: {
       data: {
         'full_name': fullName,
+        'role': 'unapproved'
       }
     },
   })
