@@ -1,13 +1,14 @@
 "use client"
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { registerChildAction } from "./actions"
+import { registerChildAction, generateRolfId } from "./actions"
 import type { RegisterChildInput } from "@/components/actions"
 
 const SUBJECTS = ["Math", "Language", "Science", "Social Studies", "Gym / PE", "Music", "Art", "History", "Other"]
 const STEPS = ["Basic Info", "About Them", "Photo & Video", "Review"]
 
 type FormData = {
+  id_rolf: string
   first_name: string
   last_name: string
   birthdate: string        // YYYY-MM-DD
@@ -37,10 +38,11 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormData>({
-    first_name: "", last_name: "", birthdate: "",
+    id_rolf: "", first_name: "", last_name: "", birthdate: "",
     year_joined: "", country: assignedCountries[0] ?? "",
     career_aspiration: "", favorite_subject: "", hobby: "I like to ",
   })
+  const [generatingId, setGeneratingId] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const photoCameraRef = useRef<HTMLInputElement>(null)
@@ -77,6 +79,15 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const set = (field: keyof FormData, value: string) =>
     setForm(f => ({ ...f, [field]: value }))
 
+  const handleGenerateId = async () => {
+    if (!form.country) return
+    setGeneratingId(true)
+    const { id, error } = await generateRolfId(form.country)
+    setGeneratingId(false)
+    if (error) { setError(error); return }
+    if (id) set("id_rolf", id)
+  }
+
   const canNext = () => {
     if (step === 0) return form.first_name.trim() && form.last_name.trim() && form.birthdate && form.country
     if (step === 1) return form.career_aspiration.trim() && form.favorite_subject && form.hobby.trim()
@@ -88,6 +99,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     setError(null)
     const age = calcAge(form.birthdate)
     const input: RegisterChildInput = {
+      id_rolf: form.id_rolf.trim() || undefined,
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       age: age ?? 0,
@@ -173,6 +185,20 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                 </select>
               </Field>
             )}
+            <Field label="ROLF ID" htmlFor="id_rolf">
+              <div className="flex gap-2">
+                <input id="id_rolf" value={form.id_rolf}
+                  onChange={e => set("id_rolf", e.target.value.toUpperCase())}
+                  placeholder="e.g. UGA-0010"
+                  className={inputClass + " font-mono tracking-wider flex-1"} />
+                <button type="button" onClick={handleGenerateId}
+                  disabled={!form.country || generatingId}
+                  className="shrink-0 px-4 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200 hover:bg-gray-200 disabled:opacity-40 transition-colors whitespace-nowrap">
+                  {generatingId ? "..." : "Generate"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Optional — staff can type one or generate the next available ID.</p>
+            </Field>
           </>
         )}
 

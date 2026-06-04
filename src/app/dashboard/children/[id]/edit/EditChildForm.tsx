@@ -34,6 +34,7 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
   const router = useRouter()
 
   const [form, setForm] = useState({
+    id_rolf: child.id_rolf ?? "",
     first_name: child.first_name ?? "",
     last_name: child.last_name ?? "",
     birthdate: toDateString(child.birth_year, child.birth_month, child.birth_day),
@@ -86,6 +87,7 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
 
     const dob = form.birthdate ? new Date(form.birthdate) : null
     const input: UpdateChildInput = {
+      id_rolf: form.id_rolf.trim() || null,
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       age: calcAge(form.birthdate) ?? 0,
@@ -131,6 +133,11 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
         {/* Basic Info */}
         <section className="space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Basic Info</h2>
+
+          <Field label="ROLF ID" htmlFor="id_rolf">
+            <input id="id_rolf" value={form.id_rolf} onChange={e => set("id_rolf", e.target.value)}
+              placeholder="e.g. UG-0001" className={inputClass} />
+          </Field>
 
           <Field label="First Name *" htmlFor="first_name">
             <input id="first_name" value={form.first_name} onChange={e => set("first_name", e.target.value)}

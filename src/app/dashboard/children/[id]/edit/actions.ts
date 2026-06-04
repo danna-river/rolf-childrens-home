@@ -2,6 +2,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export type UpdateChildInput = {
+  id_rolf: string | null
   first_name: string
   last_name: string
   birth_year?: number

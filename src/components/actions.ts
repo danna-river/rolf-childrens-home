@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 
 interface DBChildRow {
   id: string
+  id_rolf: string | null
   first_name: string | null
   last_name: string | null
   birth_year: number | null
@@ -12,11 +13,13 @@ interface DBChildRow {
   age: number | null
   country: string | null
   created_at: string
+  year_joined: number | null
   profile_photo: string | null
   status: string
 }
 
 export type RegisterChildInput = {
+  id_rolf?: string
   first_name: string
   last_name: string
   age: number
@@ -27,6 +30,7 @@ export type RegisterChildInput = {
   favorite_subject?: string
   hobby?: string
   bio?: string
+  profile_photo?: string
 }
 
 
@@ -83,6 +87,7 @@ export async function getChildrenProfiles(
 
   const formattedProfiles: ChildProfile[] = ((data ?? []) as DBChildRow[]).map((row) => ({
     id: row.id,
+    id_rolf: row.id_rolf || null,
     firstName: row.first_name || '',
     lastName: row.last_name || '',
     birthYear: row.birth_year || 0,
@@ -91,6 +96,7 @@ export async function getChildrenProfiles(
     age: row.age || 0,
     country: row.country || '',
     createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+    year_joined: row.year_joined || 0,
     profilePictureURL: row.profile_photo || '',
     status: row.status || 'active',
   }))
