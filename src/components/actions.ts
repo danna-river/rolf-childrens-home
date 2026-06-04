@@ -36,6 +36,17 @@ export type RegisterChildInput = {
 }
 
 
+export async function getJoinedYears(): Promise<number[]> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('children')
+    .select('year_joined')
+    .not('year_joined', 'is', null)
+    .order('year_joined', { ascending: false })
+  const unique = [...new Set((data ?? []).map((r: { year_joined: number | null }) => r.year_joined as number))]
+  return unique
+}
+
 export async function getCountries(): Promise<string[]> {
   const supabase = createAdminClient()
   const { data } = await supabase
@@ -53,6 +64,7 @@ export async function getChildrenProfiles(
   status?: string,
   sort?: string,
   useSessionClient = false,
+  yearJoined?: string,
 ): Promise<{ profiles: ChildProfile[]; error: string | null }> {
   const supabase = useSessionClient ? await createClient() : createAdminClient()
 
@@ -68,6 +80,12 @@ export async function getChildrenProfiles(
 
   if (status && status !== 'all') {
     query = query.eq('status', status)
+  }
+
+  if (yearJoined === 'unknown') {
+    query = query.is('year_joined', null)
+  } else if (yearJoined) {
+    query = query.eq('year_joined', parseInt(yearJoined))
   }
 
   if (sort === 'name_desc') {

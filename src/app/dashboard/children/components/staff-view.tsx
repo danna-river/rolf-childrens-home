@@ -1,8 +1,9 @@
-import { getChildrenProfiles } from '@/components/actions'
+import { getChildrenProfiles, getJoinedYears } from '@/components/actions'
 import { RegisterChildButton } from '@/components/registerChildButton'
 import { SearchBar } from '@/components/searchBar'
 import { StatusFilter } from '@/components/statusFilter'
 import { SortFilter } from '@/components/sortFilter'
+import { YearJoinedFilter } from '@/components/yearJoinedFilter'
 import { ProfileList } from '@/components/profileList'
 import { StaffLayout } from '@/app/dashboard/children/components/staff-layout'
 
@@ -10,6 +11,7 @@ type StaffSearchParams = {
   search?: string
   status?: string
   sort?: string
+  yearJoined?: string
 }
 
 interface StaffViewProps {
@@ -21,14 +23,18 @@ export async function StaffView({ assignedCountries, searchParams }: StaffViewPr
   const regionalLabel =
     assignedCountries.length > 0 ? assignedCountries.join(', ') : 'No Assigned Regions'
 
-  const { search, status, sort } = await searchParams
-  const { profiles, error } = await getChildrenProfiles(
-    assignedCountries.length > 0 ? assignedCountries : undefined,
-    search,
-    status,
-    sort,
-    true,
-  )
+  const { search, status, sort, yearJoined } = await searchParams
+  const [{ profiles, error }, joinedYears] = await Promise.all([
+    getChildrenProfiles(
+      assignedCountries.length > 0 ? assignedCountries : undefined,
+      search,
+      status,
+      sort,
+      true,
+      yearJoined,
+    ),
+    getJoinedYears(),
+  ])
 
   return (
     <StaffLayout>
@@ -52,6 +58,7 @@ export async function StaffView({ assignedCountries, searchParams }: StaffViewPr
 
         <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-6 divide-y sm:divide-y-0 divide-gray-100">
           <div className="pt-4 sm:pt-0 first:pt-0"><StatusFilter /></div>
+          <div className="pt-4 sm:pt-0"><YearJoinedFilter years={joinedYears} /></div>
           <div className="pt-4 sm:pt-0"><SortFilter /></div>
         </div>
 
