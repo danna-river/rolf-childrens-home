@@ -58,7 +58,7 @@ export async function StaffView({ assignedCountries, searchParams }: StaffViewPr
           <RegisterChildButton />
         </div>
 
-        <SearchBar totalCount={profiles.length} />
+        <SearchBar totalCount={total} />
 
         <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-6 divide-y sm:divide-y-0 divide-gray-100">
           <div className="pt-4 sm:pt-0 first:pt-0"><StatusFilter /></div>

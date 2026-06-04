@@ -53,7 +53,7 @@ export default async function ChildProfilePage({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
         <Link href="/dashboard/children" className="text-gray-500 hover:text-gray-800 text-sm font-medium">
           ← Back
         </Link>

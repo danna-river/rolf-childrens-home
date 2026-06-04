@@ -1,28 +1,11 @@
 "use client"
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { updateChildAction } from "./actions"
 import type { UpdateChildInput } from "./actions"
 import type { Child } from "@/lib/types"
-
-const SUBJECTS = ["Math", "Language", "Science", "Social Studies", "Gym / PE", "Music", "Art", "History", "Other"]
-
-function calcAge(birthdate: string): number | null {
-  if (!birthdate) return null
-  const today = new Date()
-  const dob = new Date(birthdate)
-  let age = today.getFullYear() - dob.getFullYear()
-  const m = today.getMonth() - dob.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
-  return age
-}
-
-function toDateString(year?: number | null, month?: number | null, day?: number | null): string {
-  if (!year) return ""
-  const m = String(month ?? 1).padStart(2, "0")
-  const d = String(day ?? 1).padStart(2, "0")
-  return `${year}-${m}-${d}`
-}
+import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
+import { MediaPicker } from "../../components/MediaPicker"
 
 interface Props {
   child: Child
@@ -50,27 +33,6 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
-  const photoCameraRef = useRef<HTMLInputElement>(null)
-  const photoUploadRef = useRef<HTMLInputElement>(null)
-  const videoCameraRef = useRef<HTMLInputElement>(null)
-  const videoUploadRef = useRef<HTMLInputElement>(null)
-
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 15 * 1024 * 1024) { setError("Photo must be under 15 MB."); e.target.value = ""; return }
-    setError(null)
-    setPhotoPreview(URL.createObjectURL(file))
-  }
-
-  const handleVideo = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 100 * 1024 * 1024) { setError("Video must be under 100 MB."); e.target.value = ""; return }
-    setError(null)
-    setVideoPreview(URL.createObjectURL(file))
-  }
-
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -187,7 +149,6 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
               </select>
             </Field>
           )}
-
         </section>
 
         {/* About Them */}
@@ -248,64 +209,11 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
         <section className="space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Photo &amp; Video</h2>
           <p className="text-xs text-gray-400">Max 15 MB for photos, 100 MB for videos.</p>
-
           <Field label="Profile Photo" htmlFor="photo">
-            <input ref={photoCameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
-            <input ref={photoUploadRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
-            {photoPreview ? (
-              <div className="flex flex-col items-center gap-2">
-                <img src={photoPreview} alt="preview" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
-                <button type="button"
-                  onClick={() => { setPhotoPreview(null); if (photoCameraRef.current) photoCameraRef.current.value = ""; if (photoUploadRef.current) photoUploadRef.current.value = "" }}
-                  className="text-xs text-red-500">Remove photo</button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {child.profile_photo && (
-                  <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                    Existing photo on file — select below to replace it.
-                  </p>
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => photoCameraRef.current?.click()}
-                    className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
-                    <span className="text-2xl">📷</span>
-                    <span className="text-xs font-medium text-gray-600">{child.profile_photo ? "Retake Photo" : "Take Photo"}</span>
-                  </button>
-                  <button type="button" onClick={() => photoUploadRef.current?.click()}
-                    className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
-                    <span className="text-2xl">🖼️</span>
-                    <span className="text-xs font-medium text-gray-600">{child.profile_photo ? "Replace File" : "Upload File"}</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            <MediaPicker type="photo" preview={photoPreview} onPreviewChange={setPhotoPreview} existingUrl={child.profile_photo} onError={setError} />
           </Field>
-
           <Field label="Short Video (~30 sec)" htmlFor="video">
-            <input ref={videoCameraRef} type="file" accept="video/*" capture="environment" onChange={handleVideo} className="hidden" />
-            <input ref={videoUploadRef} type="file" accept="video/*" onChange={handleVideo} className="hidden" />
-            {videoPreview ? (
-              <div className="flex flex-col gap-2">
-                <video src={videoPreview} controls className="w-full rounded-xl max-h-48" />
-                <button type="button"
-                  onClick={() => { setVideoPreview(null); if (videoCameraRef.current) videoCameraRef.current.value = ""; if (videoUploadRef.current) videoUploadRef.current.value = "" }}
-                  className="text-xs text-red-500">Remove video</button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => videoCameraRef.current?.click()}
-                  className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
-                  <span className="text-2xl">🎥</span>
-                  <span className="text-xs font-medium text-gray-600">Record Video</span>
-                </button>
-                <button type="button" onClick={() => videoUploadRef.current?.click()}
-                  className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
-                  <span className="text-2xl">📁</span>
-                  <span className="text-xs font-medium text-gray-600">Upload File</span>
-                </button>
-              </div>
-            )}
+            <MediaPicker type="video" preview={videoPreview} onPreviewChange={setVideoPreview} onError={setError} />
           </Field>
         </section>
 
@@ -358,17 +266,6 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
           {submitting ? "Saving..." : "Save Changes"}
         </button>
       </div>
-    </div>
-  )
-}
-
-const inputClass = "w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-
-function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-gray-700">{label}</label>
-      {children}
     </div>
   )
 }
