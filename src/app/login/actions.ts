@@ -50,9 +50,34 @@ export async function signUpAction(formData: FormData) {
     return { error: error.message }
   }
 
+  // Non-OTP Version (Remove block once OTP added)
+  if (data?.user) {
+    const fullName = data.user.user_metadata?.full_name
+
+    const { error } = await supabase
+    .from('profiles')
+    .insert({
+      id: data.user.id,
+      email: email,
+      full_name: fullName,
+      role: 'unapproved',
+      country: null
+    } as any)
+
+    if (error) {
+      return { error: error.message }
+    }
+  }
+
+  redirect('/dashboard/children')
+
+  /*
   return { success: true, email }
+  */
 }
 
+// Non-OTP Version (Remove block once OTP added)
+/*
 export async function verifyOtpAction(email: string, token: string) {
     const supabase = await createClient()
 
@@ -89,3 +114,4 @@ export async function verifyOtpAction(email: string, token: string) {
 
     redirect('/dashboard/children')
 }
+*/

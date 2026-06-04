@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { signUpAction, verifyOtpAction } from '@/app/login/actions'
+import { signUpAction } from '@/app/login/actions' // Add verifyOtpAction import when OTP added
 
 interface RegisterFormProps {
     onSwitchToLogin: () => void
@@ -24,13 +24,19 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
         if (result?.error) {
             setErrorMsg(result.error)
             setLoading(false)
-        } else if (result?.success && result.email) {
+        }
+        // Uncomment block once OTP added
+        /*
+        else if (result?.success && result.email) {
             setSavedEmail(result.email)
             setPendingVerification(true)
             setLoading(false)
         }
+        */
     }
 
+    // Uncomment block once OTP added
+    /*
     const handleOtpSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault()
         setErrorMsg(null)
@@ -95,6 +101,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             </form>
         )
     }
+    */
 
     // PHASE 1 VIEW: Core User Details Registration
     return (
@@ -164,7 +171,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 disabled={loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-xs py-2.5 rounded-xl shadow-xs transition-all active:scale-98 cursor-pointer"
             >
-                {loading ? 'Sending Code...' : 'Register'}
+                {loading ? 'Registering Account...' : 'Register'}
             </button>
 
             <div className="text-center pt-2">
