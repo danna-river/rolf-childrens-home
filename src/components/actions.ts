@@ -16,6 +16,7 @@ interface DBChildRow {
   year_joined: number | null
   date_joined: string | null
   profile_photo: string | null
+  profile_video: string | null
   status: string
 }
 
@@ -33,6 +34,7 @@ export type RegisterChildInput = {
   hobby?: string
   bio?: string
   profile_photo?: string
+  profile_video?: string
 }
 
 

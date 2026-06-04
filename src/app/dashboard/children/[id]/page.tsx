@@ -101,12 +101,15 @@ export default async function ChildProfilePage({
           </div>
         </div>
 
-        {/* Video placeholder */}
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="aspect-video bg-gray-100 flex flex-col items-center justify-center gap-2">
-            <span className="text-3xl">🎥</span>
-            <p className="text-xs text-gray-400">No video uploaded yet</p>
-        </div>
+          {child.profile_video ? (
+            <video src={child.profile_video} controls className="w-full aspect-video" />
+          ) : (
+            <div className="aspect-video bg-gray-100 flex flex-col items-center justify-center gap-2">
+              <span className="text-3xl">🎥</span>
+              <p className="text-xs text-gray-400">No video uploaded yet</p>
+            </div>
+          )}
         </div>
 
 
