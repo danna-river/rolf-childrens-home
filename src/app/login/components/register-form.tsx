@@ -140,7 +140,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                     name="email"
                     type="email"
                     required
-                    placeholder="donor@example.com"
+                    placeholder="example@email.com"
                     className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-100 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
             </div>
@@ -164,7 +164,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 disabled={loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-xs py-2.5 rounded-xl shadow-xs transition-all active:scale-98 cursor-pointer"
             >
-                {loading ? 'Sending Code...' : 'Register as Donor'}
+                {loading ? 'Sending Code...' : 'Register'}
             </button>
 
             <div className="text-center pt-2">
