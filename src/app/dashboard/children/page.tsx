@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { AdminView } from '@/app/dashboard/children/components/admin-view'
 import { StaffView } from '@/app/dashboard/children/components/staff-view'
 import { DonorView } from '@/app/dashboard/children/components/donor-view'
-import { isAdminRole, isDonorRole, isStaffRole, type UserProfile } from '@/lib/profiles'
+import { isAdminRole, isDonorRole, isStaffRole} from '@/lib/profiles'
 
 type ChildrenSearchParams = {
   search?: string
@@ -17,22 +17,7 @@ export default async function UnifiedChildrenPage({
 }: {
   searchParams: Promise<ChildrenSearchParams>
 }) {
-  const supabase = await createClient()
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return redirect('/login?error=SessionExpired')
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role, country')
-    .eq('id', user.id)
-    .single() as { data: UserProfile | null; error: unknown }
-
-  if (profileError || !profile) {
-    return redirect('/login?error=Unauthorized')
-  }
+  const { profile } = await requireAuth()
 
   if (isAdminRole(profile.role)) {
     return <AdminView searchParams={searchParams} />
