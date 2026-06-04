@@ -18,7 +18,7 @@ export default async function EditChildPage({
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single()
+    .single() as { data: { role: string; country: string | string[] | null } | null; error: unknown }
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
     return redirect('/login?error=Unauthorized')
@@ -28,7 +28,7 @@ export default async function EditChildPage({
     .from('children')
     .select('*')
     .eq('id', id)
-    .single()
+    .single() as { data: Child | null; error: unknown }
 
   if (!child) return redirect('/dashboard/children')
 
@@ -38,7 +38,7 @@ export default async function EditChildPage({
 
   return (
     <EditChildForm
-      child={child as Child}
+      child={child}
       assignedCountries={assignedCountries}
       isAdmin={profile.role === 'admin'}
     />
