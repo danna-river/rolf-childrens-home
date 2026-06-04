@@ -1,5 +1,5 @@
 /** Auth user roles stored on `profiles.role`. Keep in sync with `supabase/schema.sql`. */
-export const USER_ROLES = ['admin', 'staff', 'donor'] as const
+export const USER_ROLES = ['admin', 'staff', 'donor', 'unapproved'] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
 
@@ -31,4 +31,8 @@ export function isStaffRole(role: string): boolean {
 
 export function isDonorRole(role: string): boolean {
   return normalizeUserRole(role) === 'donor'
+}
+
+export function isUnapprovedRole(role: string): boolean {
+  return normalizeUserRole(role) === 'unapproved'
 }
