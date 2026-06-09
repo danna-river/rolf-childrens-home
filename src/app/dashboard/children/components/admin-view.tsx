@@ -1,16 +1,20 @@
-import { getChildrenProfiles, getCountries } from '@/components/actions'
+import { getChildrenProfiles, getCountries, getJoinedYears } from '@/components/actions'
 import { RegisterChildButton } from '@/components/registerChildButton'
 import { SearchBar } from '@/components/searchBar'
 import { StatusFilter } from '@/components/statusFilter'
 import { CountryFilter } from '@/components/countryFilter'
 import { SortFilter } from '@/components/sortFilter'
+import { YearJoinedFilter } from '@/components/yearJoinedFilter'
 import { ProfileList } from '@/components/profileList'
+import { Pagination } from '@/components/pagination'
 
 type ChildrenSearchParams = {
   search?: string
   status?: string
   country?: string | string[]
   sort?: string
+  yearJoined?: string
+  page?: string
 }
 
 function parseCountryFilter(country?: string | string[]): string[] | undefined {
@@ -23,12 +27,13 @@ export async function AdminView({
 }: {
   searchParams: Promise<ChildrenSearchParams>
 }) {
-  const { search, status, country, sort } = await searchParams
+  const { search, status, country, sort, yearJoined, page } = await searchParams
+  const currentPage = Math.max(1, parseInt(page ?? '1'))
   const countries = parseCountryFilter(country)
-
-  const [{ profiles, error }, countryOptions] = await Promise.all([
-    getChildrenProfiles(countries, search, status, sort),
+  const [{ profiles, error, total }, countryOptions, joinedYears] = await Promise.all([
+    getChildrenProfiles(countries, search, status, sort, false, yearJoined, currentPage),
     getCountries(),
+    getJoinedYears(),
   ])
 
   return (
@@ -49,11 +54,12 @@ export async function AdminView({
         <RegisterChildButton />
       </div>
 
-      <SearchBar totalCount={profiles.length} />
+      <SearchBar totalCount={total} />
 
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-6 divide-y sm:divide-y-0 divide-gray-100">
         <div className="pt-4 sm:pt-0 first:pt-0"><StatusFilter /></div>
         <div className="pt-4 sm:pt-0"><CountryFilter countries={countryOptions} /></div>
+        <div className="pt-4 sm:pt-0"><YearJoinedFilter years={joinedYears} /></div>
         <div className="pt-4 sm:pt-0"><SortFilter /></div>
       </div>
 
@@ -64,6 +70,7 @@ export async function AdminView({
       )}
 
       <ProfileList profiles={profiles} />
+      <Pagination total={total} currentPage={currentPage} />
     </main>
   )
 }

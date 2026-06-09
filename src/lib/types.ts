@@ -29,9 +29,13 @@ export interface Child {
   birth_year: number | null
   birth_month: number | null
   birth_day: number | null
-  profile_photo: string | null  // S3 key
+  profile_photo: string | null
+  profile_video: string | null
   age: number | null
   country: string | null
+  year_joined: number | null
+  date_joined: string | null
+  career_aspiration: string | null
   favorite_subject: string | null
   hobby: string | null
   bio: string | null

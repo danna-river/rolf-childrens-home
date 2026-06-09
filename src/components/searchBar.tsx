@@ -41,7 +41,7 @@ export function SearchBar({ totalCount }: SearchBarProps) {
             value={inputValue}
             onChange={handleSearchChange}
             maxLength={100}
-            placeholder="Search by name..."
+            placeholder="Search by name or ROLF ID..."
             className="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-800 outline-none"
           />
         </div>
