@@ -1,5 +1,6 @@
 export interface ChildProfile {
     id: string;
+    id_rolf: string | null;
     firstName: string;
     lastName: string;
     birthYear: number;
@@ -8,6 +9,8 @@ export interface ChildProfile {
     age: number;
     country: string;
     createdAt: Date;
+    year_joined: number;
+    date_joined: string | null;
     profilePictureURL: string;
     status: string;
 }

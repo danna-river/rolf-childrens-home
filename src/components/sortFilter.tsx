@@ -6,6 +6,8 @@ const SORT_OPTIONS = [
   { value: "name_desc", label: "Name Z→A" },
   { value: "age_asc", label: "Age ↑" },
   { value: "age_desc", label: "Age ↓" },
+  { value: "rolf_id_asc", label: "ROLF ID ↑" },
+  { value: "rolf_id_desc", label: "ROLF ID ↓" },
 ]
 
 export function SortFilter() {

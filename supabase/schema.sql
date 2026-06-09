@@ -59,6 +59,10 @@ create table if not exists children (
   profile_photo     text,                        -- S3 key for profile photo
   age               int,
   country           text,                        -- Single country string representing the child's home
+  year_joined       int,                         -- Year the child joined the home
+  career_aspiration text,                        -- What they want to be when they grow up
+  favorite_subject  text,
+  hobby             text,
   bio               text,
   notes             text,
   status            text not null default 'active'
