@@ -1,4 +1,3 @@
-// src/app/dashboard/settings/components/account-approval-view.tsx
 "use client"
 
 import { useState } from 'react'
