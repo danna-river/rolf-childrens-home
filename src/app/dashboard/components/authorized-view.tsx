@@ -13,7 +13,7 @@ export function AuthorizedView({ email, identityTitle }: AuthorizedViewProps) {
   const [loading, setLoading] = useState(false)
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <main className="min-h-[calc(100svh_-_4rem)] flex items-center justify-center bg-gray-50 px-4">
       <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-xs max-w-sm w-full text-center space-y-6">
         
         <div>

@@ -78,7 +78,7 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
   const isOther = form.favorite_subject !== "" && !presets.includes(form.favorite_subject)
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-[calc(100svh_-_4rem)] bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
         <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-800 text-sm font-medium">

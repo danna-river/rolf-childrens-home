@@ -26,7 +26,7 @@ export function TabsNav({ userRole }: TabsNavProps) {
   }
 
   return (
-    <nav className="flex flex-row md:flex-col gap-1 w-full overflow-x-auto md:overflow-x-visible pb-3 md:pb-0 border-b border-gray-100 md:border-b-0">
+    <nav className="flex flex-col gap-1 w-full">
       {tabs.map((tab) => {
         const isCurrent = activeTab === tab.id
         

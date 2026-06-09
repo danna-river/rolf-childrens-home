@@ -1,13 +1,20 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { Settings } from 'lucide-react'
+
+import { SiteMenu } from '@/components/site-menu'
+
+interface NavbarProps {
+  email: string
+  role: string
+}
 
 /**
  * Universal top navigation bar shown across the authenticated dashboard.
- * Sticky on all viewports, ROLF teal-blue background with the white logo,
- * and a Settings entry point available to every user (incl. unapproved).
+ * Sticky on all viewports, ROLF teal-blue background. Holds only the menu
+ * trigger (three lines) and the white logo; the SiteMenu opens a full-page
+ * overlay with the page links (Children / Profile / Settings) + sign out.
  */
-export function Navbar() {
+export function Navbar({ email, role }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 w-full bg-teal shadow-sm">
       <nav className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -26,13 +33,7 @@ export function Navbar() {
           />
         </Link>
 
-        <Link
-          href="/dashboard/settings"
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        >
-          <Settings className="h-5 w-5" aria-hidden="true" />
-          <span className="hidden sm:inline">Settings</span>
-        </Link>
+        <SiteMenu email={email} role={role} />
       </nav>
     </header>
   )
