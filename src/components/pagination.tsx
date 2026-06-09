@@ -1,7 +1,7 @@
 "use client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 9
 
 export function Pagination({ total, currentPage }: { total: number; currentPage: number }) {
   const router = useRouter()
