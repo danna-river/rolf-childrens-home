@@ -1,10 +1,10 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { registerChildAction, generateRolfId } from "./actions"
+import { registerChildAction, generateRolfId } from "@/app/dashboard/children/new/actions"
 import type { RegisterChildInput } from "@/components/actions"
-import { calcAge, SUBJECTS, Field, inputClass } from "../components/form-utils"
-import { MediaPicker } from "../components/MediaPicker"
+import { calcAge, SUBJECTS, Field, inputClass } from "@/app/dashboard/children/components/form-utils"
+import { MediaPicker } from "@/app/dashboard/children/components/MediaPicker"
 
 const STEPS = ["Basic Info", "About Them", "Photo & Video", "Review"]
 
