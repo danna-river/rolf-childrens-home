@@ -52,11 +52,13 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     )
   }
 
-  if (targetTab === 'countries') {
+  if (targetTab === 'global_config') {
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
 
     // Fetch global configuration settings
-    const { data: settingsData } = await (supabase.from('app_settings') as any).select('countries').eq('id', 1).single()
+    const { data: settingsData, error } = await (supabase.from('app_settings') as any).select('countries').eq('id', 1).single()
+    console.log('Database Row Data:', settingsData)
+    console.log('Database Error (if any):', error)
     const activeCountries = settingsData?.countries || []
 
     return <GlobalConfigsView currentCountries={activeCountries} />

@@ -100,7 +100,7 @@ export function GlobalConfigsView({ currentCountries }: GlobalConfigsViewProps) 
           className="flex-1 px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
         />
         <button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer">
-          {loading ? 'Processing...' : 'Add Parameter'}
+          {loading ? 'Processing...' : 'Add Country'}
         </button>
       </form>
     )
