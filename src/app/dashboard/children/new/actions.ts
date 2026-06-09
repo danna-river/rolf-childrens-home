@@ -1,25 +1,28 @@
 "use server"
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth'
+import { isAdminRole } from '@/lib/profiles'
 import type { RegisterChildInput } from '@/components/actions'
-
-const COUNTRY_CODES: Record<string, string> = {
-  'Uganda': 'UGA', 'Kenya': 'KEN', 'Tanzania': 'TZA', 'Rwanda': 'RWA',
-  'Burundi': 'BDI', 'South Sudan': 'SSD', 'Ethiopia': 'ETH', 'Ghana': 'GHA',
-  'Nigeria': 'NGA', 'Togo': 'TGO', 'Niger': 'NER', 'Burkina Faso': 'BFA',
-  'Benin': 'BEN', 'Mali': 'MLI', 'Senegal': 'SEN', "Côte d'Ivoire": 'CIV',
-  'Ivory Coast': 'CIV', 'Cameroon': 'CMR', 'Zambia': 'ZMB', 'Zimbabwe': 'ZWE',
-  'Malawi': 'MWI', 'Mozambique': 'MOZ', 'DRC': 'COD', 'Congo': 'COG',
-}
 
 export async function generateRolfId(
   country: string,
 ): Promise<{ id: string | null; error: string | null }> {
-  const code = COUNTRY_CODES[country]
-  if (!code) return { id: null, error: `No country code for "${country}". Enter the ID manually.` }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createAdminClient() as any
-  const { data } = await supabase
+  const adminSupabase = createAdminClient() as any
+  const { data: countryRecord, error: countryError } = await adminSupabase
+    .from('countries')
+    .select('iso_code')
+    .eq('name', country.trim())
+    .single()
+
+  if (countryError || !countryRecord) {
+    return { id: null, error: `No country code found for "${country}" in the system dictionary.` }
+  }
+
+  const code = countryRecord.iso_code
+
+  const { data } = await adminSupabase
     .from('children')
     .select('id_rolf')
     .like('id_rolf', `${code}-%`)
@@ -39,27 +42,52 @@ export async function generateRolfId(
 export async function registerChildAction(
   input: RegisterChildInput,
 ): Promise<{ id: string | null; error: string | null }> {
-  const supabase = createAdminClient()
+  const { user, profile } = await requireAuth()
+  const isSystemAdmin = isAdminRole(profile.role)
+  const userAllowedCountries: string[] = profile.country || []
+
+  if (!isSystemAdmin && !userAllowedCountries.includes(input.country)) {
+    return { 
+      id: null, 
+      error: `Security Violation: Your user profile does not have access permissions to register records for "${input.country}".` 
+    }
+  }
+
+  const adminSupabase = createAdminClient()
   const display_name = `${input.first_name} ${input.last_name}`.trim()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (adminSupabase as any)
     .from('children')
     .insert({
-      id_rolf: input.id_rolf ?? null,
+      id_rolf: input.id_rolf || null,
       display_name,
       first_name: input.first_name,
       last_name: input.last_name,
       age: input.age,
-      birth_year: input.birth_year ?? null,
-      year_joined: input.year_joined ?? null,
-      date_joined: input.date_joined ?? null,
+      
+      // Split Calendar Columns
+      birth_year: input.birth_year || null,
+      birth_month: input.birth_month || null,
+      birth_day: input.birth_day || null,
+      
+      year_joined: input.year_joined || null,
+      date_joined: input.date_joined || null,
       country: input.country,
-      career_aspiration: input.career_aspiration ?? null,
-      favorite_subject: input.favorite_subject ?? null,
-      hobby: input.hobby ?? null,
-      bio: input.bio ?? null,
-      profile_photo: input.profile_photo ?? null,
+      career_aspiration: input.career_aspiration || null,
+      favorite_subject: input.favorite_subject || null,
+      hobby: input.hobby || null,
+      bio: input.bio || null,
+      
+      // Storage Bucket Text URL Asset Fields
+      profile_photo: input.profile_photo || null,
+      profile_video: input.profile_video || null,
+      
+      // Default Base Table Requirements
       status: 'active',
+      edit_log: [], // Safely seeding default empty jsonb array to prevent column constraints tripping
+      
+      // 🌟 Audit Column Link: Maps a clean foreign key pointer directly back to public.profiles.id
+      created_by: user.id 
     })
     .select('id')
     .single()

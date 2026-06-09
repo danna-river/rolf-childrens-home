@@ -19,12 +19,14 @@ interface DBChildRow {
   status: string
 }
 
-export type RegisterChildInput = {
+export interface RegisterChildInput {
   id_rolf?: string
   first_name: string
   last_name: string
   age: number
   birth_year?: number
+  birth_month?: number
+  birth_day?: number
   year_joined?: number
   date_joined?: string
   country: string
@@ -33,6 +35,7 @@ export type RegisterChildInput = {
   hobby?: string
   bio?: string
   profile_photo?: string
+  profile_video?: string
 }
 
 

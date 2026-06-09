@@ -1,28 +1,27 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { RegisterChildForm } from './RegisterChildForm'
-
-interface UserProfile {
-  role: 'admin' | 'staff' | 'donor'
-  country: string[] | null
-}
+import { isAdminRole } from '@/lib/profiles'
+import { RegisterChildForm } from '@/app/dashboard/children/new/RegisterChildForm'
+import { requireAuth } from '@/lib/auth'
 
 export default async function NewChildPage() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return redirect('/login?error=SessionExpired')
+  const { profile } = await requireAuth()
+  const isSystemAdmin = isAdminRole(profile.role)
+  
+  let dropdownOptions: string[] = []
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, country')
-    .eq('id', user.id)
-    .single() as { data: UserProfile | null; error: unknown }
-
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
-    return redirect('/login?error=Unauthorized')
+  if (isSystemAdmin) {
+    // Admins get the live master list from your newly provisioned countries table
+    const supabase = await createClient()
+    const { data: countryRows } = await supabase
+      .from('countries')
+      .select('name')
+      .order('name', { ascending: true })
+      
+    dropdownOptions = (countryRows || []).map((row: any) => row.name)
+  } else {
+    // Field staff get their restricted assigned array boundaries
+    dropdownOptions = profile.country || []
   }
 
-  const countries: string[] = Array.isArray(profile.country) ? profile.country : []
-
-  return <RegisterChildForm assignedCountries={countries} isAdmin={profile.role === 'admin'} />
+  return <RegisterChildForm availableCountries={dropdownOptions} />
 }
