@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
@@ -35,18 +36,17 @@ export async function approveAccountAction(userId: string, role: string, countri
 export async function denyAccountAction(userId: string) {
   await verifyAdminGate()
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   // 1. Erase public footprint row from profiles database table
   const { error: dbError } = await supabase
     .from('profiles')
     .delete()
     .eq('id', userId)
-
   if (dbError) return { error: dbError.message }
 
   // 2. Erase core authentication identity from Supabase Auth storage completely
-  const { error: authError } = await supabase.auth.admin.deleteUser(userId)
-
+  const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
   if (authError) return { error: authError.message }
 
   revalidatePath('/dashboard/settings')
