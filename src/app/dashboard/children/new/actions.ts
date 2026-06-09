@@ -39,6 +39,34 @@ export async function generateRolfId(
   return { id: `${code}-${String(max + 1).padStart(4, '0')}`, error: null }
 }
 
+export async function checkRolfIdExists(
+  idRolf: string, 
+  countryName: string
+): Promise<{ isTaken: boolean; expectedPrefix: string | null }> {
+  const adminSupabase = await createAdminClient()
+  
+  // 1. Fetch the exact ISO code row for the selected country name matching our source table
+  const { data: countryData } = await (adminSupabase as any)
+    .from('countries')
+    .select('iso_code')
+    .eq('name', countryName.trim())
+    .single()
+
+  const expectedPrefix = countryData?.iso_code || null
+
+  // 2. Cross-reference whether the input ROLF ID is already taken
+  const { data: idData } = await adminSupabase
+    .from('children')
+    .select('id')
+    .eq('id_rolf', idRolf.trim().toUpperCase())
+    .maybeSingle()
+
+  return {
+    isTaken: !!idData,
+    expectedPrefix
+  }
+}
+
 export async function registerChildAction(
   input: RegisterChildInput,
 ): Promise<{ id: string | null; error: string | null }> {
