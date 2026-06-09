@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Child } from '@/lib/types'
+import { PhotoViewer } from './PhotoViewer'
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
@@ -68,13 +69,11 @@ export default async function ChildProfilePage({
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-5">
         <div className="flex flex-col items-center gap-3 pt-2">
-          {child.profile_photo ? (
-            <img src={child.profile_photo} alt={name} className="h-24 w-24 rounded-full object-cover border-4 border-white shadow" />
-          ) : (
-            <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center shadow">
-              <span className="text-gray-500 text-3xl font-semibold">{child.first_name?.[0] ?? '?'}</span>
-            </div>
-          )}
+          <PhotoViewer
+            src={child.profile_photo ?? ""}
+            alt={name}
+            fallbackInitial={child.first_name?.[0] ?? '?'}
+          />
           <div className="text-center">
             <h1 className="text-xl font-bold text-gray-900">{name}</h1>
             <p className={`text-sm font-mono mt-0.5 ${child.id_rolf ? 'text-gray-400' : 'text-gray-300'}`}>{child.id_rolf || 'ROLF ID Unknown'}</p>
@@ -101,12 +100,15 @@ export default async function ChildProfilePage({
           </div>
         </div>
 
-        {/* Video placeholder */}
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="aspect-video bg-gray-100 flex flex-col items-center justify-center gap-2">
-            <span className="text-3xl">🎥</span>
-            <p className="text-xs text-gray-400">No video uploaded yet</p>
-        </div>
+          {child.profile_video ? (
+            <video src={child.profile_video} controls className="w-full aspect-video" />
+          ) : (
+            <div className="aspect-video bg-gray-100 flex flex-col items-center justify-center gap-2">
+              <span className="text-3xl">🎥</span>
+              <p className="text-xs text-gray-400">No video uploaded yet</p>
+            </div>
+          )}
         </div>
 
 

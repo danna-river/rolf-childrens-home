@@ -38,8 +38,9 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     career_aspiration: "", favorite_subject: "", hobby: "I like to ",
   })
   const [generatingId, setGeneratingId] = useState(false)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [videoPreview, setVideoPreview] = useState<string | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,6 +59,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const canNext = () => {
     if (step === 0) return form.first_name.trim() && form.last_name.trim() && form.birthdate && form.country
     if (step === 1) return form.career_aspiration.trim() && form.favorite_subject && form.hobby.trim()
+    if (step === 2) return !mediaUploading
     return true
   }
 
@@ -77,6 +79,8 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       career_aspiration: form.career_aspiration.trim() || undefined,
       favorite_subject: form.favorite_subject || undefined,
       hobby: form.hobby.trim() || undefined,
+      profile_photo: photoUrl || undefined,
+      profile_video: videoUrl || undefined,
     }
     const { error } = await registerChildAction(input)
     if (error) { setError(error); setSubmitting(false); return }
@@ -232,11 +236,28 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
           <div className="space-y-6">
             <p className="text-xs text-gray-400">Max file size: 15 MB for photos, 100 MB for videos.</p>
             <Field label="Profile Photo" htmlFor="photo">
-              <MediaPicker type="photo" preview={photoPreview} onPreviewChange={setPhotoPreview} onError={setError} />
+              <MediaPicker
+                type="photo"
+                value={photoUrl}
+                onChange={setPhotoUrl}
+                onError={setError}
+                onUploadStart={() => setMediaUploading(true)}
+                onUploadEnd={() => setMediaUploading(false)}
+              />
             </Field>
             <Field label="Short Video (~30 sec)" htmlFor="video">
-              <MediaPicker type="video" preview={videoPreview} onPreviewChange={setVideoPreview} onError={setError} />
+              <MediaPicker
+                type="video"
+                value={videoUrl}
+                onChange={setVideoUrl}
+                onError={setError}
+                onUploadStart={() => setMediaUploading(true)}
+                onUploadEnd={() => setMediaUploading(false)}
+              />
             </Field>
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">{error}</div>
+            )}
           </div>
         )}
 
@@ -251,8 +272,8 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
               <ReviewRow label="Career Goal" value={form.career_aspiration} />
               <ReviewRow label="Favorite Subject" value={form.favorite_subject} />
               <ReviewRow label="Hobbies" value={form.hobby} />
-              <ReviewRow label="Photo" value={photoPreview ? "✓ Selected" : "None"} />
-              <ReviewRow label="Video" value={videoPreview ? "✓ Selected" : "None"} />
+              <ReviewRow label="Photo" value={photoUrl ? "✓ Uploaded" : "None"} />
+              <ReviewRow label="Video" value={videoUrl ? "✓ Uploaded" : "None"} />
             </div>
             {error && (
               <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">
@@ -268,7 +289,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
         {step < STEPS.length - 1 ? (
           <button onClick={() => setStep(s => s + 1)} disabled={!canNext()}
             className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm disabled:opacity-40 transition-opacity">
-            Continue
+            {mediaUploading ? "Uploading…" : "Continue"}
           </button>
         ) : (
           <button onClick={handleSubmit} disabled={submitting}

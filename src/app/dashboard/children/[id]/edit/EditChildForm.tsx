@@ -31,8 +31,8 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
     status: child.status as 'active' | 'inactive',
   })
 
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [videoPreview, setVideoPreview] = useState<string | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(child.profile_photo ?? null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(child.profile_video ?? null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,6 +64,8 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
       hobby: form.hobby.trim() || undefined,
       bio: form.bio.trim() || undefined,
       notes: form.notes.trim() || undefined,
+      profile_photo: photoUrl,
+      profile_video: videoUrl,
       status: form.status,
     }
 
@@ -210,10 +212,21 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Photo &amp; Video</h2>
           <p className="text-xs text-gray-400">Max 15 MB for photos, 100 MB for videos.</p>
           <Field label="Profile Photo" htmlFor="photo">
-            <MediaPicker type="photo" preview={photoPreview} onPreviewChange={setPhotoPreview} existingUrl={child.profile_photo} onError={setError} />
+            <MediaPicker
+              type="photo"
+              value={photoUrl}
+              onChange={setPhotoUrl}
+              existingUrl={child.profile_photo}
+              onError={setError}
+            />
           </Field>
           <Field label="Short Video (~30 sec)" htmlFor="video">
-            <MediaPicker type="video" preview={videoPreview} onPreviewChange={setVideoPreview} onError={setError} />
+            <MediaPicker
+              type="video"
+              value={videoUrl}
+              onChange={setVideoUrl}
+              onError={setError}
+            />
           </Field>
         </section>
 

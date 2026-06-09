@@ -1,23 +1,32 @@
 "use client"
-import { useRef } from "react"
+import { useRef, useState } from "react"
+import { getUploadUrl } from "@/lib/storageActions"
 
 const MAX_MB = { photo: 15, video: 100 }
 const ACCEPT = { photo: "image/*", video: "video/*" }
 
 interface MediaPickerProps {
   type: "photo" | "video"
-  preview: string | null
-  onPreviewChange: (url: string | null) => void
+  value: string | null
+  onChange: (url: string | null) => void
   existingUrl?: string | null
   onError?: (msg: string | null) => void
+  onUploadStart?: () => void
+  onUploadEnd?: () => void
 }
 
-export function MediaPicker({ type, preview, onPreviewChange, existingUrl, onError }: MediaPickerProps) {
+export function MediaPicker({
+  type, value, onChange, existingUrl, onError, onUploadStart, onUploadEnd,
+}: MediaPickerProps) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [localPreview, setLocalPreview] = useState<string | null>(null)
   const isPhoto = type === "photo"
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const previewSrc = localPreview ?? value
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > MAX_MB[type] * 1024 * 1024) {
@@ -26,11 +35,45 @@ export function MediaPicker({ type, preview, onPreviewChange, existingUrl, onErr
       return
     }
     onError?.(null)
-    onPreviewChange(URL.createObjectURL(file))
+    setLocalPreview(URL.createObjectURL(file))
+    setUploading(true)
+    onUploadStart?.()
+
+    const ext = file.name.split(".").pop() ?? (isPhoto ? "jpg" : "mp4")
+    const path = `${type}s/${crypto.randomUUID()}.${ext}`
+    const { signedUrl, publicUrl, error } = await getUploadUrl(path)
+
+    if (error || !signedUrl || !publicUrl) {
+      onError?.(error ?? "Upload failed.")
+      setLocalPreview(null)
+      setUploading(false)
+      onUploadEnd?.()
+      return
+    }
+
+    const res = await fetch(signedUrl, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    })
+
+    if (!res.ok) {
+      onError?.("Upload failed. Please try again.")
+      setLocalPreview(null)
+      setUploading(false)
+      onUploadEnd?.()
+      return
+    }
+
+    setLocalPreview(null)
+    setUploading(false)
+    onUploadEnd?.()
+    onChange(publicUrl)
   }
 
   const handleRemove = () => {
-    onPreviewChange(null)
+    onChange(null)
+    setLocalPreview(null)
     if (cameraRef.current) cameraRef.current.value = ""
     if (uploadRef.current) uploadRef.current.value = ""
   }
@@ -40,16 +83,29 @@ export function MediaPicker({ type, preview, onPreviewChange, existingUrl, onErr
       <input ref={cameraRef} type="file" accept={ACCEPT[type]} capture="environment" onChange={handleFile} className="hidden" />
       <input ref={uploadRef} type="file" accept={ACCEPT[type]} onChange={handleFile} className="hidden" />
 
-      {preview ? (
+      {previewSrc ? (
         isPhoto ? (
           <div className="flex flex-col items-center gap-2">
-            <img src={preview} alt="preview" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
-            <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove photo</button>
+            <div className="relative">
+              <img src={previewSrc} alt="preview" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
+              {uploading && (
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                  <span className="text-xs text-white font-medium">Uploading…</span>
+                </div>
+              )}
+            </div>
+            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove photo</button>}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <video src={preview} controls className="w-full rounded-xl max-h-48" />
-            <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove video</button>
+            {uploading ? (
+              <div className="w-full aspect-video bg-gray-100 rounded-xl flex items-center justify-center">
+                <p className="text-xs text-blue-500 font-medium">Uploading video…</p>
+              </div>
+            ) : (
+              <video src={previewSrc} controls className="w-full rounded-xl max-h-48" />
+            )}
+            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove video</button>}
           </div>
         )
       ) : (

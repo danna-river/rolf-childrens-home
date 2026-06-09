@@ -59,6 +59,7 @@ export async function registerChildAction(
       hobby: input.hobby ?? null,
       bio: input.bio ?? null,
       profile_photo: input.profile_photo ?? null,
+      profile_video: input.profile_video ?? null,
       status: 'active',
     })
     .select('id')

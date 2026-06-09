@@ -17,6 +17,8 @@ export type UpdateChildInput = {
   hobby?: string
   bio?: string
   notes?: string
+  profile_photo: string | null
+  profile_video: string | null
   status: 'active' | 'inactive'
 }
 
@@ -46,6 +48,8 @@ export async function updateChildAction(
       hobby: input.hobby ?? null,
       bio: input.bio ?? null,
       notes: input.notes ?? null,
+      profile_photo: input.profile_photo,
+      profile_video: input.profile_video,
       status: input.status,
     })
     .eq('id', id)
