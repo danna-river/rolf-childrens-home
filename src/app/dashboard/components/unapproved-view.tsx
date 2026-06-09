@@ -11,7 +11,7 @@ export function UnapprovedView({ email }: UnapprovedViewProps) {
   const [loading, setLoading] = useState(false)
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <main className="min-h-[calc(100svh_-_4rem)] flex items-center justify-center bg-gray-50 px-4">
       <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-xs max-w-sm w-full text-center space-y-6">
         
         <div className="mx-auto w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 text-xl animate-pulse">

@@ -136,7 +136,7 @@ export async function DonorView() {
   const children = (data ?? []) as Child[]
 
   return (
-    <div className="min-h-screen bg-amber-50/40">
+    <div className="min-h-[calc(100svh_-_4rem)] bg-amber-50/40">
       <main className="max-w-lg mx-auto px-4 sm:px-6 py-12 space-y-10">
 
         <div>

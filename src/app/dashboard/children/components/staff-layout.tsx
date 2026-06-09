@@ -2,10 +2,7 @@ import { Suspense } from 'react'
 
 export function StaffLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-blue-600 text-white p-4">
-        <h1 className="text-xl font-bold">Staff Dashboard</h1>
-      </header>
+    <div className="min-h-[calc(100svh_-_4rem)] flex flex-col">
       <main className="flex-1 p-6">
         <Suspense>{children}</Suspense>
       </main>

@@ -88,7 +88,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-[calc(100svh_-_4rem)] bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
         <button onClick={() => step > 0 ? setStep(s => s - 1) : router.back()}
