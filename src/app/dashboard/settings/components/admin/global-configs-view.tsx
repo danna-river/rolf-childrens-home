@@ -1,14 +1,13 @@
-// src/app/dashboard/settings/components/country-management-view.tsx
 "use client"
 
 import { useState } from 'react'
 import { appendNewCountryAction, removeCountryAction } from '@/app/dashboard/settings/actions/admin-actions'
 
-interface CountryManagementViewProps {
+interface GlobalConfigsViewProps {
   currentCountries: string[]
 }
 
-export function CountryManagementView({ currentCountries }: CountryManagementViewProps) {
+export function GlobalConfigsView({ currentCountries }: GlobalConfigsViewProps) {
   const [countries, setCountries] = useState<string[]>(currentCountries)
   const [inputVal, setInputVal] = useState('')
   const [loading, setLoading] = useState(false)
@@ -64,7 +63,7 @@ export function CountryManagementView({ currentCountries }: CountryManagementVie
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <button type="button" onClick={handleExecuteAppend} className="bg-amber-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg cursor-pointer">
-            Yes, Add
+            Yes, Save Configuration
           </button>
           <button type="button" onClick={() => setShowAddConfirm(false)} className="bg-white text-gray-500 border border-gray-200 text-xs px-3 py-1.5 rounded-lg cursor-pointer">
             Cancel
@@ -101,7 +100,7 @@ export function CountryManagementView({ currentCountries }: CountryManagementVie
           className="flex-1 px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
         />
         <button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer">
-          {loading ? 'Processing...' : 'Add Country'}
+          {loading ? 'Processing...' : 'Add Parameter'}
         </button>
       </form>
     )
@@ -115,10 +114,10 @@ export function CountryManagementView({ currentCountries }: CountryManagementVie
         </div>
       )}
 
-      {/* Active Chips Row */}
+      {/* Active Parameters List */}
       <div className="space-y-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
-          Active Country List
+          Active Countries
         </span>
         <div className="flex flex-wrap gap-2">
           {countries.map((country) => (
@@ -144,7 +143,7 @@ export function CountryManagementView({ currentCountries }: CountryManagementVie
         </div>
       </div>
 
-      {/* Input / Form Prompt Sector */}
+      {/* Form Action Section */}
       <div className="space-y-2 border-t border-gray-50 pt-4">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
           Add a New Country
