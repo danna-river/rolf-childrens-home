@@ -136,7 +136,7 @@ export function EditChildForm({ child, availableCountries }: Props) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* 🌟 UNIFIED STICKY NAVIGATION HEADER */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-xs">
+      <div className="sticky top-16 z-40 bg-white border-b border-gray-100 shadow-xs">
         <div className="px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => router.back()}
