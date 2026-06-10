@@ -11,7 +11,7 @@ export default async function SettingsModuleLayout({
   const { profile } = await requireAuth({ allowUnapproved: true })
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 sm:p-8 md:p-12">
+    <main className="min-h-[calc(100svh_-_4rem)] bg-gray-50 p-4 sm:p-8 md:p-12">
       <div className="max-w-5xl mx-auto space-y-8">
         
         {/* Persistent Workspace Header */}

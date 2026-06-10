@@ -54,8 +54,9 @@ export function RegisterChildForm({ availableCountries }: Props) {
   })
 
   const [generatingId, setGeneratingId] = useState(false)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [videoPreview, setVideoPreview] = useState<string | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -363,11 +364,28 @@ export function RegisterChildForm({ availableCountries }: Props) {
           <div className="space-y-6">
             <p className="text-xs text-gray-400">Max file size: 15 MB for images, 100 MB for videos.</p>
             <Field label="Profile Photo" htmlFor="photo">
-              <MediaPicker type="photo" preview={photoPreview} onPreviewChange={setPhotoPreview} onError={setError} />
+              <MediaPicker
+                type="photo"
+                value={photoUrl}
+                onChange={setPhotoUrl}
+                onError={setError}
+                onUploadStart={() => setMediaUploading(true)}
+                onUploadEnd={() => setMediaUploading(false)}
+              />
             </Field>
             <Field label="Short Video (~30 sec)" htmlFor="video">
-              <MediaPicker type="video" preview={videoPreview} onPreviewChange={setVideoPreview} onError={setError} />
+              <MediaPicker
+                type="video"
+                value={videoUrl}
+                onChange={setVideoUrl}
+                onError={setError}
+                onUploadStart={() => setMediaUploading(true)}
+                onUploadEnd={() => setMediaUploading(false)}
+              />
             </Field>
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">{error}</div>
+            )}
           </div>
         )}
 
