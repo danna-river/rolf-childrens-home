@@ -185,9 +185,9 @@ export function RegisterChildForm({ availableCountries }: Props) {
       hobby: form.hobby.trim() || undefined,
       bio: form.bio.trim() || undefined,
 
-      // 🌟 FIXED: Media URLs are now fully passed to backend action inputs
-      profile_photo: photoPreview || undefined,
-      profile_video: videoPreview || undefined
+      // Inside handleSubmit
+      profile_photo: photoUrl || undefined,
+      profile_video: videoUrl || undefined
     }
 
     const { error: actionError } = await registerChildAction(payload)
@@ -401,8 +401,8 @@ export function RegisterChildForm({ availableCountries }: Props) {
               <ReviewRow label="Favorite Subject" value={form.favorite_subject.trim() || "Other"} />
               <ReviewRow label="Hobbies Summary" value={form.hobby} />
               {form.bio.trim() && <ReviewRow label="Bio Text" value={form.bio} />}
-              <ReviewRow label="Profile Photo Media" value={photoPreview ? "✓ Asset Bound" : "None"} />
-              <ReviewRow label="Video Presentation Asset" value={videoPreview ? "✓ Asset Bound" : "None"} />
+              <ReviewRow label="Profile Photo Media" value={photoUrl ? "✓ Asset Bound" : "None"} />
+              <ReviewRow label="Video Presentation Asset" value={videoUrl ? "✓ Asset Bound" : "None"} />ß
             </div>
             {error && <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed">{error}</div>}
           </div>
@@ -414,10 +414,12 @@ export function RegisterChildForm({ availableCountries }: Props) {
         {step < STEPS.length - 1 ? (
           <button
             onClick={handleStepProgression}
-            disabled={!isCurrentStepValid() || isValidating} // 🌟 Blocks the click event entirely
-            className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 disabled:bg-gray-200 disabled:text-gray-400"
+            // 🌟 Added mediaUploading here to freeze the button mid-upload
+            disabled={!isCurrentStepValid() || isValidating || mediaUploading}
+            className="w-full py-3.5 rounded-xl bg-blue-600..."
           >
-            {isValidating ? "Validating Parameters..." : "Continue"}
+            {/* 🌟 Added a clear visual indicator string for the user */}
+            {isValidating ? "Validating Inputs..." : mediaUploading ? "Uploading Media..." : "Continue"}
           </button>
         ) : (
           <button
