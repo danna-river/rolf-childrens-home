@@ -22,7 +22,7 @@ export default async function NewChildPage() {
   const isSystemAdmin = isAdminRole(profile.role)
 
   if (isSystemAdmin) {
-    // Admins pull selection lists dynamically from our new PostgreSQL master table configuration
+    // Administrators fetch option lists dynamically from the master countries parameters table
     const { data: countryRows } = await supabase
       .from('countries')
       .select('name')
@@ -30,9 +30,14 @@ export default async function NewChildPage() {
       
     dropdownOptions = (countryRows || []).map((row: any) => row.name)
   } else {
-    // Staff inherit their profile allocation arrays
+    // Standard staff rows inherit their localized account allocation scopes array
     dropdownOptions = profile.country || []
   }
 
-  return <RegisterChildForm assignedCountries={dropdownOptions} />
+  return (
+    <RegisterChildForm 
+      assignedCountries={dropdownOptions} 
+      isAdmin={isSystemAdmin} 
+    />
+  )
 }
