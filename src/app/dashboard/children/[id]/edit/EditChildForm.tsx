@@ -1,7 +1,9 @@
+// src/app/dashboard/children/[id]/edit/EditChildForm.tsx
 "use client"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { updateChildAction } from "./actions"
+import { updateChildAction, checkRolfIdForEdit } from "./actions"
 import type { UpdateChildInput } from "./actions"
 import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
@@ -9,12 +11,14 @@ import { MediaPicker } from "../../components/MediaPicker"
 
 interface Props {
   child: Child
-  assignedCountries: string[]
-  isAdmin: boolean
+  availableCountries: string[]
 }
 
-export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
+export function EditChildForm({ child, availableCountries }: Props) {
   const router = useRouter()
+  const [mediaUploading, setMediaUploading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     id_rolf: child.id_rolf ?? "",
@@ -22,7 +26,7 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
     last_name: child.last_name ?? "",
     birthdate: toDateString(child.birth_year, child.birth_month, child.birth_day),
     year_joined: child.date_joined ?? (child.year_joined ? `${child.year_joined}-01-01` : ""),
-    country: child.country ?? assignedCountries[0] ?? "",
+    country: child.country ?? availableCountries[0] ?? "",
     career_aspiration: child.career_aspiration ?? "",
     favorite_subject: child.favorite_subject ?? "",
     hobby: child.hobby ?? "",
@@ -33,75 +37,159 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(child.profile_photo ?? null)
   const [videoUrl, setVideoUrl] = useState<string | null>(child.profile_video ?? null)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  const set = (field: keyof typeof form, value: string) =>
+  const set = (field: keyof typeof form, value: string) => {
+    setError(null)
     setForm(f => ({ ...f, [field]: value }))
+  }
+
+  // 🌟 Clean Form Validation Checker matching standard registration constraints
+  const isFormValid = () => {
+    return !!(
+      form.first_name.trim() &&
+      form.last_name.trim() &&
+      form.birthdate &&
+      form.year_joined &&
+      form.country &&
+      form.id_rolf.trim() &&
+      form.career_aspiration.trim() &&
+      form.favorite_subject.trim() &&
+      form.hobby.trim()
+    )
+  }
 
   const handleSubmit = async () => {
-    if (!form.first_name.trim() || !form.last_name.trim() || !form.country) {
-      setError("First name, last name, and country are required.")
+    setError(null)
+    const targetIdCode = form.id_rolf.trim().toUpperCase()
+
+    // 1. Instantly verify local field completions
+    if (!isFormValid()) {
+      setError("All tracking properties marked with * are strictly mandatory fields.")
       return
     }
+
     setSubmitting(true)
-    setError(null)
 
-    const dob = form.birthdate ? new Date(form.birthdate) : null
-    const input: UpdateChildInput = {
-      id_rolf: form.id_rolf.trim() || null,
-      first_name: form.first_name.trim(),
-      last_name: form.last_name.trim(),
-      age: calcAge(form.birthdate) ?? 0,
-      birth_year: dob?.getFullYear(),
-      birth_month: dob ? dob.getMonth() + 1 : undefined,
-      birth_day: dob?.getDate(),
-      year_joined: form.year_joined ? new Date(form.year_joined).getFullYear() : undefined,
-      date_joined: form.year_joined || undefined,
-      country: form.country,
-      career_aspiration: form.career_aspiration.trim() || undefined,
-      favorite_subject: form.favorite_subject || undefined,
-      hobby: form.hobby.trim() || undefined,
-      bio: form.bio.trim() || undefined,
-      notes: form.notes.trim() || undefined,
-      profile_photo: photoUrl,
-      profile_video: videoUrl,
-      status: form.status,
+    try {
+      // 2. Run your live database constraint and prefix lookup checks ONCE right here on save
+      const { isTaken, expectedPrefix } = await checkRolfIdForEdit(targetIdCode, form.country, child.id)
+
+      if (!expectedPrefix) {
+        setError(`Database Error: No active country configuration prefix was found for "${form.country}".`)
+        setSubmitting(false)
+        return
+      }
+
+      if (!targetIdCode.startsWith(`${expectedPrefix}-`)) {
+        setError(`Format Discrepancy: The ROLF ID prefix must match the chosen country row format (${expectedPrefix}-XXXX).`)
+        setSubmitting(false)
+        return
+      }
+
+      if (isTaken) {
+        setError(`Identity Collision: The ROLF ID "${targetIdCode}" is already assigned to another active child record.`)
+        setSubmitting(false)
+        return
+      }
+
+      // 3. Form is 100% verified; compile the update payload
+      const dob = form.birthdate ? new Date(form.birthdate) : null
+
+      const input: UpdateChildInput = {
+        id_rolf: targetIdCode,
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        age: calcAge(form.birthdate) ?? 0,
+        birth_year: dob?.getFullYear(),
+        birth_month: dob ? dob.getMonth() + 1 : undefined,
+        birth_day: dob?.getDate(),
+        year_joined: form.year_joined ? new Date(form.year_joined).getFullYear() : undefined,
+        date_joined: form.year_joined || undefined,
+        country: form.country,
+        career_aspiration: form.career_aspiration.trim(),
+        favorite_subject: form.favorite_subject.trim(),
+        hobby: form.hobby.trim(),
+        bio: form.bio.trim() || undefined,
+        notes: form.notes.trim() || undefined,
+        profile_photo: photoUrl,
+        profile_video: videoUrl,
+        status: form.status,
+      }
+
+      const { error: actionError } = await updateChildAction(child.id, input)
+      if (actionError) {
+        setError(actionError)
+        setSubmitting(false)
+        return
+      }
+
+      router.push("/dashboard/children")
+    } catch (err) {
+      setError("An unexpected network fault occurred while attempting to write to the child record.")
+      setSubmitting(false)
     }
-
-    const { error } = await updateChildAction(child.id, input)
-    if (error) { setError(error); setSubmitting(false); return }
-    router.push("/dashboard/children")
   }
 
   const presets = SUBJECTS.filter(s => s !== "Other")
   const isOther = form.favorite_subject !== "" && !presets.includes(form.favorite_subject)
 
   return (
-    <div className="min-h-[calc(100svh_-_4rem)] bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-800 text-sm font-medium">
-          ← Back
-        </button>
-        <div className="flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Editing</p>
-          <h1 className="text-base font-bold text-gray-900">
-            {child.first_name} {child.last_name}
-          </h1>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* 🌟 UNIFIED STICKY NAVIGATION HEADER */}
+      <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-xs">
+        <div className="px-4 py-4 flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
+            disabled={submitting}
+          >
+            ← Back
+          </button>
+          <div className="flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Editing</p>
+            <h1 className="text-base font-bold text-gray-900">
+              {child.first_name} {child.last_name}
+            </h1>
+          </div>
         </div>
+
+        {/* IMMOVABLE HIGH-CONTRAST HEADER ERROR DRAWER */}
+        {error && (
+          <div className="m-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
+            <span className="shrink-0">⚠️</span>
+            <div>
+              <strong className="font-semibold block mb-0.5">Error</strong>
+              {error}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Form body */}
-      <div className="flex-1 px-4 py-6 space-y-5 max-w-lg mx-auto w-full pb-28">
+      {/* Main Container Workspace Scrollable Viewport */}
+      <div className="flex-1 px-4 py-6 space-y-5 max-w-lg mx-auto w-full pb-32">
 
         {/* Basic Info */}
-        <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Basic Info</h2>
+        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Basic Info</h2>
 
-          <Field label="ROLF ID" htmlFor="id_rolf">
-            <input id="id_rolf" value={form.id_rolf} onChange={e => set("id_rolf", e.target.value)}
-              placeholder="e.g. UG-0001" className={inputClass} />
+          <Field label="Country *" htmlFor="country">
+            <select
+              id="country"
+              value={form.country}
+              onChange={e => set("country", e.target.value)}
+              className={inputClass}
+              required
+            >
+              <option value="" disabled>Select active registration region...</option>
+              {availableCountries.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="ROLF ID *" htmlFor="id_rolf">
+            <input id="id_rolf" value={form.id_rolf} onChange={e => set("id_rolf", e.target.value.toUpperCase())}
+              placeholder="e.g. BEN-0010" className={inputClass + " font-mono tracking-wider"} />
           </Field>
 
           <Field label="First Name *" htmlFor="first_name">
@@ -114,7 +202,7 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
               placeholder="e.g. Nakato" className={inputClass} />
           </Field>
 
-          <Field label="Date of Birth" htmlFor="birthdate">
+          <Field label="Date of Birth *" htmlFor="birthdate">
             <input id="birthdate" type="date" value={form.birthdate}
               onChange={e => set("birthdate", e.target.value)}
               max={new Date().toISOString().split("T")[0]}
@@ -128,7 +216,7 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
             )}
           </Field>
 
-          <Field label="Date Joined Home" htmlFor="year_joined">
+          <Field label="Date Joined Home *" htmlFor="year_joined">
             <input id="year_joined" type="date" value={form.year_joined}
               onChange={e => set("year_joined", e.target.value)}
               max={new Date().toISOString().split("T")[0]}
@@ -141,76 +229,52 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
               </div>
             )}
           </Field>
-
-          {(isAdmin || assignedCountries.length > 1) && (
-            <Field label="Country *" htmlFor="country">
-              <select id="country" value={form.country} onChange={e => set("country", e.target.value)}
-                className={inputClass}>
-                <option value="">Select a country</option>
-                {assignedCountries.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-          )}
         </section>
 
         {/* About Them */}
-        <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">About Them</h2>
+        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">About Them</h2>
 
-          <Field label="What do you want to be when you grow up?" htmlFor="career">
+          <Field label="What do you want to be when you grow up? *" htmlFor="career">
             <input id="career" value={form.career_aspiration}
               onChange={e => set("career_aspiration", e.target.value)}
               placeholder="e.g. Doctor, Teacher, Engineer..." className={inputClass} />
           </Field>
 
-          <Field label="Favorite Subject" htmlFor="subject">
+          <Field label="Favorite Subject *" htmlFor="subject">
             <div className="grid grid-cols-2 gap-2">
               {presets.map(s => (
                 <button key={s} type="button" onClick={() => set("favorite_subject", s)}
-                  className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${
-                    form.favorite_subject === s
+                  className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s
                       ? "bg-blue-600 text-white border-blue-600"
                       : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
-                  }`}>
-                  {s}
-                </button>
+                    }`}>{s}</button>
               ))}
               <button type="button" onClick={() => set("favorite_subject", " ")}
-                className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${
-                  isOther
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
-                }`}>
-                Other
-              </button>
+                className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
+                  }`}>Other</button>
             </div>
             {isOther && (
-              <input autoFocus
-                value={form.favorite_subject.trim()}
-                onChange={e => set("favorite_subject", e.target.value)}
-                placeholder="Type their favorite subject..."
-                className={inputClass + " mt-2"}
-              />
+              <input autoFocus value={form.favorite_subject.trim()} onChange={e => set("favorite_subject", e.target.value)}
+                placeholder="Type custom subject details..." className={inputClass + " mt-2"} />
             )}
           </Field>
 
-          <Field label="Hobbies" htmlFor="hobby">
+          <Field label="Hobbies *" htmlFor="hobby">
             <textarea id="hobby" value={form.hobby} onChange={e => set("hobby", e.target.value)}
-              placeholder="e.g. Drawing, playing football, reading..." rows={3}
-              className={inputClass + " resize-none"} />
+              placeholder="Hobbies description..." rows={3} className={inputClass + " resize-none"} />
           </Field>
 
-          <Field label="Bio" htmlFor="bio">
+          <Field label="Bio (Optional)" htmlFor="bio">
             <textarea id="bio" value={form.bio} onChange={e => set("bio", e.target.value)}
-              placeholder="A short description about this child..." rows={4}
-              className={inputClass + " resize-none"} />
+              placeholder="A short description about this child..." rows={4} className={inputClass + " resize-none"} />
           </Field>
         </section>
 
         {/* Photo & Video */}
-        <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Photo &amp; Video</h2>
-          <p className="text-xs text-gray-400">Max 15 MB for photos, 100 MB for videos.</p>
+        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Photo &amp; Video</h2>
+          <p className="text-xs text-gray-400">Max file limits: 15 MB for images, 100 MB for videos.</p>
           <Field label="Profile Photo" htmlFor="photo">
             <MediaPicker
               type="photo"
@@ -218,6 +282,8 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
               onChange={setPhotoUrl}
               existingUrl={child.profile_photo}
               onError={setError}
+              onUploadStart={() => setMediaUploading(true)}
+              onUploadEnd={() => setMediaUploading(false)}
             />
           </Field>
           <Field label="Short Video (~30 sec)" htmlFor="video">
@@ -225,58 +291,56 @@ export function EditChildForm({ child, assignedCountries, isAdmin }: Props) {
               type="video"
               value={videoUrl}
               onChange={setVideoUrl}
+              existingUrl={child.profile_video}
               onError={setError}
+              onUploadStart={() => setMediaUploading(true)}
+              onUploadEnd={() => setMediaUploading(false)}
             />
           </Field>
         </section>
 
         {/* Status */}
-        <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Status</h2>
+        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Status</h2>
           <Field label="Child Status" htmlFor="status">
             <div className="flex gap-3">
               {(['active', 'inactive'] as const).map(s => (
                 <button key={s} type="button" onClick={() => setForm(f => ({ ...f, status: s }))}
-                  className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors capitalize ${
-                    form.status === s
+                  className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors capitalize cursor-pointer ${form.status === s
                       ? s === 'active' ? "bg-green-600 text-white border-green-600" : "bg-red-500 text-white border-red-500"
                       : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
-                  }`}>
+                    }`}>
                   {s}
                 </button>
               ))}
             </div>
             {form.status === 'inactive' && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2">
-                Please write in the Notes section below why this child left the home.
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 leading-relaxed">
+                Please document explicitly in the Notes window below why this individual profile is moving to an inactive status.
               </p>
             )}
           </Field>
         </section>
 
         {/* Notes */}
-        <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Notes</h2>
+        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Internal Notes (Optional)</h2>
           <Field label="Internal Notes" htmlFor="notes">
             <textarea id="notes" value={form.notes} onChange={e => set("notes", e.target.value)}
-              placeholder="Staff-only notes (e.g. reason child left the home, special circumstances...)"
-              rows={5}
-              className={inputClass + " resize-none"} />
+              placeholder="Staff-only internal ledger notes (special circumstances, family tracing variables...)"
+              rows={4} className={inputClass + " resize-none"} />
           </Field>
         </section>
-
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">
-            {error}
-          </div>
-        )}
       </div>
 
-      {/* Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 max-w-lg mx-auto">
-        <button onClick={handleSubmit} disabled={submitting}
-          className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm disabled:opacity-40 transition-opacity">
-          {submitting ? "Saving..." : "Save Changes"}
+      {/* 🌟 Spaced & Styled Action Control Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 max-w-lg mx-auto z-40">
+        <button
+          onClick={handleSubmit}
+          disabled={!isFormValid() || mediaUploading || submitting}
+          className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Saving..." : mediaUploading ? "Processing Media..." : "Save Changes"}
         </button>
       </div>
     </div>
