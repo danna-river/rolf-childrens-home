@@ -25,8 +25,7 @@ export async function approveAccountAction(userId: string, role: string, countri
     .from('profiles') as any)
     .update({
       role: role,
-      country: countries.length > 0 ? countries : null,
-      is_approved: true // Ensure onboarding lock flag toggles clear!
+      country: countries.length > 0 ? countries : null
     })
     .eq('id', userId)
 
@@ -106,7 +105,7 @@ export async function removeCountryAction(targetCountry: string) {
   if (profileCheckError) return { error: profileCheckError.message }
   if (profileMatches && profileMatches.length > 0) {
     return {
-      error: `Cannot remove "${cleanCountryName}". There are currently ${profileMatches.length} user profile(s) assigned to this jurisdiction.`
+      error: `Cannot remove "${cleanCountryName}". There are currently ${profileMatches.length} user profile(s) assigned to this country.`
     }
   }
 
@@ -119,7 +118,7 @@ export async function removeCountryAction(targetCountry: string) {
   if (childCheckError) return { error: childCheckError.message }
   if (childMatches && childMatches.length > 0) {
     return {
-      error: `Cannot remove "${cleanCountryName}". There are currently ${childMatches.length} active child record(s) bound to this location.`
+      error: `Cannot remove "${cleanCountryName}". There are currently ${childMatches.length} active child record(s) bound to this country.`
     }
   }
 
