@@ -1,6 +1,8 @@
+// src/app/dashboard/children/[id]/edit/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { EditChildForm } from './EditChildForm'
+import { isAdminRole } from '@/lib/profiles'
 import type { Child } from '@/lib/types'
 
 export default async function EditChildPage({
@@ -18,7 +20,7 @@ export default async function EditChildPage({
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single() as { data: { role: string; country: string | string[] | null } | null; error: unknown }
+    .single() as { data: { role: string; country: string[] | null } | null; error: unknown }
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
     return redirect('/login?error=Unauthorized')
@@ -32,15 +34,26 @@ export default async function EditChildPage({
 
   if (!child) return redirect('/dashboard/children')
 
-  const assignedCountries: string[] = profile.role === 'admin'
-    ? [child.country ?? ''].filter(Boolean)
-    : Array.isArray(profile.country) ? profile.country : []
+  let dropdownOptions: string[] = []
+  const isSystemAdmin = isAdminRole(profile.role)
+
+  if (isSystemAdmin) {
+    // Admins fetch options live from the master database parameters countries table
+    const { data: countryRows } = await supabase
+      .from('countries')
+      .select('name')
+      .order('name', { ascending: true })
+      
+    dropdownOptions = (countryRows || []).map((row: any) => row.name)
+  } else {
+    // Localized staff inherit their assigned tracking matrix bounds array
+    dropdownOptions = profile.country || []
+  }
 
   return (
     <EditChildForm
       child={child}
-      assignedCountries={assignedCountries}
-      isAdmin={profile.role === 'admin'}
+      availableCountries={dropdownOptions}
     />
   )
 }
