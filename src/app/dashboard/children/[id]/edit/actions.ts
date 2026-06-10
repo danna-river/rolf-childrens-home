@@ -1,8 +1,12 @@
+// src/app/dashboard/children/[id]/edit/actions.ts
 "use server"
+
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth'
+import { isAdminRole } from '@/lib/profiles'
 
 export type UpdateChildInput = {
-  id_rolf: string | null
+  id_rolf: string
   first_name: string
   last_name: string
   birth_year?: number
@@ -12,9 +16,9 @@ export type UpdateChildInput = {
   year_joined?: number
   date_joined?: string
   country: string
-  career_aspiration?: string
-  favorite_subject?: string
-  hobby?: string
+  career_aspiration: string
+  favorite_subject: string
+  hobby: string
   bio?: string
   notes?: string
   profile_photo: string | null
@@ -22,17 +26,57 @@ export type UpdateChildInput = {
   status: 'active' | 'inactive'
 }
 
+export async function checkRolfIdForEdit(
+  idRolf: string,
+  countryName: string,
+  currentChildId: string
+): Promise<{ isTaken: boolean; expectedPrefix: string | null }> {
+  const adminSupabase = await createAdminClient()
+  
+  const { data: countryData } = await (adminSupabase as any)
+    .from('countries')
+    .select('iso_code')
+    .eq('name', countryName.trim())
+    .single()
+
+  const expectedPrefix = countryData?.iso_code || null
+
+  // Check if any OTHER child record is currently utilizing this specific unique ID
+  const { data: idData } = await adminSupabase
+    .from('children')
+    .select('id')
+    .eq('id_rolf', idRolf.trim().toUpperCase())
+    .neq('id', currentChildId)
+    .maybeSingle()
+
+  return {
+    isTaken: !!idData,
+    expectedPrefix
+  }
+}
+
 export async function updateChildAction(
   id: string,
   input: UpdateChildInput,
 ): Promise<{ error: string | null }> {
-  const supabase = createAdminClient()
+  // 🛡️ Security Interceptor: Verify modification scopes completely on the server
+  const { profile } = await requireAuth()
+  const isSystemAdmin = isAdminRole(profile.role)
+  const userAllowedCountries: string[] = profile.country || []
+
+  if (!isSystemAdmin && !userAllowedCountries.includes(input.country)) {
+    return { 
+      error: `Security Violation: Your user profile does not have permission scopes allocated to manage records for "${input.country}".` 
+    }
+  }
+
+  const adminSupabase = await createAdminClient()
   const display_name = `${input.first_name} ${input.last_name}`.trim()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (adminSupabase as any)
     .from('children')
     .update({
+      id_rolf: input.id_rolf,
       display_name,
       first_name: input.first_name,
       last_name: input.last_name,
@@ -43,9 +87,9 @@ export async function updateChildAction(
       year_joined: input.year_joined ?? null,
       date_joined: input.date_joined ?? null,
       country: input.country,
-      career_aspiration: input.career_aspiration ?? null,
-      favorite_subject: input.favorite_subject ?? null,
-      hobby: input.hobby ?? null,
+      career_aspiration: input.career_aspiration,
+      favorite_subject: input.favorite_subject,
+      hobby: input.hobby,
       bio: input.bio ?? null,
       notes: input.notes ?? null,
       profile_photo: input.profile_photo,
