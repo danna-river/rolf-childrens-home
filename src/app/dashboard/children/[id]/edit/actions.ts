@@ -1,8 +1,10 @@
 "use server"
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
+import { revalidatePath } from 'next/cache'
 
 export type UpdateChildInput = {
   id_rolf: string
@@ -27,9 +29,9 @@ export type UpdateChildInput = {
 
 // 🌟 Real-time sequence preview calculator when an administrator changes countries during mid-edit operations
 export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ previewId: string | null }> {
-  const adminSupabase = await createAdminClient()
+  const supabase = await createClient()
   
-  const { data: countryRecord } = await (adminSupabase as any)
+  const { data: countryRecord } = await (supabase as any)
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -38,7 +40,7 @@ export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ 
   if (!countryRecord) return { previewId: null }
   const prefix = countryRecord.iso_code
 
-  const { data: siblingRecords } = await (adminSupabase as any)
+  const { data: siblingRecords } = await (supabase as any)
     .from('children')
     .select('id_rolf')
     .like('id_rolf', `${prefix}-%`)
@@ -62,9 +64,9 @@ export async function checkRolfIdForEdit(
   countryName: string,
   currentChildId: string
 ): Promise<{ isValid: boolean; error: string | null; expectedPrefix: string | null }> {
-  const adminSupabase = await createAdminClient()
+  const supabase = await createClient()
 
-  const { data: countryData } = await (adminSupabase as any)
+  const { data: countryData } = await (supabase as any)
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -82,7 +84,7 @@ export async function checkRolfIdForEdit(
   }
 
   // Look for any OTHER child record using this unique ID to avoid blocking self-saves when ID is untouched
-  const { data } = await adminSupabase
+  const { data } = await supabase
     .from('children')
     .select('id')
     .eq('id_rolf', targetId)
@@ -111,10 +113,10 @@ export async function updateChildAction(
     }
   }
 
-  const adminSupabase = await createAdminClient()
+  const supabase = await createClient()
   const display_name = `${input.first_name} ${input.last_name}`.trim()
 
-  const { error } = await (adminSupabase as any)
+  const { error } = await (supabase as any)
     .from('children')
     .update({
       id_rolf: input.id_rolf.trim().toUpperCase(),
@@ -139,6 +141,11 @@ export async function updateChildAction(
     })
     .eq('id', id)
 
-  if (error) return { error: error.message }
-  return { error: null }
+    if (error) return { error: error.message }
+
+    // Purge the layout router cache so the dashboard immediately shows the new edits
+    revalidatePath('/dashboard/children') 
+    revalidatePath(`/dashboard/children/${id}/edit`)
+  
+    return { error: null }
 }

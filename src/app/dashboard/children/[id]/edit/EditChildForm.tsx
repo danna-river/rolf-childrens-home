@@ -38,7 +38,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(child.profile_photo ?? null)
   const [videoUrl, setVideoUrl] = useState<string | null>(child.profile_video ?? null)
-  
+
   const [initialGeneratedId, setInitialGeneratedId] = useState<string>(child.id_rolf ?? "")
 
   // 🌟 Side effect listening to country changes to auto-generate identifiers for administrators
@@ -54,7 +54,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
       setLoadingPreview(true)
       const { previewId } = await getLatestIdPreviewForEdit(form.country)
       setLoadingPreview(false)
-      
+
       if (previewId) {
         setInitialGeneratedId(previewId)
         setForm(f => ({ ...f, id_rolf: previewId }))
@@ -136,8 +136,8 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         return
       }
 
+      // Revalidation happened on the server, just push the clean transition
       router.push("/dashboard/children")
-      router.refresh()
     } catch (err) {
       setError("An unexpected network fault occurred while attempting to write updates to the child record.")
       setSubmitting(false)
@@ -207,18 +207,18 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
                 Syncing next chronological identifier sequence for country choice...
               </div>
             ) : isAdmin ? (
-              <input 
-                id="id_rolf" 
-                value={form.id_rolf} 
-                onChange={e => set("id_rolf", e.target.value.toUpperCase())} 
-                className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 font-semibold text-gray-800"} 
+              <input
+                id="id_rolf"
+                value={form.id_rolf}
+                onChange={e => set("id_rolf", e.target.value.toUpperCase())}
+                className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 font-semibold text-gray-800"}
               />
             ) : (
-              <input 
-                id="id_rolf_locked" 
-                value={form.id_rolf} 
-                disabled 
-                className={inputClass + " bg-gray-100 border-gray-200 text-gray-500 font-mono tracking-wider select-none cursor-not-allowed font-semibold"} 
+              <input
+                id="id_rolf_locked"
+                value={form.id_rolf}
+                disabled
+                className={inputClass + " bg-gray-100 border-gray-200 text-gray-500 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
               />
             )}
 
@@ -230,8 +230,8 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
             )}
 
             <p className="text-xs text-gray-400 mt-1.5">
-              {isAdmin 
-                ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered." 
+              {isAdmin
+                ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
                 : "Staff accounts cannot alter unique registry codes. To shift this identifier, contact an administrator."}
             </p>
           </Field>
@@ -290,8 +290,8 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               {presets.map(s => (
                 <button key={s} type="button" onClick={() => set("favorite_subject", s)}
                   className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
                     }`}>{s}</button>
               ))}
               <button type="button" onClick={() => set("favorite_subject", " ")}
@@ -351,8 +351,8 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               {(['active', 'inactive'] as const).map(s => (
                 <button key={s} type="button" onClick={() => setForm(f => ({ ...f, status: s }))}
                   className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors capitalize cursor-pointer ${form.status === s
-                      ? s === 'active' ? "bg-green-600 text-white border-green-600" : "bg-red-500 text-white border-red-500"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
+                    ? s === 'active' ? "bg-green-600 text-white border-green-600" : "bg-red-500 text-white border-red-500"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
                     }`}>
                   {s}
                 </button>
