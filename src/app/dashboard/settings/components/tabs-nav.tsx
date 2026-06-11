@@ -21,7 +21,8 @@ export function TabsNav({ userRole }: TabsNavProps) {
   if (isSystemAdmin) {
     tabs.push(
       { id: 'approvals', label: '🛡️ Approval Requests' },
-      { id: 'global_config', label: '🌍 Global Configurations' }
+      { id: 'global_config', label: '🌍 Global Configurations' },
+      { id: 'manage_users', label: '👥 Manage Users' }
     )
   }
 
