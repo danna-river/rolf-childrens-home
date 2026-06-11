@@ -6,6 +6,7 @@ import { isAdminRole } from '@/lib/profiles'
 // View components imports
 import { AccountApprovalView } from '@/app/dashboard/settings/components/admin/account-approval-view'
 import { GlobalConfigsView } from '@/app/dashboard/settings/components/admin/global-configs-view'
+import { AccountManagementView } from '@/app/dashboard/settings/components/admin/account-management-view'
 
 // Temporary UI placeholders for your personal profile/security tabs
 function ProfilePlaceholderForm() { 
@@ -21,7 +22,7 @@ type SettingsPageProps = {
 
 export default async function SettingsTabDispatcherPage({ searchParams }: SettingsPageProps) {
   // 1. Run the auth check to load active user profile metrics safely on the server
-  const { profile } = await requireAuth({ allowUnapproved: true })
+  const { user, profile } = await requireAuth({ allowUnapproved: true })
   
   const resolvedParams = await searchParams
   const targetTab = resolvedParams.tab || 'profile'
@@ -50,6 +51,19 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
         availableCountries={activeCountries} 
       />
     )
+  }
+
+  if (targetTab === 'manage_users') {
+    if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
+    const { data: accounts } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, role, country, created_at')
+    .in('role', ['admin', 'staff', 'donor'])   // exclude 'unapproved' (that's the Approvals tab)
+    .order('role', { ascending: true })
+    .order('created_at', { ascending: false })
+
+    
+    return <AccountManagementView initialUsers={accounts || []} currentUserId={user.id} />
   }
 
   if (targetTab === 'global_config') {

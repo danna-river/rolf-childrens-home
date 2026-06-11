@@ -8,10 +8,11 @@ import { isAdminRole } from '@/lib/profiles'
 
 // Security Guard to ensure only true administrators hit these endpoints
 async function verifyAdminGate() {
-  const { profile } = await requireAuth()
+  const {user, profile } = await requireAuth()
   if (!isAdminRole(profile.role)) {
     throw new Error('Unauthorized: Administrative clearance required.')
   }
+  return user
 }
 
 export async function approveAccountAction(userId: string, role: string, countries: string[]) {
@@ -46,6 +47,64 @@ export async function denyAccountAction(userId: string) {
   if (dbError) return { error: dbError.message }
 
   // 2. Erase core authentication identity from Supabase Auth storage completely
+  const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
+  if (authError) return { error: authError.message }
+
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
+
+export async function deleteAccountAction(userId: string) {
+  const currentUser = await verifyAdminGate()
+  const supabase = await createClient()
+  const adminSupabase = createAdminClient()
+
+  // Guard 1: never delete yourself (lockout prevention)
+  if (userId === currentUser.id) {
+    return { error: 'Action denied: You cannot delete your own account.' }
+  }
+
+  // Guard 2: Never delete the last admin 
+  const { data: target } = await (supabase.from('profiles') as any)
+    .select('role')
+    .eq('id', userId)
+    .single()
+  
+    if (!target) return { error: 'Account not found.' }
+
+    if (isAdminRole(target.role)) {
+      const { count } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'admin')
+      if ((count ?? 0) <= 1) {
+        return { error: 'Action denied: Cannot delete the last administrator.' }
+      }
+    }
+  
+  // Guard 3: block if the account has any active sponsorships (donor sponsorships / staff create children)
+  const { count: sponsorCount } = await supabase
+    .from('sponsorships')
+    .select('id', { count: 'exact', head: true })
+    .eq('donor_id', userId)
+  if ((sponsorCount ?? 0) > 0) {
+    return { error: `Cannot delete: ${sponsorCount} sponsorship(s) are linked to this donor. End or reassign them first.` }
+  }
+
+  const { count: childCount } = await supabase
+  .from('children').select('id', { count: 'exact', head: true })
+  .eq('created_by', userId)
+  if ((childCount ?? 0) > 0) {
+    return { error: `Cannot delete: ${childCount} child record(s) were created by this staff account. Reassign or remove them first.` }
+  }
+
+  // If all guards are passed, proceed with deletion
+  const { error: dbError } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', userId)
+  if (dbError) return { error: dbError.message }
+
   const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
   if (authError) return { error: authError.message }
 
