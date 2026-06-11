@@ -9,11 +9,11 @@ import { GlobalConfigsView } from '@/app/dashboard/settings/components/admin/glo
 import { AccountManagementView } from '@/app/dashboard/settings/components/admin/account-management-view'
 
 // Temporary UI placeholders for your personal profile/security tabs
-function ProfilePlaceholderForm() { 
-  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-xs text-gray-400">👤 Profile settings editing coming soon.</div> 
+function ProfilePlaceholderForm() {
+  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-xs text-gray-400">👤 Profile settings editing coming soon.</div>
 }
-function SecurityPlaceholderForm() { 
-  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-xs text-gray-400">🔒 Account authentication and password reset fields coming soon.</div> 
+function SecurityPlaceholderForm() {
+  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-xs text-gray-400">🔒 Account authentication and password reset fields coming soon.</div>
 }
 
 type SettingsPageProps = {
@@ -23,7 +23,7 @@ type SettingsPageProps = {
 export default async function SettingsTabDispatcherPage({ searchParams }: SettingsPageProps) {
   // 1. Run the auth check to load active user profile metrics safely on the server
   const { user, profile } = await requireAuth({ allowUnapproved: true })
-  
+
   const resolvedParams = await searchParams
   const targetTab = resolvedParams.tab || 'profile'
   const isSystemAdmin = isAdminRole(profile.role)
@@ -46,9 +46,9 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     const activeCountries = settingsData?.countries || []
 
     return (
-      <AccountApprovalView 
-        initialUsers={pendingUsers || []} 
-        availableCountries={activeCountries} 
+      <AccountApprovalView
+        initialUsers={pendingUsers || []}
+        availableCountries={activeCountries}
       />
     )
   }
@@ -56,13 +56,13 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
   if (targetTab === 'manage_users') {
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
     const { data: accounts } = await supabase
-    .from('profiles')
-    .select('id, email, full_name, role, country, created_at')
-    .in('role', ['admin', 'staff', 'donor'])   // exclude 'unapproved' (that's the Approvals tab)
-    .order('role', { ascending: true })
-    .order('created_at', { ascending: false })
+      .from('profiles')
+      .select('id, email, full_name, role, country, created_at')
+      .in('role', ['admin', 'staff', 'donor'])   // exclude 'unapproved' (that's the Approvals tab)
+      .order('role', { ascending: true })
+      .order('created_at', { ascending: false })
 
-    
+
     return <AccountManagementView initialUsers={accounts || []} currentUserId={user.id} />
   }
 
@@ -70,10 +70,11 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
 
     // Fetch global configuration settings
-    const { data: settingsData, error } = await (supabase.from('app_settings') as any).select('countries').eq('id', 1).single()
-    console.log('Database Row Data:', settingsData)
-    console.log('Database Error (if any):', error)
-    const activeCountries = settingsData?.countries || []
+    const { data: countriesData, error } = await supabase
+      .from('countries')
+      .select('name')
+      .order('name', { ascending: true })
+    const activeCountries = (countriesData as any[] | null)?.map(c => c.name) || []
 
     return <GlobalConfigsView currentCountries={activeCountries} />
   }
