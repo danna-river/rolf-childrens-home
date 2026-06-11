@@ -37,6 +37,11 @@ export type RegisterChildInput = {
   profile_video?: string
 }
 
+interface CountryRow {
+  name: string
+  iso_code: string
+}
+
 
 export async function getJoinedYears(): Promise<number[]> {
   const supabase = createAdminClient()
@@ -51,13 +56,20 @@ export async function getJoinedYears(): Promise<number[]> {
 
 export async function getCountries(): Promise<string[]> {
   const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('children')
-    .select('country')
-    .not('country', 'is', null)
-    .order('country')
-  const unique = [...new Set((data ?? []).map((r: { country: string | null }) => r.country as string))]
-  return unique
+  
+  // 🌟 Explicitly tell Supabase to expect your row layout structure
+  const { data, error } = await supabase
+    .from('countries')
+    .select('name')
+    .order('name', { ascending: true })
+
+  if (error || !data) {
+    console.error('Error fetching system country parameters:', error)
+    return []
+  }
+  
+  // TypeScript now recognizes 'row' as a valid object instead of 'never'
+  return (data as CountryRow[]).map((row) => row.name)
 }
 
 const PAGE_SIZE = 9
