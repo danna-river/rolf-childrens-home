@@ -54,6 +54,7 @@ export default async function EditChildPage({
     <EditChildForm
       child={child}
       availableCountries={dropdownOptions}
+      isAdmin={isSystemAdmin}
     />
   )
 }

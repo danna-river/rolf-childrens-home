@@ -1,9 +1,8 @@
-// src/app/dashboard/children/[id]/edit/EditChildForm.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { updateChildAction, checkRolfIdForEdit } from "./actions"
+import { updateChildAction, checkRolfIdForEdit, getLatestIdPreviewForEdit } from "./actions"
 import type { UpdateChildInput } from "./actions"
 import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
@@ -12,12 +11,14 @@ import { MediaPicker } from "../../components/MediaPicker"
 interface Props {
   child: Child
   availableCountries: string[]
+  isAdmin: boolean // 🌟 Clearance boolean passed down from the page layout server client
 }
 
-export function EditChildForm({ child, availableCountries }: Props) {
+export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
   const router = useRouter()
   const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
@@ -37,13 +38,36 @@ export function EditChildForm({ child, availableCountries }: Props) {
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(child.profile_photo ?? null)
   const [videoUrl, setVideoUrl] = useState<string | null>(child.profile_video ?? null)
+  
+  const [initialGeneratedId, setInitialGeneratedId] = useState<string>(child.id_rolf ?? "")
+
+  // 🌟 Side effect listening to country changes to auto-generate identifiers for administrators
+  useEffect(() => {
+    // If country rolls back to the child's true original placement, restore initial ROLF ID
+    if (form.country === child.country) {
+      setForm(f => ({ ...f, id_rolf: child.id_rolf ?? "" }))
+      setInitialGeneratedId(child.id_rolf ?? "")
+      return
+    }
+
+    async function syncCountryChangeId() {
+      setLoadingPreview(true)
+      const { previewId } = await getLatestIdPreviewForEdit(form.country)
+      setLoadingPreview(false)
+      
+      if (previewId) {
+        setInitialGeneratedId(previewId)
+        setForm(f => ({ ...f, id_rolf: previewId }))
+      }
+    }
+    syncCountryChangeId()
+  }, [form.country, child.country, child.id_rolf])
 
   const set = (field: keyof typeof form, value: string) => {
     setError(null)
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  // 🌟 Clean Form Validation Checker matching standard registration constraints
   const isFormValid = () => {
     return !!(
       form.first_name.trim() &&
@@ -62,37 +86,25 @@ export function EditChildForm({ child, availableCountries }: Props) {
     setError(null)
     const targetIdCode = form.id_rolf.trim().toUpperCase()
 
-    // 1. Instantly verify local field completions
     if (!isFormValid()) {
-      setError("All tracking properties marked with * are strictly mandatory fields.")
+      setError("All fields marked with * are strictly mandatory fields before updates can be committed.")
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
 
     setSubmitting(true)
 
     try {
-      // 2. Run your live database constraint and prefix lookup checks ONCE right here on save
-      const { isTaken, expectedPrefix } = await checkRolfIdForEdit(targetIdCode, form.country, child.id)
+      // 🌟 ASYNCHRONOUS SECURITY BLOCK: Run live uniqueness & code format verification on submission
+      const { isValid, error: validationError } = await checkRolfIdForEdit(targetIdCode, form.country, child.id)
 
-      if (!expectedPrefix) {
-        setError(`Database Error: No active country configuration prefix was found for "${form.country}".`)
+      if (!isValid) {
+        setError(validationError)
         setSubmitting(false)
-        return
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return // Safely exits the pipeline; blocks the write update script entirely
       }
 
-      if (!targetIdCode.startsWith(`${expectedPrefix}-`)) {
-        setError(`Format Discrepancy: The ROLF ID prefix must match the chosen country row format (${expectedPrefix}-XXXX).`)
-        setSubmitting(false)
-        return
-      }
-
-      if (isTaken) {
-        setError(`Identity Collision: The ROLF ID "${targetIdCode}" is already assigned to another active child record.`)
-        setSubmitting(false)
-        return
-      }
-
-      // 3. Form is 100% verified; compile the update payload
       const dob = form.birthdate ? new Date(form.birthdate) : null
 
       const input: UpdateChildInput = {
@@ -120,12 +132,14 @@ export function EditChildForm({ child, availableCountries }: Props) {
       if (actionError) {
         setError(actionError)
         setSubmitting(false)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
 
       router.push("/dashboard/children")
+      router.refresh()
     } catch (err) {
-      setError("An unexpected network fault occurred while attempting to write to the child record.")
+      setError("An unexpected network fault occurred while attempting to write updates to the child record.")
       setSubmitting(false)
     }
   }
@@ -135,7 +149,7 @@ export function EditChildForm({ child, availableCountries }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 🌟 UNIFIED STICKY NAVIGATION HEADER */}
+      {/* STICKY NAVIGATION HEADER */}
       <div className="sticky top-16 z-40 bg-white border-b border-gray-100 shadow-xs">
         <div className="px-4 py-4 flex items-center gap-3">
           <button
@@ -143,29 +157,28 @@ export function EditChildForm({ child, availableCountries }: Props) {
             className="text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
             disabled={submitting}
           >
-            ← Back
+            ← Cancel
           </button>
           <div className="flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Editing</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Modifying Profile Records</p>
             <h1 className="text-base font-bold text-gray-900">
               {child.first_name} {child.last_name}
             </h1>
           </div>
         </div>
 
-        {/* IMMOVABLE HIGH-CONTRAST HEADER ERROR DRAWER */}
         {error && (
-          <div className="m-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
+          <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
             <span className="shrink-0">⚠️</span>
             <div>
-              <strong className="font-semibold block mb-0.5">Error</strong>
+              <strong className="font-semibold block mb-0.5">Validation Stop</strong>
               {error}
             </div>
           </div>
         )}
       </div>
 
-      {/* Main Container Workspace Scrollable Viewport */}
+      {/* Main Container Workspace Viewport */}
       <div className="flex-1 px-4 py-6 space-y-5 max-w-lg mx-auto w-full pb-32">
 
         {/* Basic Info */}
@@ -187,9 +200,40 @@ export function EditChildForm({ child, availableCountries }: Props) {
             </select>
           </Field>
 
-          <Field label="ROLF ID *" htmlFor="id_rolf">
-            <input id="id_rolf" value={form.id_rolf} onChange={e => set("id_rolf", e.target.value.toUpperCase())}
-              placeholder="e.g. BEN-0010" className={inputClass + " font-mono tracking-wider"} />
+          {/* 🌟 REPLICATED AUTO-INCREMENT PREVIEW AND LOCKED FIELD SCHEME */}
+          <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
+            {loadingPreview ? (
+              <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">
+                Syncing next chronological identifier sequence for country choice...
+              </div>
+            ) : isAdmin ? (
+              <input 
+                id="id_rolf" 
+                value={form.id_rolf} 
+                onChange={e => set("id_rolf", e.target.value.toUpperCase())} 
+                className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 font-semibold text-gray-800"} 
+              />
+            ) : (
+              <input 
+                id="id_rolf_locked" 
+                value={form.id_rolf} 
+                disabled 
+                className={inputClass + " bg-gray-100 border-gray-200 text-gray-500 font-mono tracking-wider select-none cursor-not-allowed font-semibold"} 
+              />
+            )}
+
+            {/* Inline warning notification banner if an administrator shifts the pre-calculated sequence string */}
+            {isAdmin && form.id_rolf && form.id_rolf !== initialGeneratedId && (
+              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal animate-fade-in">
+                <strong>Notice:</strong> You are overriding the auto-increment structure. Saving will verify formatting and look for duplicate key entries.
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400 mt-1.5">
+              {isAdmin 
+                ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered." 
+                : "Staff accounts cannot alter unique registry codes. To shift this identifier, contact an administrator."}
+            </p>
           </Field>
 
           <Field label="First Name *" htmlFor="first_name">
@@ -279,7 +323,7 @@ export function EditChildForm({ child, availableCountries }: Props) {
             <MediaPicker
               type="photo"
               value={photoUrl}
-              onChange={setPhotoUrl}
+              onChange={photoUrl => setPhotoUrl(photoUrl)}
               existingUrl={child.profile_photo}
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}
@@ -290,7 +334,7 @@ export function EditChildForm({ child, availableCountries }: Props) {
             <MediaPicker
               type="video"
               value={videoUrl}
-              onChange={setVideoUrl}
+              onChange={videoUrl => setVideoUrl(videoUrl)}
               existingUrl={child.profile_video}
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}
@@ -333,11 +377,11 @@ export function EditChildForm({ child, availableCountries }: Props) {
         </section>
       </div>
 
-      {/* 🌟 Spaced & Styled Action Control Footer */}
+      {/* Spaced & Styled Action Control Footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 max-w-lg mx-auto z-40">
         <button
           onClick={handleSubmit}
-          disabled={!isFormValid() || mediaUploading || submitting}
+          disabled={!isFormValid() || mediaUploading || submitting || loadingPreview}
           className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
         >
           {submitting ? "Saving..." : mediaUploading ? "Processing Media..." : "Save Changes"}
