@@ -5,11 +5,13 @@ export function YearJoinedFilter({ years }: { years: number[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const current = searchParams.get("yearJoined") ?? ""
+  
+  const current = searchParams.get("yearJoined") ?? "all"
 
   const setYear = (year: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (!year || year === current) {
+    
+    if (year === "all") {
       params.delete("yearJoined")
     } else {
       params.set("yearJoined", year)
@@ -17,33 +19,33 @@ export function YearJoinedFilter({ years }: { years: number[] }) {
     router.replace(`${pathname}?${params.toString()}`)
   }
 
+  const filterOptions = ["all", ...years.map(String), "unknown"]
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Year Joined</span>
       <div className="flex gap-2 flex-wrap">
-        {years.map((y) => (
-          <button
-            key={y}
-            onClick={() => setYear(String(y))}
-            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-              current === String(y)
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-            }`}
-          >
-            {y}
-          </button>
-        ))}
-        <button
-          onClick={() => setYear("unknown")}
-          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-            current === "unknown"
-              ? "bg-gray-500 text-white border-gray-500"
-              : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-          }`}
-        >
-          Unknown
-        </button>
+        {filterOptions.map((option) => {
+          const isActive = current === option
+          
+          // Match dynamic colors for different active filter buttons
+          let activeStyles = "bg-blue-600 text-white border-blue-600"
+          if (option === "unknown") activeStyles = "bg-gray-500 text-white border-gray-500"
+
+          return (
+            <button
+              key={option}
+              onClick={() => setYear(option)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors capitalize ${
+                isActive
+                  ? activeStyles
+                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+              }`}
+            >
+              {option}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
