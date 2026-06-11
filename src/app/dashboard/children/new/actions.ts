@@ -7,7 +7,7 @@ import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
 
 export type RegisterChildInput = {
-  id_rolf: string 
+  id_rolf: string
   first_name: string
   last_name: string
   age: number
@@ -54,9 +54,9 @@ export async function getLatestIdPreview(countryName: string): Promise<{ preview
     }
   }
 
-  return { 
-    previewId: `${prefix}-${String(currentMaxNumber + 1).padStart(4, '0')}`, 
-    error: null 
+  return {
+    previewId: `${prefix}-${String(currentMaxNumber + 1).padStart(4, '0')}`,
+    error: null
   }
 }
 
@@ -82,8 +82,14 @@ export async function checkRolfIdForRegistration(
   const prefix = countryData.iso_code
   const targetId = idRolf.trim().toUpperCase()
 
-  if (!targetId.startsWith(`${prefix}-`)) {
-    return { isValid: false, error: `Format Mismatch: The ROLF ID must match the chosen country prefix layout (${prefix}-XXXX).` }
+  // 🌟 STRICTOR REGEX: Matches the prefix, a hyphen, and EXACTLY 4 digits ($ ensures nothing follows)
+  const strictFormatRegex = new RegExp(`^${prefix}-\\d{4}$`)
+
+  if (!strictFormatRegex.test(targetId)) {
+    return {
+      isValid: false,
+      error: `Format Mismatch: The ROLF ID must match the exact country format layout (${prefix}-XXXX) with exactly 4 digits.`
+    }
   }
 
   const { data } = await adminSupabase
@@ -108,9 +114,9 @@ export async function registerChildAction(
   const userAllowedCountries: string[] = profile.country || []
 
   if (!isSystemAdmin && !userAllowedCountries.includes(input.country)) {
-    return { 
-      id: null, 
-      error: `Security Violation: Your profile does not have access permissions to register records for "${input.country}".` 
+    return {
+      id: null,
+      error: `Security Violation: Your profile does not have access permissions to register records for "${input.country}".`
     }
   }
 
@@ -146,7 +152,7 @@ export async function registerChildAction(
   }
 
   const display_name = `${input.first_name} ${input.last_name}`.trim()
-  
+
   const { data, error: insertError } = await (supabase as any)
     .from('children')
     .insert({
@@ -169,11 +175,11 @@ export async function registerChildAction(
       profile_video: input.profile_video ?? null,
       status: 'active',
       edit_log: [],
-      created_by: user.id 
+      created_by: user.id
     })
     .select('id')
     .single()
-    
+
   if (insertError) return { id: null, error: insertError.message }
 
   // Clear server data layout layouts cache

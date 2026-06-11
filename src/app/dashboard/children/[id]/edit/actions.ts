@@ -30,7 +30,7 @@ export type UpdateChildInput = {
 // 🌟 Real-time sequence preview calculator when an administrator changes countries during mid-edit operations
 export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ previewId: string | null }> {
   const supabase = await createClient()
-  
+
   const { data: countryRecord } = await (supabase as any)
     .from('countries')
     .select('iso_code')
@@ -79,8 +79,15 @@ export async function checkRolfIdForEdit(
   const prefix = countryData.iso_code
   const targetId = idRolf.trim().toUpperCase()
 
-  if (!targetId.startsWith(`${prefix}-`)) {
-    return { isValid: false, error: `Format Mismatch: The manual ROLF ID prefix must match the chosen country row format (${prefix}-XXXX).`, expectedPrefix: prefix }
+  // 🌟 Strict 4-digit formatting rule
+  const strictFormatRegex = new RegExp(`^${prefix}-\\d{4}$`)
+
+  if (!strictFormatRegex.test(targetId)) {
+    return {
+      isValid: false,
+      error: `Format Mismatch: The manual ROLF ID must match the chosen country row format (${prefix}-XXXX) with exactly 4 digits.`,
+      expectedPrefix: prefix // 🌟 Add this line to satisfy the TypeScript compiler!
+    }
   }
 
   // Look for any OTHER child record using this unique ID to avoid blocking self-saves when ID is untouched
@@ -108,8 +115,8 @@ export async function updateChildAction(
   const userAllowedCountries: string[] = profile.country || []
 
   if (!isSystemAdmin && !userAllowedCountries.includes(input.country)) {
-    return { 
-      error: `Security Violation: Your user profile does not have permission scopes allocated to manage records for "${input.country}".` 
+    return {
+      error: `Security Violation: Your user profile does not have permission scopes allocated to manage records for "${input.country}".`
     }
   }
 
@@ -141,11 +148,11 @@ export async function updateChildAction(
     })
     .eq('id', id)
 
-    if (error) return { error: error.message }
+  if (error) return { error: error.message }
 
-    // Purge the layout router cache so the dashboard immediately shows the new edits
-    revalidatePath('/dashboard/children') 
-    revalidatePath(`/dashboard/children/${id}/edit`)
-  
-    return { error: null }
+  // Purge the layout router cache so the dashboard immediately shows the new edits
+  revalidatePath('/dashboard/children')
+  revalidatePath(`/dashboard/children/${id}/edit`)
+
+  return { error: null }
 }
