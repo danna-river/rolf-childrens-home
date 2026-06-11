@@ -123,37 +123,3 @@ export async function signOutAction() {
 
   redirect('/login')
 }
-
-// Add this to your actions.ts file
-
-export async function validateSessionAndRole(): Promise<{ 
-  status: 'authorized' | 'unapproved' | 'profile_missing' | 'no_session' 
-}> {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { status: 'no_session' }
-  }
-
-  // Fetch the matching profile record
-  const { data: profile } = await (supabase as any)
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  // Case A: Token exists, but profile row was never created (Orphan Account)
-  if (!profile) {
-    await supabase.auth.signOut() // Wipe the bad cookie instantly!
-    return { status: 'profile_missing' }
-  }
-
-  // Case B: Valid active team member
-  if (profile.role === 'admin' || profile.role === 'staff') {
-    return { status: 'authorized' }
-  }
-
-  // Case C: User is registered but not yet approved
-  return { status: 'unapproved' }
-}
