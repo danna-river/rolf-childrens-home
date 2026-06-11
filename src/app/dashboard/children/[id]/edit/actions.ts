@@ -1,9 +1,10 @@
-// src/app/dashboard/children/[id]/edit/actions.ts
 "use server"
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
+import { revalidatePath } from 'next/cache'
 
 export type UpdateChildInput = {
   id_rolf: string
@@ -26,57 +27,106 @@ export type UpdateChildInput = {
   status: 'active' | 'inactive'
 }
 
-export async function checkRolfIdForEdit(
-  idRolf: string,
-  countryName: string,
-  currentChildId: string
-): Promise<{ isTaken: boolean; expectedPrefix: string | null }> {
-  const adminSupabase = await createAdminClient()
-  
-  const { data: countryData } = await (adminSupabase as any)
+// 🌟 Real-time sequence preview calculator when an administrator changes countries during mid-edit operations
+export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ previewId: string | null }> {
+  const supabase = await createClient()
+
+  const { data: countryRecord } = await (supabase as any)
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
     .single()
 
-  const expectedPrefix = countryData?.iso_code || null
+  if (!countryRecord) return { previewId: null }
+  const prefix = countryRecord.iso_code
 
-  // Check if any OTHER child record is currently utilizing this specific unique ID
-  const { data: idData } = await adminSupabase
+  const { data: siblingRecords } = await (supabase as any)
+    .from('children')
+    .select('id_rolf')
+    .like('id_rolf', `${prefix}-%`)
+
+  let currentMaxNumber = 0
+  if (siblingRecords) {
+    for (const record of siblingRecords) {
+      const match = record.id_rolf?.match(/^[A-Z]+-(\d+)$/)
+      if (match) {
+        const parsedNumber = parseInt(match[1], 10)
+        if (parsedNumber > currentMaxNumber) currentMaxNumber = parsedNumber
+      }
+    }
+  }
+  return { previewId: `${prefix}-${String(currentMaxNumber + 1).padStart(4, '0')}` }
+}
+
+// 🌟 Asynchronous structural interceptor running deep format validation and collision scans on save
+export async function checkRolfIdForEdit(
+  idRolf: string,
+  countryName: string,
+  currentChildId: string
+): Promise<{ isValid: boolean; error: string | null; expectedPrefix: string | null }> {
+  const supabase = await createClient()
+
+  const { data: countryData } = await (supabase as any)
+    .from('countries')
+    .select('iso_code')
+    .eq('name', countryName.trim())
+    .single()
+
+  if (!countryData) {
+    return { isValid: false, error: `Country configuration parameters for "${countryName}" could not be found.`, expectedPrefix: null }
+  }
+
+  const prefix = countryData.iso_code
+  const targetId = idRolf.trim().toUpperCase()
+
+  // 🌟 Strict 4-digit formatting rule
+  const strictFormatRegex = new RegExp(`^${prefix}-\\d{4}$`)
+
+  if (!strictFormatRegex.test(targetId)) {
+    return {
+      isValid: false,
+      error: `Format Mismatch: The manual ROLF ID must match the chosen country row format (${prefix}-XXXX) with exactly 4 digits.`,
+      expectedPrefix: prefix // 🌟 Add this line to satisfy the TypeScript compiler!
+    }
+  }
+
+  // Look for any OTHER child record using this unique ID to avoid blocking self-saves when ID is untouched
+  const { data } = await supabase
     .from('children')
     .select('id')
-    .eq('id_rolf', idRolf.trim().toUpperCase())
+    .eq('id_rolf', targetId)
     .neq('id', currentChildId)
     .maybeSingle()
 
-  return {
-    isTaken: !!idData,
-    expectedPrefix
+  if (data) {
+    return { isValid: false, error: `Identity Collision: The ROLF ID "${targetId}" is already assigned to another active child record.`, expectedPrefix: prefix }
   }
+
+  return { isValid: true, error: null, expectedPrefix: prefix }
 }
 
 export async function updateChildAction(
   id: string,
   input: UpdateChildInput,
 ): Promise<{ error: string | null }> {
-  // 🛡️ Security Interceptor: Verify modification scopes completely on the server
+  // Security Interceptor: Verify modification scopes completely on the server using active profile country privileges
   const { profile } = await requireAuth()
   const isSystemAdmin = isAdminRole(profile.role)
   const userAllowedCountries: string[] = profile.country || []
 
   if (!isSystemAdmin && !userAllowedCountries.includes(input.country)) {
-    return { 
-      error: `Security Violation: Your user profile does not have permission scopes allocated to manage records for "${input.country}".` 
+    return {
+      error: `Security Violation: Your user profile does not have permission scopes allocated to manage records for "${input.country}".`
     }
   }
 
-  const adminSupabase = await createAdminClient()
+  const supabase = await createClient()
   const display_name = `${input.first_name} ${input.last_name}`.trim()
 
-  const { error } = await (adminSupabase as any)
+  const { error } = await (supabase as any)
     .from('children')
     .update({
-      id_rolf: input.id_rolf,
+      id_rolf: input.id_rolf.trim().toUpperCase(),
       display_name,
       first_name: input.first_name,
       last_name: input.last_name,
@@ -99,5 +149,10 @@ export async function updateChildAction(
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  // Purge the layout router cache so the dashboard immediately shows the new edits
+  revalidatePath('/dashboard/children')
+  revalidatePath(`/dashboard/children/${id}/edit`)
+
   return { error: null }
 }
