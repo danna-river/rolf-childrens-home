@@ -1,6 +1,6 @@
+// src/app/dashboard/users/adminaction.ts
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { requireAuth } from '@/lib/auth'
@@ -17,10 +17,12 @@ async function verifyAdminGate() {
 
 export async function approveAccountAction(userId: string, role: string, countries: string[]) {
   await verifyAdminGate()
-  const supabase = await createClient()
+  
+  // 🌟 Admin Client Override
+  const adminSupabase = await createAdminClient()
 
   // Update the user's role configuration parameters inside the table
-  const { error } = await (supabase
+  const { error } = await (adminSupabase
     .from('profiles') as any)
     .update({
       role: role,
@@ -36,11 +38,12 @@ export async function approveAccountAction(userId: string, role: string, countri
 
 export async function denyAccountAction(userId: string) {
   await verifyAdminGate()
-  const supabase = await createClient()
-  const adminSupabase = createAdminClient()
+  
+  // 🌟 Admin Client Override
+  const adminSupabase = await createAdminClient()
 
   // 1. Erase public footprint row from profiles database table
-  const { error: dbError } = await supabase
+  const { error: dbError } = await adminSupabase
     .from('profiles')
     .delete()
     .eq('id', userId)
@@ -56,8 +59,9 @@ export async function denyAccountAction(userId: string) {
 
 export async function deleteAccountAction(userId: string) {
   const currentUser = await verifyAdminGate()
-  const supabase = await createClient()
-  const adminSupabase = createAdminClient()
+
+  // 🌟 Admin Client Override
+  const adminSupabase = await createAdminClient()
 
   // Guard 1: never delete yourself (lockout prevention)
   if (userId === currentUser.id) {
@@ -65,7 +69,7 @@ export async function deleteAccountAction(userId: string) {
   }
 
   // Guard 2: Never delete the last admin 
-  const { data: target } = await (supabase.from('profiles') as any)
+  const { data: target } = await (adminSupabase.from('profiles') as any)
     .select('role')
     .eq('id', userId)
     .single()
@@ -73,7 +77,7 @@ export async function deleteAccountAction(userId: string) {
     if (!target) return { error: 'Account not found.' }
 
     if (isAdminRole(target.role)) {
-      const { count } = await supabase
+      const { count } = await adminSupabase
         .from('profiles')
         .select('id', { count: 'exact', head: true })
         .eq('role', 'admin')
@@ -83,7 +87,7 @@ export async function deleteAccountAction(userId: string) {
     }
   
   // Guard 3: block if the account has any active sponsorships (donor sponsorships / staff create children)
-  const { count: sponsorCount } = await supabase
+  const { count: sponsorCount } = await adminSupabase
     .from('sponsorships')
     .select('id', { count: 'exact', head: true })
     .eq('donor_id', userId)
@@ -91,7 +95,7 @@ export async function deleteAccountAction(userId: string) {
     return { error: `Cannot delete: ${sponsorCount} sponsorship(s) are linked to this donor. End or reassign them first.` }
   }
 
-  const { count: childCount } = await supabase
+  const { count: childCount } = await adminSupabase
   .from('children').select('id', { count: 'exact', head: true })
   .eq('created_by', userId)
   if ((childCount ?? 0) > 0) {
@@ -99,7 +103,7 @@ export async function deleteAccountAction(userId: string) {
   }
 
   // If all guards are passed, proceed with deletion
-  const { error: dbError } = await supabase
+  const { error: dbError } = await adminSupabase
     .from('profiles')
     .delete()
     .eq('id', userId)
@@ -114,27 +118,27 @@ export async function deleteAccountAction(userId: string) {
 
 export async function appendNewCountryAction(newCountry: string) {
   await verifyAdminGate()
-  const supabase = await createClient()
+  
+  // 🌟 Admin Client Override
+  const adminSupabase = await createAdminClient()
 
   if (!newCountry || newCountry.trim().length === 0) {
     return { error: 'Country name parameter cannot be empty.' }
   }
 
   // Appends an item directly into the database text array at Row ID #1
-  const { error } = await (supabase.rpc as any)('append_setting_country', {
+  const { error } = await (adminSupabase.rpc as any)('append_setting_country', {
     country_name: newCountry.trim()
   })
 
-  // Alternative fallback approach if your instance prefers a direct pipeline modification block:
-  // We grab row 1, push, and save, but a direct SQL update is safest. Let's write the SQL helper below.
   if (error) {
     // Direct execution fallback string parameter block
-    const { data } = await (supabase.from('app_settings') as any)
+    const { data } = await (adminSupabase.from('app_settings') as any)
       .select('countries')
       .eq('id', 1)
       .single()
     const updatedCountries = [...(data?.countries || []), newCountry.trim()]
-    const { error: updateError } = await (supabase.from('app_settings') as any)
+    const { error: updateError } = await (adminSupabase.from('app_settings') as any)
       .update({ countries: updatedCountries })
       .eq('id', 1)
     if (updateError) return { error: updateError.message }
@@ -146,12 +150,14 @@ export async function appendNewCountryAction(newCountry: string) {
 
 export async function removeCountryAction(targetCountry: string) {
   await verifyAdminGate()
-  const supabase = await createClient()
+  
+  // 🌟 Admin Client Override
+  const adminSupabase = await createAdminClient()
 
   const cleanCountryName = targetCountry.trim()
 
   // 1. GUARD A: Check if any active user profiles are assigned to this country
-  const { data: profileMatches, error: profileCheckError } = await supabase
+  const { data: profileMatches, error: profileCheckError } = await adminSupabase
     .from('profiles')
     .select('id')
     .overlaps('country', [cleanCountryName])
@@ -159,12 +165,12 @@ export async function removeCountryAction(targetCountry: string) {
   if (profileCheckError) return { error: profileCheckError.message }
   if (profileMatches && profileMatches.length > 0) {
     return {
-      error: `Cannot remove "${cleanCountryName}". There are currently ${profileMatches.length} user profile(s) assigned to this jurisdiction.`
+      error: `Cannot remove "${cleanCountryName}". There are currently ${profileMatches.length} user profile(s) assigned to this country.`
     }
   }
 
   // 2. GUARD B: Check if any child records are pinned to this country location
-  const { data: childMatches, error: childCheckError } = await supabase
+  const { data: childMatches, error: childCheckError } = await adminSupabase
     .from('children')
     .select('id')
     .eq('country', cleanCountryName)
@@ -172,12 +178,12 @@ export async function removeCountryAction(targetCountry: string) {
   if (childCheckError) return { error: childCheckError.message }
   if (childMatches && childMatches.length > 0) {
     return {
-      error: `Cannot remove "${cleanCountryName}". There are currently ${childMatches.length} active child record(s) bound to this location.`
+      error: `Cannot remove "${cleanCountryName}". There are currently ${childMatches.length} active child record(s) bound to this country.`
     }
   }
 
   // 3. REMOVAL: Pull list, filter out target string, and rewrite back to row 1
-  const { data } = await (supabase.from('app_settings') as any)
+  const { data } = await (adminSupabase.from('app_settings') as any)
     .select('countries')
     .eq('id', 1)
     .single()
@@ -185,7 +191,7 @@ export async function removeCountryAction(targetCountry: string) {
   const currentList: string[] = data?.countries || []
   const updatedList = currentList.filter(item => item !== cleanCountryName)
 
-  const { error: updateError } = await (supabase.from('app_settings') as any)
+  const { error: updateError } = await (adminSupabase.from('app_settings') as any)
     .update({ countries: updatedList })
     .eq('id', 1)
 
