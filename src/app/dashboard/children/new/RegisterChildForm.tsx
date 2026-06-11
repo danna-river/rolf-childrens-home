@@ -33,26 +33,26 @@ interface Props {
 export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
-  
+
   const [form, setForm] = useState<FormData>({
     id_rolf: "",
-    first_name: "", 
-    last_name: "", 
+    first_name: "",
+    last_name: "",
     birthdate: "",
-    year_joined: "", 
+    year_joined: "",
     country: assignedCountries.length === 1 ? assignedCountries[0] : "",
-    career_aspiration: "", 
-    favorite_subject: "", 
+    career_aspiration: "",
+    favorite_subject: "",
     hobby: "I like to ",
     bio: ""
   })
-  
+
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [validatingStepZero, setValidatingStepZero] = useState(false)
   const [initialGeneratedId, setInitialGeneratedId] = useState<string>("")
@@ -70,11 +70,11 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
         setInitialGeneratedId("")
         return
       }
-      
+
       setLoadingPreview(true)
       const { previewId } = await getLatestIdPreview(form.country)
       setLoadingPreview(false)
-      
+
       if (previewId) {
         setInitialGeneratedId(previewId)
         setForm(f => ({ ...f, id_rolf: previewId }))
@@ -100,7 +100,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   // 🌟 ASYNCHRONOUS STEP GATE: Handles live background lookups on Step 0 to block continuation if input errors exist
   const handleStepProgression = async () => {
     setError(null)
-    
+
     if (step === 0) {
       setValidatingStepZero(true)
       const { isValid, error: validationError } = await checkRolfIdForRegistration(form.id_rolf, form.country)
@@ -122,7 +122,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
     const dob = form.birthdate ? new Date(form.birthdate) : null
     const age = calcAge(form.birthdate)
-    
+
     const input = {
       id_rolf: form.id_rolf.trim().toUpperCase(),
       first_name: form.first_name.trim(),
@@ -141,16 +141,20 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       profile_photo: photoUrl,
       profile_video: videoUrl,
     }
-    
+
     const { error: actionError } = await registerChildAction(input)
-    if (actionError) { 
+    if (actionError) {
       setError(actionError)
-      setSubmitting(false)
-      setStep(0) // Return view context back to Step 0 if fallback fails
+      setSubmitting(false) // 🌟 Essential: Unlock button state on failure!
+
+      // If the code sequence failed at the final table write, kick them back to step 0
+      // but force a state reset so the code immediately fetches the fresh, correct index preview string.
+      setForm(f => ({ ...f, id_rolf: "" }))
+      setStep(0)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-      return 
+      return
     }
-    
+
     router.push("/dashboard/children")
   }
 
@@ -159,7 +163,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       {/* STICKY HEADER MATRIX BAR */}
       <div className="sticky top-16 z-40 bg-white border-b border-gray-100 shadow-sm">
         <div className="px-4 py-4 flex items-center gap-3">
-          <button 
+          <button
             type="button"
             onClick={() => step > 0 ? setStep(s => s - 1) : router.back()}
             disabled={submitting || validatingStepZero}
@@ -213,7 +217,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             <Field label="Date Joined Home *" htmlFor="year_joined">
               <input id="year_joined" type="date" value={form.year_joined} onChange={e => set("year_joined", e.target.value)} max={new Date().toISOString().split("T")[0]} min="2000-01-01" className={inputClass} />
             </Field>
-            
+
             <Field label="Country *" htmlFor="country">
               <select id="country" value={form.country} onChange={e => set("country", e.target.value)} className={inputClass} required>
                 <option value="" disabled>Select active country...</option>
@@ -229,23 +233,23 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                   Syncing next chronological identifier sequence...
                 </div>
               ) : isAdmin ? (
-                <input 
-                  id="id_rolf" 
-                  value={form.id_rolf} 
+                <input
+                  id="id_rolf"
+                  value={form.id_rolf}
                   disabled={!form.country}
-                  onChange={e => set("id_rolf", e.target.value.toUpperCase())} 
+                  onChange={e => set("id_rolf", e.target.value.toUpperCase())}
                   placeholder={form.country ? "e.g. BEN-0010" : "Select Country First..."}
-                  className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold text-gray-800"} 
+                  className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold text-gray-800"}
                 />
               ) : (
-                <input 
-                  id="id_rolf_locked" 
-                  value={form.country ? form.id_rolf : "Select Country First..."} 
-                  disabled 
-                  className={inputClass + " bg-gray-100 border-gray-200 text-gray-700 font-mono tracking-wider select-none cursor-not-allowed font-semibold"} 
+                <input
+                  id="id_rolf_locked"
+                  value={form.country ? form.id_rolf : "Select Country First..."}
+                  disabled
+                  className={inputClass + " bg-gray-100 border-gray-200 text-gray-700 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
                 />
               )}
-              
+
               {/* 🌟 Dynamic Inline Notification Banner — Only triggers for Admins when value shifts from default setup pattern */}
               {isAdmin && form.id_rolf && form.id_rolf !== initialGeneratedId && (
                 <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal">
@@ -254,8 +258,8 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
               )}
 
               <p className="text-xs text-gray-400 mt-1.5">
-                {isAdmin 
-                  ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered." 
+                {isAdmin
+                  ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
                   : "Automatically calculated based on the highest tracking index parameter currently inside the dataset for this home."}
               </p>
             </Field>

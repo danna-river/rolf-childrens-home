@@ -1,8 +1,10 @@
 "use server"
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
+import { revalidatePath } from 'next/cache'
 
 export type RegisterChildInput = {
   id_rolf: string 
@@ -23,10 +25,11 @@ export type RegisterChildInput = {
   profile_video?: string | null
 }
 
+// 🌟 SAFE: Switched to user-scoped createClient
 export async function getLatestIdPreview(countryName: string): Promise<{ previewId: string | null; error: string | null }> {
-  const adminSupabase = await createAdminClient()
+  const supabase = await createClient()
 
-  const { data: countryRecord } = await (adminSupabase as any)
+  const { data: countryRecord } = await (supabase as any)
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -35,7 +38,7 @@ export async function getLatestIdPreview(countryName: string): Promise<{ preview
   if (!countryRecord) return { previewId: null, error: "Country not configured." }
   const prefix = countryRecord.iso_code
 
-  const { data: siblingRecords } = await (adminSupabase as any)
+  const { data: siblingRecords } = await (supabase as any)
     .from('children')
     .select('id_rolf')
     .like('id_rolf', `${prefix}-%`)
@@ -57,14 +60,16 @@ export async function getLatestIdPreview(countryName: string): Promise<{ preview
   }
 }
 
-// 🌟 NEW INTERCEPTOR: Runs on Step 0 "Continue" for Admins to prevent moving forward with broken inputs
+// 🌟 JUSTIFIED: Retains admin client to check for global string collisions across all country partitions
 export async function checkRolfIdForRegistration(
   idRolf: string,
   countryName: string
 ): Promise<{ isValid: boolean; error: string | null }> {
+  const supabase = await createClient()
   const adminSupabase = await createAdminClient()
 
-  const { data: countryData } = await (adminSupabase as any)
+  // Verify country parameters using standard privilege tokens first
+  const { data: countryData } = await (supabase as any)
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -94,6 +99,7 @@ export async function checkRolfIdForRegistration(
   return { isValid: true, error: null }
 }
 
+// 🌟 SAFE: Switched to user client to force full Row-Level Security checks on records ingestion
 export async function registerChildAction(
   input: RegisterChildInput,
 ): Promise<{ id: string | null; error: string | null; generatedId?: string }> {
@@ -108,9 +114,10 @@ export async function registerChildAction(
     }
   }
 
+  const supabase = await createClient()
   const adminSupabase = await createAdminClient()
 
-  const { data: countryRecord, error: countryError } = await (adminSupabase as any)
+  const { data: countryRecord, error: countryError } = await (supabase as any)
     .from('countries')
     .select('iso_code')
     .eq('name', input.country.trim())
@@ -127,6 +134,7 @@ export async function registerChildAction(
     return { id: null, error: `Format Discrepancy: The ROLF ID must match the chosen country row prefix format (${prefix}-XXXX).` }
   }
 
+  // Cross-verify uniqueness right before write payload runs to prevent mid-wizard registration races
   const { data: collisionCheck } = await adminSupabase
     .from('children')
     .select('id')
@@ -134,12 +142,12 @@ export async function registerChildAction(
     .maybeSingle()
 
   if (collisionCheck) {
-    return { id: null, error: `Identity Collision: The ROLF ID "${targetRolfId}" is already claimed by another record.` }
+    return { id: null, error: `Identity Collision: The ROLF ID "${targetRolfId}" was claimed by another worker while you filled out the form.` }
   }
 
   const display_name = `${input.first_name} ${input.last_name}`.trim()
   
-  const { data, error: insertError } = await (adminSupabase as any)
+  const { data, error: insertError } = await (supabase as any)
     .from('children')
     .insert({
       id_rolf: targetRolfId,
@@ -167,5 +175,9 @@ export async function registerChildAction(
     .single()
     
   if (insertError) return { id: null, error: insertError.message }
+
+  // Clear server data layout layouts cache
+  revalidatePath('/dashboard/children')
+
   return { id: (data as { id: string }).id, error: null, generatedId: targetRolfId }
 }
