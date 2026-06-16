@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Change {
   field: string
@@ -25,6 +25,7 @@ interface AuditLogSectionProps {
 export function AuditLogSection({ editLog }: AuditLogSectionProps) {
   const itemsPerPage = 25
   const [currentPage, setCurrentPage] = useState(1)
+  const [inputPage, setInputPage] = useState('1')
   const [activeModalIdx, setActiveModalIdx] = useState<number | null>(null)
 
   const rawLogArray = Array.isArray(editLog) ? (editLog as LogEntry[]) : []
@@ -41,6 +42,24 @@ export function AuditLogSection({ editLog }: AuditLogSectionProps) {
   const endIndex = startIndex + itemsPerPage
   const paginatedLogs = sortedLogs.slice(startIndex, endIndex)
 
+  // Keep the input field in sync when changing pages via Prev/Next buttons
+  useEffect(() => {
+    setInputPage(currentPage.toString())
+  }, [currentPage])
+
+  // Handle direct numeric input submission
+  const handlePageSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const parsedPage = parseInt(inputPage, 10)
+    
+    if (!isNaN(parsedPage) && parsedPage >= 1 && parsedPage <= totalPages) {
+      setCurrentPage(parsedPage)
+    } else {
+      // Revert input to current page if invalid number is typed
+      setInputPage(currentPage.toString())
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-3 space-y-2 shadow-2xs">
       {/* Log Header Row */}
@@ -50,7 +69,7 @@ export function AuditLogSection({ editLog }: AuditLogSectionProps) {
           <p className="text-[10px] text-gray-400">Showing {totalItems > 0 ? startIndex + 1 : 0}–{Math.min(endIndex, totalItems)} of {totalItems} entries</p>
         </div>
         <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-          Page {currentPage} of {totalPages}
+          Total Pages: {totalPages}
         </span>
       </div>
 
@@ -65,7 +84,7 @@ export function AuditLogSection({ editLog }: AuditLogSectionProps) {
               ? log.profile.country.join('/')
               : log.profile?.country || 'Global'
 
-            const metaString = `${name} (${role} • ${countries})`
+            const metaString = `${name} (${role} — ${countries})`
 
             const formattedDate = new Date(log.timestamp).toLocaleString('en-US', {
               timeZone: 'America/Los_Angeles',
@@ -153,21 +172,36 @@ export function AuditLogSection({ editLog }: AuditLogSectionProps) {
         </div>
       )}
 
-      {/* Pagination Footer */}
+      {/* 🌟 UPGRADED SELECTABLE PAGINATION FOOTER ROW */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-1.5 border-t border-gray-50 text-[11px]">
+        <div className="flex items-center justify-between pt-2 border-t border-gray-50 text-[11px]">
           <button
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            className="px-2 py-0.5 rounded border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] transition-colors cursor-pointer"
+            className="px-2 py-1 rounded border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-medium transition-colors cursor-pointer shrink-0"
           >
             ← Prev
           </button>
-          <span className="text-gray-400 font-mono text-[10px]">Page {currentPage}/{totalPages}</span>
+          
+          {/* Direct Input Form Panel */}
+          <form onSubmit={handlePageSubmit} className="flex items-center gap-1.5 text-gray-400">
+            <span>Page</span>
+            <input 
+              type="text"
+              pattern="[0-9]*"
+              inputMode="numeric"
+              value={inputPage}
+              onChange={(e) => setInputPage(e.target.value)}
+              onBlur={() => setInputPage(currentPage.toString())} // Reset on focus loss if uncommitted
+              className="w-10 text-center py-0.5 px-1 border border-gray-200 text-gray-700 rounded-md font-mono text-[11px] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-100 bg-gray-50/50"
+            />
+            <span>of <span className="font-mono font-medium text-gray-600">{totalPages}</span></span>
+          </form>
+
           <button
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            className="px-2 py-0.5 rounded border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] transition-colors cursor-pointer"
+            className="px-2 py-1 rounded border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-medium transition-colors cursor-pointer shrink-0"
           >
             Next →
           </button>
