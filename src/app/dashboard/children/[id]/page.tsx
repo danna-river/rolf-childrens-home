@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Child } from '@/lib/types'
 import { PhotoViewer } from './PhotoViewer'
+import { AuditLogSection } from './AuditLogSection'
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
@@ -121,11 +122,21 @@ export default async function ChildProfilePage({
           <DetailRow label="Bio" value={child.bio} />
         </div>
 
-        {child.notes && (
+        {/* Internal Notes Segment */}
+        {(profile.role === 'admin' || profile.role === 'staff') && (
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
             <p className="text-xs font-semibold text-amber-600 mb-1">Internal Notes</p>
-            <p className="text-sm text-amber-800">{child.notes}</p>
+            {child.notes?.trim() ? (
+              <p className="text-sm text-amber-800 whitespace-pre-wrap">{child.notes}</p>
+            ) : (
+              <p className="text-sm text-amber-400 italic">No internal notes added yet.</p>
+            )}
           </div>
+        )}
+
+        {/* 🌟 READ-ONLY AUDIT LOG TIMELINE SECTION (ADMINS ONLY) */}
+        {profile.role === 'admin' && (
+          <AuditLogSection editLog={child.edit_log} />
         )}
       </div>
     </div>

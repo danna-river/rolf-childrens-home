@@ -5,6 +5,7 @@ export type UserRole = (typeof USER_ROLES)[number]
 
 /** Subset of profile fields used for dashboard routing. */
 export type UserProfile = {
+  id: string
   role: string
   country: string[] | null
 }
