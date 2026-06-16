@@ -24,6 +24,7 @@ export function SearchBar({ totalCount }: SearchBarProps) {
             } else {
                 params.delete("search");
             }
+            params.delete("page"); // new query → back to the first page
             router.replace(`${pathname}?${params.toString()}`);
         }, 300);
     };

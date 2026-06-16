@@ -14,6 +14,7 @@ export function StatusFilter() {
     } else {
       params.set("status", status)
     }
+    params.delete("page") // filter changed → back to the first page
     router.replace(`${pathname}?${params.toString()}`)
   }
 
