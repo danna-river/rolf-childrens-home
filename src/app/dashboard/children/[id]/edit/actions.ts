@@ -109,10 +109,10 @@ export async function updateChildAction(
   id: string,
   input: UpdateChildInput,
 ): Promise<{ error: string | null }> {
-  // Security Interceptor: Verify modification scopes completely on the server using active profile country privileges
-  const { profile } = await requireAuth()
-  const isSystemAdmin = isAdminRole(profile.role)
-  const userAllowedCountries: string[] = profile.country || []
+  // 1. Security Interceptor: Verify modification scopes
+  const { profile: actorProfile } = await requireAuth()
+  const isSystemAdmin = isAdminRole(actorProfile.role)
+  const userAllowedCountries: string[] = actorProfile.country || []
 
   if (!isSystemAdmin && !userAllowedCountries.includes(input.country)) {
     return {
@@ -121,8 +121,79 @@ export async function updateChildAction(
   }
 
   const supabase = await createClient()
+
+  // 2. Fetch the CURRENT state of the child to compare changes and get existing log
+  const { data: currentChild, error: fetchError } = await (supabase as any)
+    .from('children')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !currentChild) {
+    return { error: "Failed to locate the original child record for delta logging." }
+  }
+
+  // 3. Fetch the full name of the editor from the profiles table
+  const { data: fullProfileData } = await (supabase as any)
+    .from('profiles')
+    .select('full_name')
+    .eq('id', actorProfile.id)
+    .single()
+
+  const actorFullName = fullProfileData?.full_name || 'Unknown User'
+
+  // 4. Calculate exactly what fields changed
+  const changes: Array<{ field: string; from: any; to: any }> = []
+  
+  // Format dates consistently to avoid false positive matches
+  const normalizeDate = (val: any) => val ? new Date(val).toISOString().split('T')[0] : null
+
+  const fieldsToTrack: Array<keyof UpdateChildInput> = [
+    'id_rolf', 'first_name', 'last_name', 'age', 'country', 
+    'career_aspiration', 'favorite_subject', 'hobby', 'bio', 'notes', 'status'
+  ]
+
+  fieldsToTrack.forEach((field) => {
+    let currentVal = currentChild[field]
+    let newVal = input[field]
+
+    // Handle date fields or string trims gracefully
+    if (field === 'date_joined') {
+      currentVal = normalizeDate(currentVal)
+      newVal = normalizeDate(newVal)
+    } else if (typeof currentVal === 'string') {
+      currentVal = currentVal.trim()
+    }
+
+    if (currentVal !== newVal) {
+      changes.push({
+        field,
+        from: currentVal ?? '—',
+        to: newVal ?? '—'
+      })
+    }
+  })
+
+  // 5. Construct the new log entry if changes were caught
+  let updatedLog = currentChild.edit_log || []
+  if (changes.length > 0) {
+    const newLogEntry = {
+      timestamp: new Date().toISOString(),
+      profile: {
+        id: actorProfile.id,
+        full_name: actorFullName,
+        role: actorProfile.role,
+        country: actorProfile.country
+      },
+      changes
+    }
+    // Prepend new edits to the front of the timeline log
+    updatedLog = [newLogEntry, ...updatedLog]
+  }
+
   const display_name = `${input.first_name} ${input.last_name}`.trim()
 
+  // 6. Push data updates alongside the new log matrix to Supabase
   const { error } = await (supabase as any)
     .from('children')
     .update({
@@ -145,14 +216,14 @@ export async function updateChildAction(
       profile_photo: input.profile_photo,
       profile_video: input.profile_video,
       status: input.status,
+      edit_log: updatedLog, // Push updated jsonb array
     })
     .eq('id', id)
 
   if (error) return { error: error.message }
 
-  // Purge the layout router cache so the dashboard immediately shows the new edits
   revalidatePath('/dashboard/children')
-  revalidatePath(`/dashboard/children/${id}/edit`)
+  revalidatePath(`/dashboard/children/${id}`)
 
   return { error: null }
 }
