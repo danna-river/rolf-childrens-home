@@ -144,18 +144,24 @@ export async function updateChildAction(
 
   // 4. Calculate exactly what fields changed
   const changes: Array<{ field: string; from: any; to: any }> = []
-  
+
   // Format dates consistently to avoid false positive matches
   const normalizeDate = (val: any) => val ? new Date(val).toISOString().split('T')[0] : null
 
   const fieldsToTrack: Array<keyof UpdateChildInput> = [
-    'id_rolf', 'first_name', 'last_name', 'age', 'country', 
+    'id_rolf', 'first_name', 'last_name', 'age', 'country',
     'career_aspiration', 'favorite_subject', 'hobby', 'bio', 'notes', 'status'
   ]
 
   fieldsToTrack.forEach((field) => {
     let currentVal = currentChild[field]
     let newVal = input[field]
+
+    if (typeof currentVal === 'string') currentVal = currentVal.trim() || null
+    else if (currentVal === undefined) currentVal = null
+
+    if (typeof newVal === 'string') newVal = newVal.trim() || null
+    else if (newVal === undefined) newVal = null
 
     // Handle date fields or string trims gracefully
     if (field === 'date_joined') {
