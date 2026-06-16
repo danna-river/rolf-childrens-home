@@ -121,10 +121,67 @@ export default async function ChildProfilePage({
           <DetailRow label="Bio" value={child.bio} />
         </div>
 
-        {child.notes && (
+        {/* Internal Notes Segment */}
+        {(profile.role === 'admin' || profile.role === 'staff') && (
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
             <p className="text-xs font-semibold text-amber-600 mb-1">Internal Notes</p>
-            <p className="text-sm text-amber-800">{child.notes}</p>
+            {child.notes?.trim() ? (
+              <p className="text-sm text-amber-800 whitespace-pre-wrap">{child.notes}</p>
+            ) : (
+              <p className="text-sm text-amber-400 italic">No internal notes added yet.</p>
+            )}
+          </div>
+        )}
+
+        {/* 🌟 READ-ONLY AUDIT LOG TIMELINE SECTION (ADMINS ONLY) */}
+        {profile.role === 'admin' && (
+          <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-4 shadow-2xs">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Edit Activity Log</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Read-only record of updates made to this child's profile.</p>
+            </div>
+
+            {(!child.edit_log || (child.edit_log as any[]).length === 0) ? (
+              <p className="text-xs text-gray-300 italic py-2 text-center">No edit activity found for this child.</p>
+            ) : (
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1 divide-y divide-gray-50">
+                {(child.edit_log as any[]).map((log, logIdx) => (
+                  <div key={logIdx} className={`text-xs pt-3 ${logIdx === 0 ? 'pt-0' : ''}`}>
+                    {/* Log Entry Header Meta Details */}
+                    <div className="flex flex-wrap items-start justify-between gap-1 mb-1.5">
+                      <div>
+                        <span className="font-semibold text-gray-800">{log.profile?.full_name}</span>
+                        <span className="text-gray-400 mx-1">({log.profile?.role})</span>
+                        <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.2 rounded-sm font-mono">
+                          Scope: {Array.isArray(log.profile?.country) ? log.profile.country.join(', ') : log.profile?.country || 'Global'}
+                        </span>
+                      </div>
+                      <time className="text-[10px] text-gray-400 font-mono">
+                        {new Date(log.timestamp).toLocaleString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </time>
+                    </div>
+
+                    {/* Change List Sub Matrix */}
+                    <ul className="space-y-1 bg-gray-50 p-2 rounded-lg border border-gray-100 font-mono text-[11px] leading-normal">
+                      {log.changes?.map((change: any, changeIdx: number) => (
+                        <li key={changeIdx} className="text-gray-600 break-all">
+                          • <span className="text-blue-600 font-medium">{change.field}</span>:{' '}
+                          <span className="text-red-500 line-through">{String(change.from)}</span>
+                          <span className="text-gray-400 mx-1">→</span>
+                          <span className="text-green-600 font-semibold">{String(change.to)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
