@@ -38,16 +38,22 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
   if (targetTab === 'approvals') {
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
 
-    // Fetch unapproved accounts query payload
+    // 1. Fetch unapproved accounts query payload
     const { data: pendingUsers } = await supabase
       .from('profiles')
       .select('id, email, full_name, role, country, created_at')
       .eq('role', 'unapproved')
       .order('created_at', { ascending: false })
 
-    // Fetch global configuration settings
-    const { data: settingsData } = await supabase.from('app_settings').select('countries').eq('id', 1).single()
-    const activeCountries = settingsData?.countries || []
+    const { data: countriesData } = await supabase
+      .from('countries')
+      .select('name')
+      .order('name', { ascending: true })
+
+    // 3. Extract the names safely into a string array format
+    const activeCountries = ((countriesData ?? []) as CountryNameRow[]).map(
+      (country) => country.name,
+    )
 
     return (
       <AccountApprovalView
