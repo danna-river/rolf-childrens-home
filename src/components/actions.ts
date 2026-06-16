@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ChildProfile } from '@/types/profile'
 import { createClient } from '@/lib/supabase/server'
+import { PAGE_SIZE } from '@/lib/pagination'
 
 interface DBChildRow {
   id: string
@@ -71,8 +72,6 @@ export async function getCountries(): Promise<string[]> {
   // TypeScript now recognizes 'row' as a valid object instead of 'never'
   return (data as CountryRow[]).map((row) => row.name)
 }
-
-const PAGE_SIZE = 9
 
 export async function getChildrenProfiles(
   countries?: string[],

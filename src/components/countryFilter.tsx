@@ -18,6 +18,7 @@ export function CountryFilter({ countries }: CountryFilterProps) {
     } else {
       params.set("country", country)
     }
+    params.delete("page") // filter changed → back to the first page
     router.replace(`${pathname}?${params.toString()}`)
   }
 

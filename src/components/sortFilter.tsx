@@ -19,6 +19,7 @@ export function SortFilter() {
   const setSort = (sort: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("sort", sort)
+    params.delete("page") // sort changed → back to the first page
     router.replace(`${pathname}?${params.toString()}`)
   }
 
