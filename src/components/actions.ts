@@ -83,7 +83,7 @@ export async function getChildrenProfiles(
     query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,id_rolf.ilike.%${search}%`)
   }
 
-  if (status && status !== 'all') {
+  if (status === 'active' || status === 'inactive') {
     query = query.eq('status', status)
   }
 

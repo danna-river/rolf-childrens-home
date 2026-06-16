@@ -37,12 +37,12 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     // Fetch unapproved accounts query payload
     const { data: pendingUsers } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, created_at')
+      .select('id, email, full_name, role, country, created_at')
       .eq('role', 'unapproved')
       .order('created_at', { ascending: false })
 
     // Fetch global configuration settings
-    const { data: settingsData } = await (supabase.from('app_settings') as any).select('countries').eq('id', 1).single()
+    const { data: settingsData } = await supabase.from('app_settings').select('countries').eq('id', 1).single()
     const activeCountries = settingsData?.countries || []
 
     return (
@@ -70,7 +70,7 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
 
     // Fetch global configuration settings
-    const { data: settingsData, error } = await (supabase.from('app_settings') as any).select('countries').eq('id', 1).single()
+    const { data: settingsData, error } = await supabase.from('app_settings').select('countries').eq('id', 1).single()
     console.log('Database Row Data:', settingsData)
     console.log('Database Error (if any):', error)
     const activeCountries = settingsData?.countries || []
