@@ -16,6 +16,7 @@ export function YearJoinedFilter({ years }: { years: number[] }) {
     } else {
       params.set("yearJoined", year)
     }
+    params.delete("page") // filter changed → back to the first page
     router.replace(`${pathname}?${params.toString()}`)
   }
 

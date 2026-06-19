@@ -20,6 +20,10 @@ type SettingsPageProps = {
   searchParams: Promise<{ tab?: string }>
 }
 
+type CountryNameRow = {
+  name: string
+}
+
 export default async function SettingsTabDispatcherPage({ searchParams }: SettingsPageProps) {
   // 1. Run the auth check to load active user profile metrics safely on the server
   const { user, profile } = await requireAuth({ allowUnapproved: true })
@@ -34,16 +38,22 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
   if (targetTab === 'approvals') {
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
 
-    // Fetch unapproved accounts query payload
+    // 1. Fetch unapproved accounts query payload
     const { data: pendingUsers } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, created_at')
+      .select('id, email, full_name, role, country, created_at')
       .eq('role', 'unapproved')
       .order('created_at', { ascending: false })
 
-    // Fetch global configuration settings
-    const { data: settingsData } = await (supabase.from('app_settings') as any).select('countries').eq('id', 1).single()
-    const activeCountries = settingsData?.countries || []
+    const { data: countriesData } = await supabase
+      .from('countries')
+      .select('name')
+      .order('name', { ascending: true })
+
+    // 3. Extract the names safely into a string array format
+    const activeCountries = ((countriesData ?? []) as CountryNameRow[]).map(
+      (country) => country.name,
+    )
 
     return (
       <AccountApprovalView
@@ -54,27 +64,45 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
   }
 
   if (targetTab === 'manage_users') {
-    if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
+    if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile')
+
     const { data: accounts } = await supabase
       .from('profiles')
       .select('id, email, full_name, role, country, created_at')
-      .in('role', ['admin', 'staff', 'donor'])   // exclude 'unapproved' (that's the Approvals tab)
+      .in('role', ['admin', 'staff', 'donor'])
       .order('role', { ascending: true })
       .order('created_at', { ascending: false })
 
+    // 🌟 ADDED: Query your true populated 'countries' table
+    const { data: countriesData } = await supabase
+      .from('countries')
+      .select('name')
+      .order('name', { ascending: true })
+      
+    const activeCountries = ((countriesData ?? []) as CountryNameRow[]).map(
+      (country) => country.name,
+    )
 
-    return <AccountManagementView initialUsers={accounts || []} currentUserId={user.id} />
+    return (
+      <AccountManagementView 
+        initialUsers={accounts || []} 
+        currentUserId={user.id} 
+        availableCountries={activeCountries} // 👈 Pass down the prop
+      />
+    )
   }
 
   if (targetTab === 'global_config') {
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
 
     // Fetch global configuration settings
-    const { data: countriesData, error } = await supabase
+    const { data: countriesData } = await supabase
       .from('countries')
       .select('name')
       .order('name', { ascending: true })
-    const activeCountries = (countriesData as any[] | null)?.map(c => c.name) || []
+    const activeCountries = ((countriesData ?? []) as CountryNameRow[]).map(
+      (country) => country.name,
+    )
 
     return <GlobalConfigsView currentCountries={activeCountries} />
   }

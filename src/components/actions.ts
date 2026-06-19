@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ChildProfile } from '@/types/profile'
 import { createClient } from '@/lib/supabase/server'
+import { PAGE_SIZE } from '@/lib/pagination'
 
 interface DBChildRow {
   id: string
@@ -73,8 +74,6 @@ export async function getCountries(): Promise<string[]> {
   return (data as CountryRow[]).map((row) => row.name)
 }
 
-const PAGE_SIZE = 9
-
 export async function getChildrenProfiles(
   countries?: string[],
   search?: string,
@@ -96,7 +95,7 @@ export async function getChildrenProfiles(
     query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,id_rolf.ilike.%${search}%`)
   }
 
-  if (status && status !== 'all') {
+  if (status === 'active' || status === 'inactive') {
     query = query.eq('status', status)
   }
 

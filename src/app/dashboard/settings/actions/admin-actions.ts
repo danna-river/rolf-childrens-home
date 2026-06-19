@@ -30,7 +30,7 @@ export async function approveAccountAction(userId: string, role: string, countri
 
   if (error) return { error: error.message }
 
-  revalidatePath('/dashboard/approval')
+  revalidatePath('/dashboard/settings')
   return { success: true }
 }
 

@@ -50,7 +50,9 @@ export default function ProfileCard({ profile }: { profile: ChildProfile }) {
                     </div>
                     <p className="text-sm text-gray-800 mt-1">{profile.id_rolf || "ROLF ID Unknown"}</p>
                     <p className="text-sm text-gray-500">{profile.birthDay && profile.birthMonth && profile.birthYear ? `Birthdate: ${profile.birthDay}/${profile.birthMonth}/${profile.birthYear}` : "Date of birth unknown"}</p>
-                    <p className="text-sm text-gray-500">{profile.age > 0 ? `${profile.age} years old` : "Age unknown"}</p>
+                    <p className="text-sm text-gray-500">
+                        {typeof profile.age === 'number' && profile.age >= 0 ? `${profile.age} years old` : "Age unknown"}
+                    </p>
                     <p className="text-sm text-gray-500">{profile.date_joined ? `Joined: ${new Date(profile.date_joined).getFullYear()}` : profile.year_joined ? `Joined: ${profile.year_joined}` : "Year joined unknown"}</p>
                     <p className="text-sm text-gray-500">
                         Last Updated:{' '}

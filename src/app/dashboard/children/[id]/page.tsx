@@ -92,7 +92,9 @@ export default async function ChildProfilePage({
 
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-xl border border-gray-100 p-3 flex flex-col items-center justify-center text-center">
-            <p className={`text-lg font-bold ${child.age ? 'text-gray-900' : 'text-gray-300'}`}>{child.age || '—'}</p>
+            <p className={`text-lg font-bold ${typeof child.age === 'number' && child.age >= 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+              {typeof child.age === 'number' && child.age >= 0 ? child.age : '—'}
+            </p>
             <p className="text-xs text-gray-400">years old</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-3 flex flex-col items-center justify-center text-center">
