@@ -33,34 +33,42 @@ export default function ProfileCard({ profile }: { profile: ChildProfile }) {
                         </span>
                     </div>
                 )}
-                <div className="min-w-0 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                <h2 className="text-base font-semibold truncate">{name}</h2>
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                    {profile.status}
-                                </span>
-                            </div>
-                            <Link
-                                href={`/dashboard/children/${profile.id}/edit`}
-                                className="relative z-10 shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 rounded-lg px-2.5 py-1 transition-colors"
-                            >
-                                Edit
-                            </Link>
-                        </div>
-                        <p className="text-sm text-gray-800 mt-1">{profile.id_rolf || "ROLF ID Unknown"}</p>
-                        <p className="text-sm text-gray-500">{profile.birthDay && profile.birthMonth && profile.birthYear ? `Birthdate: ${profile.birthDay}/${profile.birthMonth}/${profile.birthYear}` : "Date of birth unknown"}</p>
-                        <p className="text-sm text-gray-500">{profile.age > 0 ? `${profile.age} years old` : "Age unknown"}</p>
-                        <p className="text-sm text-gray-500">{profile.date_joined ? `Joined: ${new Date(profile.date_joined).getFullYear()}` : profile.year_joined ? `Joined: ${profile.year_joined}` : "Year joined unknown"}</p>
-                    </div>
-                    {formattedLastUpdate && (
-                        <div className="mt-2 pt-2 border-t border-gray-50 flex justify-end">
-                            <span className="text-[10px] text-gray-400 font-medium">
-                                Last Updated: <span className="font-mono text-gray-500">{formattedLastUpdate}</span>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <h2 className="text-base font-semibold truncate">{name}</h2>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                {profile.status}
                             </span>
                         </div>
-                    )}
+                        <Link
+                            href={`/dashboard/children/${profile.id}/edit`}
+                            className="relative z-10 shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 rounded-lg px-2.5 py-1 transition-colors"
+                        >
+                            Edit
+                        </Link>
+                    </div>
+                    <p className="text-sm text-gray-800 mt-1">{profile.id_rolf || "ROLF ID Unknown"}</p>
+                    <p className="text-sm text-gray-500">{profile.birthDay && profile.birthMonth && profile.birthYear ? `Birthdate: ${profile.birthDay}/${profile.birthMonth}/${profile.birthYear}` : "Date of birth unknown"}</p>
+                    <p className="text-sm text-gray-500">{profile.age > 0 ? `${profile.age} years old` : "Age unknown"}</p>
+                    <p className="text-sm text-gray-500">{profile.date_joined ? `Joined: ${new Date(profile.date_joined).getFullYear()}` : profile.year_joined ? `Joined: ${profile.year_joined}` : "Year joined unknown"}</p>
+                    <p className="text-sm text-gray-500">
+                        Last Updated:{' '}
+                        <span className="font-mono text-gray-400">
+                            {profile.updatedAt ? (
+                                new Date(profile.updatedAt).toLocaleString('en-US', {
+                                    timeZone: 'America/Los_Angeles',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false
+                                }) + ' PT'
+                            ) : (
+                                'Never edited'
+                            )}
+                        </span>
+                    </p>
                 </div>
             </article>
         </div>

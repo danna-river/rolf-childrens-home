@@ -40,7 +40,8 @@ export default async function ChildProfilePage({
     .select(`
       *,
       creator:created_by (
-        full_name
+        full_name,
+        role
       )
     `)
     .eq('id', id)
@@ -141,7 +142,12 @@ export default async function ChildProfilePage({
 
         {/* 🌟 READ-ONLY AUDIT LOG TIMELINE SECTION (ADMINS ONLY) */}
         {profile.role === 'admin' && (
-          <AuditLogSection editLog={child.edit_log} />
+          <AuditLogSection
+            editLog={child.edit_log}
+            createdAt={child.created_at}
+            creatorName={child.creator?.full_name || null} // 🌟 Double check this line matches exactly!
+            creatorRole={child.creator?.role || null}
+          />
         )}
       </div>
     </div>

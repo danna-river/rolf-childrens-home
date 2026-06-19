@@ -22,16 +22,17 @@ interface AuditLogSectionProps {
   editLog: any
   createdAt?: string | null
   creatorName?: string | null
+  creatorRole?: string | null
 }
 
-export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSectionProps) {
+export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }: AuditLogSectionProps) {
   const itemsPerPage = 25
   const [currentPage, setCurrentPage] = useState(1)
   const [inputPage, setInputPage] = useState('1')
   const [activeModalIdx, setActiveModalIdx] = useState<number | null>(null)
 
   const rawLogArray = Array.isArray(editLog) ? (editLog as LogEntry[]) : []
-  
+
   // Force Chronological sorting (Newest timestamp always first)
   const sortedLogs = [...rawLogArray].sort((a, b) => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -39,17 +40,19 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
 
   if (createdAt) {
     const finalCreatorLabel = creatorName?.trim() || 'Direct Database Edit'
-    const finalRoleLabel = creatorName?.trim() ? 'staff' : 'admin'
+
+    // 🌟 FIXED: Uses the verified database role, defaults to 'admin' if inserted natively
+    const finalRoleLabel = creatorRole?.trim() || 'System'
 
     sortedLogs.push({
       timestamp: createdAt,
       profile: {
         full_name: finalCreatorLabel,
-        role: finalRoleLabel,
-        country: '[]'
+        role: finalRoleLabel, // 🌟 Now dynamically maps perfectly
+        country: ''
       },
       changes: [
-        { field: '👶 Profile Registration', from: '—', to: 'Record Initialized' }
+        { field: 'Profile Created', from: '', to: '' }
       ]
     })
   }
@@ -70,7 +73,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
   const handlePageSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const parsedPage = parseInt(inputPage, 10)
-    
+
     if (!isNaN(parsedPage) && parsedPage >= 1 && parsedPage <= totalPages) {
       setCurrentPage(parsedPage)
     } else {
@@ -101,7 +104,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
             const role = log.profile?.role ? log.profile.role.charAt(0).toUpperCase() + log.profile.role.slice(1) : 'Admin'
             const countries = Array.isArray(log.profile?.country)
               ? log.profile.country.join('/')
-              : log.profile?.country || 'Global'
+              : log.profile?.country || ''
 
             const metaString = `${name} (${role} — ${countries})`
 
@@ -117,9 +120,9 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
 
             return (
               <div key={logIdx} className="py-2 first:pt-0 last:pb-0 flex flex-col gap-1 text-[11px] leading-tight">
-                
+
                 {/* Clickable Row Layer */}
-                <div 
+                <div
                   className="group cursor-pointer hover:bg-gray-50/80 p-1 rounded-lg transition-colors -mx-1"
                   onClick={() => setActiveModalIdx(logIdx)}
                 >
@@ -133,15 +136,23 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
                   </div>
 
                   <div className="flex flex-wrap gap-1 pl-1 mt-1 font-mono text-[10px]">
-                    {log.changes?.map((change, changeIdx) => (
-                      <span key={changeIdx} className="bg-gray-50 border border-gray-100 rounded px-1.5 py-0.5 text-gray-600 inline-flex items-center max-w-full truncate">
-                        <span className="text-blue-600 font-medium">{change.field}</span>
-                        <span className="text-gray-400 mx-0.5">:</span>
-                        <span className="text-red-400 line-through truncate max-w-[50px] inline-block">{String(change.from)}</span>
-                        <span className="text-gray-400 mx-0.5">→</span>
-                        <span className="text-green-600 font-medium truncate max-w-[70px] inline-block">{String(change.to)}</span>
-                      </span>
-                    ))}
+                    {log.changes?.map((change, changeIdx) => {
+                      const isCreationEntry = change.from === '' && change.to === ''
+
+                      return (
+                        <span key={changeIdx} className="bg-gray-50 border border-gray-100 rounded px-1.5 py-0.5 text-gray-600 inline-flex items-center max-w-full truncate">
+                          <span className="text-blue-600 font-medium">{change.field}</span>
+                          {!isCreationEntry && (
+                            <>
+                              <span className="text-gray-400 mx-0.5">:</span>
+                              <span className="text-red-400 line-through truncate max-w-[50px] inline-block">{String(change.from)}</span>
+                              <span className="text-gray-400 mx-0.5">→</span>
+                              <span className="text-green-600 font-medium truncate max-w-[70px] inline-block">{String(change.to)}</span>
+                            </>
+                          )}
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -150,7 +161,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     {/* Backdrop Overlay */}
                     <div className="absolute inset-0 bg-black/40" onClick={() => setActiveModalIdx(null)} />
-                    
+
                     {/* Modal Content Card */}
                     <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-xl max-w-md w-full relative z-10 space-y-4 max-h-[90vh] flex flex-col animate-fade-in">
                       <div className="border-b border-gray-100 pb-2 shrink-0">
@@ -163,19 +174,31 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
                       </div>
 
                       <div className="space-y-3 overflow-y-auto pr-1 flex-1">
-                        {log.changes?.map((change, changeIdx) => (
-                          <div key={changeIdx} className="bg-gray-50 border border-gray-100 rounded-lg p-2.5 space-y-1 font-mono text-[11px]">
-                            <div className="text-blue-600 font-bold border-b border-gray-200/60 pb-0.5 uppercase text-[10px]">✏️ Field: {change.field}</div>
-                            <div className="pt-1">
-                              <span className="text-gray-400 block font-sans text-[10px] uppercase font-semibold">Before Change:</span>
-                              <p className="text-red-600 line-through bg-red-50/50 p-1 rounded border border-red-100/40 whitespace-pre-wrap break-words">{String(change.from)}</p>
+                        {log.changes?.map((change, changeIdx) => {
+                          const isCreationEntry = change.from === '' && change.to === ''
+
+                          return (
+                            <div key={changeIdx} className="bg-gray-50 border border-gray-100 rounded-lg p-2.5 space-y-1 font-mono text-[11px]">
+                              <div className="text-blue-600 font-bold border-b border-gray-200/60 pb-0.5 uppercase text-[10px]">
+                                ✏️ Field: {change.field}
+                              </div>
+                              {!isCreationEntry ? (
+                                <>
+                                  <div className="pt-1">
+                                    <span className="text-gray-400 block font-sans text-[10px] uppercase font-semibold">Before Change:</span>
+                                    <p className="text-red-600 line-through bg-red-50/50 p-1 rounded border border-red-100/40 whitespace-pre-wrap break-words">{String(change.from)}</p>
+                                  </div>
+                                  <div className="pt-1">
+                                    <span className="text-gray-400 block font-sans text-[10px] uppercase font-semibold">After Change:</span>
+                                    <p className="text-green-700 bg-green-50/50 p-1 rounded border border-green-100/40 whitespace-pre-wrap break-words font-semibold">{String(change.to)}</p>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-gray-400 italic text-[10px] pt-1">Initial registration record created and saved.</p>
+                              )}
                             </div>
-                            <div className="pt-1">
-                              <span className="text-gray-400 block font-sans text-[10px] uppercase font-semibold">After Change:</span>
-                              <p className="text-green-700 bg-green-50/50 p-1 rounded border border-green-100/40 whitespace-pre-wrap break-words font-semibold">{String(change.to)}</p>
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
 
                       <button onClick={() => setActiveModalIdx(null)} className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg text-xs transition-colors cursor-pointer shrink-0">
@@ -201,11 +224,11 @@ export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSec
           >
             ← Prev
           </button>
-          
+
           {/* Direct Input Form Panel */}
           <form onSubmit={handlePageSubmit} className="flex items-center gap-1.5 text-gray-400">
             <span>Page</span>
-            <input 
+            <input
               type="text"
               pattern="[0-9]*"
               inputMode="numeric"
