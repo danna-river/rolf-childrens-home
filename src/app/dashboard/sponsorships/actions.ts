@@ -92,6 +92,14 @@ function cleanOptional(value: string) {
   return value === '' ? null : value
 }
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function escapeIlikePattern(value: string) {
+  return value.replace(/([\\%_])/g, '\\$1')
+}
+
 function parseAmount(raw: string) {
   const amount = Number(raw)
   if (!Number.isFinite(amount) || amount <= 0) return null
@@ -127,7 +135,9 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
   }
 
   // A contact that sponsors a child is a "sponsor"; otherwise donation-only.
-  const contactType = sponsorshipRequests.length > 0 ? 'sponsor' : 'donor_only'
+  // Existing sponsors are never downgraded by a later standalone donation.
+  const requestedContactType = sponsorshipRequests.length > 0 ? 'sponsor' : 'donor_only'
+  const normalizedEmail = normalizeEmail(contact.email)
 
   // Confirm every child is available before creating anything.
   if (childIds.length > 0) {
@@ -155,21 +165,38 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
     }
   }
 
-  // Find or create the contact. Existing named sponsors are reused so repeat
-  // matches roll up under one record.
+  // Find or create the contact by email first so repeat event entries roll up
+  // under one sponsor record even when the name formatting changes.
   let sponsorId: string | null = null
-  if (contactType === 'sponsor') {
-    const { data: existingSponsor, error: lookupError } = await adminSupabase
-      .from('sponsors')
-      .select('id')
-      .eq('contact_type', 'sponsor')
-      .eq('full_name', contact.fullName)
-      .eq('email', contact.email)
-      .limit(1)
-      .maybeSingle()
+  const { data: existingSponsor, error: lookupError } = await adminSupabase
+    .from('sponsors')
+    .select('id, contact_type')
+    .ilike('email', escapeIlikePattern(normalizedEmail))
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
 
-    if (lookupError) return { error: lookupError.message }
-    sponsorId = existingSponsor?.id ?? null
+  if (lookupError) return { error: lookupError.message }
+
+  if (existingSponsor) {
+    sponsorId = existingSponsor.id
+    const contactType = existingSponsor.contact_type === 'sponsor' || requestedContactType === 'sponsor'
+      ? 'sponsor'
+      : requestedContactType
+
+    const { error: updateError } = await adminSupabase
+      .from('sponsors')
+      .update({
+        full_name: contact.fullName,
+        email: normalizedEmail,
+        phone: cleanOptional(contact.phone),
+        contact_type: contactType,
+        receipt_preference: contact.receiptPreference,
+        notes: cleanOptional(contact.notes),
+      })
+      .eq('id', sponsorId)
+
+    if (updateError) return { error: updateError.message }
   }
 
   if (!sponsorId) {
@@ -177,9 +204,9 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
       .from('sponsors')
       .insert({
         full_name: contact.fullName,
-        email: cleanOptional(contact.email),
+        email: normalizedEmail,
         phone: cleanOptional(contact.phone),
-        contact_type: contactType,
+        contact_type: requestedContactType,
         receipt_preference: contact.receiptPreference,
         notes: cleanOptional(contact.notes),
         profile_id: null,

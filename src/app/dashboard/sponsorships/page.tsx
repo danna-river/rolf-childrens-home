@@ -1,3 +1,6 @@
+// Admin-only server page for sponsor matching. Loads sponsors, active records, and
+// the unmatched-child pool, then hands them to the client view. Admin-only, so it
+// uses the service-role client to read across all records.
 import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
@@ -5,9 +8,18 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { Sponsor } from '@/lib/types'
 import {
   SponsorshipMatchingView,
-  type CurrentSponsorship,
-  type SponsorshipPoolChild,
-} from '@/app/dashboard/sponsorships/sponsorship-matching-view'
+} from '@/app/dashboard/sponsorships/components/sponsorship-matching-view'
+import type {
+  CurrentSponsorship,
+  SponsorshipPoolChild,
+  UnmatchedSinceSource,
+} from '@/app/dashboard/sponsorships/components/sponsorship-matching-types'
+
+type SponsorshipHistoryRow = {
+  child_id: string | null
+  start_date: string
+  end_date: string | null
+}
 
 export default async function SponsorshipsPage() {
   const { profile } = await requireAuth()
@@ -23,7 +35,7 @@ export default async function SponsorshipsPage() {
     .eq('status', 'active')
     .lt('end_date', today)
 
-  const [sponsorsResult, sponsorshipsResult, childrenResult] = await Promise.all([
+  const [sponsorsResult, sponsorshipsResult, childrenResult, historyResult] = await Promise.all([
     adminSupabase
       .from('sponsors')
       .select('id, full_name, email, phone, contact_type, receipt_preference, notes, profile_id, created_at')
@@ -47,32 +59,69 @@ export default async function SponsorshipsPage() {
       .order('created_at', { ascending: false }),
     adminSupabase
       .from('children')
-      .select('id, id_rolf, display_name, first_name, last_name, country, year_joined, date_joined')
+      .select('id, id_rolf, display_name, first_name, last_name, age, country, year_joined, date_joined')
       .eq('status', 'active'),
+    adminSupabase
+      .from('sponsorships')
+      .select('child_id, start_date, end_date')
+      .eq('status', 'ended')
+      .not('child_id', 'is', null),
   ])
 
   const sponsors = (sponsorsResult.data ?? []) as Sponsor[]
   const currentSponsorships = (sponsorshipsResult.data ?? []) as unknown as CurrentSponsorship[]
+  const sponsorshipHistory = (historyResult.data ?? []) as SponsorshipHistoryRow[]
   const sponsoredChildIds = new Set(currentSponsorships.map((sponsorship) => sponsorship.child_id))
+  const lastEndedSponsorshipByChildId = new Map<string, string>()
+
+  // For each child, find the most recent date a past sponsorship ended. That's the
+  // start of their current wait when they've been matched before.
+  for (const sponsorship of sponsorshipHistory) {
+    if (!sponsorship.child_id) continue
+    const unmatchedSince = sponsorship.end_date ?? sponsorship.start_date
+    const current = lastEndedSponsorshipByChildId.get(sponsorship.child_id)
+    if (!current || unmatchedSince > current) {
+      lastEndedSponsorshipByChildId.set(sponsorship.child_id, unmatchedSince)
+    }
+  }
+
+  // The matching pool is every active child not currently sponsored. Each one gets
+  // an "unmatched since" date: their last sponsorship end if they've had one,
+  // otherwise when they joined the home. Sorted longest-waiting first.
   const pool = ((childrenResult.data ?? []) as SponsorshipPoolChild[])
     .filter((child) => !sponsoredChildIds.has(child.id))
+    .map((child) => {
+      const lastEndedSponsorship = lastEndedSponsorshipByChildId.get(child.id)
+      const joinedHome = child.date_joined ?? (child.year_joined ? `${child.year_joined}-01-01` : null)
+      const source: UnmatchedSinceSource = lastEndedSponsorship
+        ? 'last_sponsorship_end'
+        : joinedHome
+          ? 'joined_home'
+          : 'unknown'
+
+      return {
+        ...child,
+        unmatched_since: lastEndedSponsorship ?? joinedHome,
+        unmatched_since_source: source,
+      }
+    })
     .sort((left, right) => {
-      const leftJoined = left.date_joined ?? (left.year_joined ? `${left.year_joined}-01-01` : '9999-12-31')
-      const rightJoined = right.date_joined ?? (right.year_joined ? `${right.year_joined}-01-01` : '9999-12-31')
-      return leftJoined.localeCompare(rightJoined)
+      const leftUnmatched = left.unmatched_since ?? '9999-12-31'
+      const rightUnmatched = right.unmatched_since ?? '9999-12-31'
+      return leftUnmatched.localeCompare(rightUnmatched)
     })
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="pb-2">
-        <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-blue-600">
-          Admin Dashboard
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="max-w-3xl pb-1">
+        <div className="mb-2 inline-flex items-center rounded-md bg-sky/65 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-navy">
+          Admin dashboard
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Sponsorships
+        <h1 className="text-3xl font-bold tracking-tight text-navy sm:text-4xl">
+          Sponsor matching
         </h1>
-        <p className="mt-0.5 text-xs text-gray-500">
-          Manage event contacts, match sponsors with children, and track sponsorship terms.
+        <p className="mt-3 text-base leading-7 text-navy/65">
+          Record event contacts, assign child sponsorships, and keep standalone donations in one active record list.
         </p>
       </div>
 
