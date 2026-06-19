@@ -73,7 +73,6 @@ export interface Child {
 
 export interface Sponsorship {
   id: string
-  donor_id: string | null
   sponsor_id: string | null
   /** Null for a standalone donation that is not earmarked for a child. */
   child_id: string | null
@@ -183,7 +182,6 @@ export type Database = {
         Row: DatabaseRow<Sponsorship>
         Insert: {
           id?: string
-          donor_id?: string | null
           sponsor_id?: string | null
           child_id?: string | null
           status?: SponsorshipStatus
@@ -210,13 +208,6 @@ export type Database = {
             columns: ['child_id']
             isOneToOne: false
             referencedRelation: 'children'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'sponsorships_donor_id_fkey'
-            columns: ['donor_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]

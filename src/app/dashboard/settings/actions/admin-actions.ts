@@ -78,10 +78,10 @@ export async function deleteAccountAction(userId: string) {
     }
   }
   
-  const { count: sponsorCount } = await adminSupabase
+  const { count: sponsorCount } = await (adminSupabase as any)
     .from('sponsorships')
-    .select('id', { count: 'exact', head: true })
-    .eq('donor_id', userId)
+    .select('id, sponsors!inner(profile_id)', { count: 'exact', head: true })
+    .eq('sponsors.profile_id', userId)
   if ((sponsorCount ?? 0) > 0) {
     return { error: `Cannot delete: ${sponsorCount} sponsorship(s) are linked to this donor. End or reassign them first.` }
   }

@@ -223,7 +223,6 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
 
   const rows = requests.map((request) => ({
     sponsor_id: sponsorId,
-    donor_id: null,
     child_id: request.type === 'sponsorship' ? request.childId : null,
     status: 'active' as const,
     start_date: request.startDate,
