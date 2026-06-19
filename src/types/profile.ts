@@ -8,7 +8,9 @@ export interface ChildProfile {
     birthDay: number;
     age: number;
     country: string;
-    createdAt: Date;
+    created_by?: string | null;
+    createdAt: string;
+    updatedAt: string | null;
     year_joined: number;
     date_joined: string | null;
     profilePictureURL: string;
