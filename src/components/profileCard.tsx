@@ -54,20 +54,18 @@ export default function ProfileCard({ profile }: { profile: ChildProfile }) {
                     <p className="text-sm text-gray-500">{profile.date_joined ? `Joined: ${new Date(profile.date_joined).getFullYear()}` : profile.year_joined ? `Joined: ${profile.year_joined}` : "Year joined unknown"}</p>
                     <p className="text-sm text-gray-500">
                         Last Updated:{' '}
-                        <span className="font-mono text-gray-400">
-                            {profile.updatedAt ? (
-                                new Date(profile.updatedAt).toLocaleString('en-US', {
-                                    timeZone: 'America/Los_Angeles',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: false
-                                }) + ' PT'
-                            ) : (
-                                'Never edited'
-                            )}
-                        </span>
+                        {profile.updatedAt ? (
+                            new Date(profile.updatedAt).toLocaleString('en-US', {
+                                timeZone: 'America/Los_Angeles',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                            }) + ' PT'
+                        ) : (
+                            'Never edited'
+                        )}
                     </p>
                 </div>
             </article>

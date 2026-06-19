@@ -13,6 +13,7 @@ interface DBChildRow {
   age: number | null
   country: string | null
   created_at: string
+  updated_at: string | null
   year_joined: number | null
   date_joined: string | null
   profile_photo: string | null
@@ -139,6 +140,7 @@ export async function getChildrenProfiles(
     age: row.age || 0,
     country: row.country || '',
     createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+    updatedAt: row.updated_at || null,
     year_joined: row.year_joined || 0,
     date_joined: row.date_joined || null,
     profilePictureURL: row.profile_photo || '',
