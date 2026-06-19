@@ -7,6 +7,7 @@ export type UserRole = (typeof USER_ROLES)[number]
 export type UserProfile = {
   id: string
   role: string
+  full_name: string | null
   country: string[] | null
 }
 
