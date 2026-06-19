@@ -43,7 +43,6 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
     ...(isAdminRole(role)
       ? [{ href: "/dashboard/sponsorships", label: "Sponsorships", icon: HandshakeIcon }]
       : []),
-    { href: "/dashboard/settings?tab=profile", label: "Profile", icon: UserIcon },
     { href: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
   ]
 
