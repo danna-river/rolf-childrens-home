@@ -10,7 +10,6 @@ export type RegisterChildInput = {
   id_rolf: string
   first_name: string
   last_name: string
-  age: number
   birth_year?: number
   birth_month?: number
   birth_day?: number
@@ -160,7 +159,6 @@ export async function registerChildAction(
       display_name,
       first_name: input.first_name,
       last_name: input.last_name,
-      age: input.age,
       birth_year: input.birth_year ?? null,
       birth_month: input.birth_month ?? null,
       birth_day: input.birth_day ?? null,

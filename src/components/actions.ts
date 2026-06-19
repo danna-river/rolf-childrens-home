@@ -11,7 +11,6 @@ interface DBChildRow {
   birth_year: number | null
   birth_month: number | null
   birth_day: number | null
-  age: number | null
   country: string | null
   created_at: string
   updated_at: string | null
@@ -26,7 +25,6 @@ export type RegisterChildInput = {
   id_rolf?: string
   first_name: string
   last_name: string
-  age: number
   birth_year?: number
   year_joined?: number
   date_joined?: string
@@ -107,10 +105,18 @@ export async function getChildrenProfiles(
 
   if (sort === 'name_desc') {
     query = query.order('first_name', { ascending: false })
-  } else if (sort === 'age_asc') {
-    query = query.order('age', { ascending: true })
-  } else if (sort === 'age_desc') {
-    query = query.order('age', { ascending: false })
+  } 
+  else if (sort === 'age_asc') {
+    query = query
+      .order('birth_year', { ascending: false })
+      .order('birth_month', { ascending: false })
+      .order('birth_day', { ascending: false })
+  } 
+  else if (sort === 'age_desc') {
+    query = query
+      .order('birth_year', { ascending: true })
+      .order('birth_month', { ascending: true })
+      .order('birth_day', { ascending: true })
   } else if (sort === 'rolf_id_asc') {
     query = query.order('id_rolf', { ascending: true, nullsFirst: false })
   } else if (sort === 'rolf_id_desc') {
