@@ -37,9 +37,15 @@ export default async function ChildProfilePage({
 
   const { data: child } = await supabase
     .from('children')
-    .select('*')
+    .select(`
+      *,
+      creator:created_by (
+        full_name,
+        role
+      )
+    `)
     .eq('id', id)
-    .single() as { data: Child | null; error: unknown }
+    .single() as any
 
   if (!child) return notFound()
 
@@ -138,7 +144,12 @@ export default async function ChildProfilePage({
 
         {/* 🌟 READ-ONLY AUDIT LOG TIMELINE SECTION (ADMINS ONLY) */}
         {profile.role === 'admin' && (
-          <AuditLogSection editLog={child.edit_log} />
+          <AuditLogSection
+            editLog={child.edit_log}
+            createdAt={child.created_at}
+            creatorName={child.creator?.full_name || null} // 🌟 Double check this line matches exactly!
+            creatorRole={child.creator?.role || null}
+          />
         )}
       </div>
     </div>

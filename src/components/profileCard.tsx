@@ -5,6 +5,17 @@ export default function ProfileCard({ profile }: { profile: ChildProfile }) {
     const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "Unnamed"
     const isActive = profile.status === "active"
 
+    const formattedLastUpdate = profile.updatedAt
+        ? new Date(profile.updatedAt).toLocaleString('en-US', {
+            timeZone: 'America/Los_Angeles',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }) + ' PT'
+        : null;
+
     return (
         <div className="relative">
             <Link href={`/dashboard/children/${profile.id}`} className="absolute inset-0 z-0 rounded-xl" aria-label={`View ${name}'s profile`} />
@@ -43,6 +54,21 @@ export default function ProfileCard({ profile }: { profile: ChildProfile }) {
                         {typeof profile.age === 'number' && profile.age >= 0 ? `${profile.age} years old` : "Age unknown"}
                     </p>
                     <p className="text-sm text-gray-500">{profile.date_joined ? `Joined: ${new Date(profile.date_joined).getFullYear()}` : profile.year_joined ? `Joined: ${profile.year_joined}` : "Year joined unknown"}</p>
+                    <p className="text-sm text-gray-500">
+                        Last Updated:{' '}
+                        {profile.updatedAt ? (
+                            new Date(profile.updatedAt).toLocaleString('en-US', {
+                                timeZone: 'America/Los_Angeles',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                            }) + ' PT'
+                        ) : (
+                            'Never edited'
+                        )}
+                    </p>
                 </div>
             </article>
         </div>
