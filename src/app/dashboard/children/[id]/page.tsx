@@ -37,9 +37,14 @@ export default async function ChildProfilePage({
 
   const { data: child } = await supabase
     .from('children')
-    .select('*')
+    .select(`
+      *,
+      creator:created_by (
+        full_name
+      )
+    `)
     .eq('id', id)
-    .single() as { data: Child | null; error: unknown }
+    .single() as any
 
   if (!child) return notFound()
 

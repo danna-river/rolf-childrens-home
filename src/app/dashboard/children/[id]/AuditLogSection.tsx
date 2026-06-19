@@ -20,9 +20,11 @@ interface LogEntry {
 
 interface AuditLogSectionProps {
   editLog: any
+  createdAt?: string | null
+  creatorName?: string | null
 }
 
-export function AuditLogSection({ editLog }: AuditLogSectionProps) {
+export function AuditLogSection({ editLog, createdAt, creatorName }: AuditLogSectionProps) {
   const itemsPerPage = 25
   const [currentPage, setCurrentPage] = useState(1)
   const [inputPage, setInputPage] = useState('1')
@@ -34,6 +36,23 @@ export function AuditLogSection({ editLog }: AuditLogSectionProps) {
   const sortedLogs = [...rawLogArray].sort((a, b) => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   })
+
+  if (createdAt) {
+    const finalCreatorLabel = creatorName?.trim() || 'Direct Database Edit'
+    const finalRoleLabel = creatorName?.trim() ? 'staff' : 'admin'
+
+    sortedLogs.push({
+      timestamp: createdAt,
+      profile: {
+        full_name: finalCreatorLabel,
+        role: finalRoleLabel,
+        country: '[]'
+      },
+      changes: [
+        { field: '👶 Profile Registration', from: '—', to: 'Record Initialized' }
+      ]
+    })
+  }
 
   const totalItems = sortedLogs.length
   const totalPages = Math.ceil(totalItems / itemsPerPage) || 1
