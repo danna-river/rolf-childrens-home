@@ -23,7 +23,7 @@ export async function requireAuth(options: AuthOptions = {}) {
     // 2. GATE 2: Securely retrieve permissions profile
     const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, country')
+        .select('id, role, country, full_name')
         .eq('id', user.id)
         .single() as { data: UserProfile | null; error: unknown }
 
