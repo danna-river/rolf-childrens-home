@@ -136,7 +136,7 @@ export async function getChildrenProfiles(
     birthYear: row.birth_year || 0,
     birthMonth: row.birth_month || 0,
     birthDay: row.birth_day || 0,
-    age: row.age || 0,
+    age: calculateAge(row.birth_year, row.birth_month, row.birth_day),
     country: row.country || '',
     createdAt: row.created_at ? new Date(row.created_at) : new Date(),
     updatedAt: row.updated_at || null,
@@ -147,4 +147,26 @@ export async function getChildrenProfiles(
   }))
 
   return { profiles: formattedProfiles, error: null, total: count ?? 0 }
+}
+
+export function calculateAge(year: number | null, month: number | null, day: number | null): number {
+  if (!year) return 0
+
+  const today = new Date()
+  const birthMonth = month ? month - 1 : 0 
+  const birthDay = day || 1
+
+  const birthDate = new Date(year, birthMonth, birthDay)
+  
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDifference = today.getMonth() - birthDate.getMonth()
+
+  if (
+    monthDifference < 0 || 
+    (monthDifference === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age--
+  }
+
+  return age < 0 ? 0 : age
 }
