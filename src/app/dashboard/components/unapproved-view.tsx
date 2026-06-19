@@ -22,15 +22,15 @@ export function UnapprovedView({ email }: UnapprovedViewProps) {
           <h1 className="text-base font-bold text-gray-900 tracking-tight">
             Account Access Pending Approval
           </h1>
-          <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
+          <p className="text-sm text-gray-700 max-w-xs mx-auto leading-relaxed">
             Your credentials have been successfully registered, but your profile has not been assigned an active workstation role yet.
           </p>
-          <p className="text-xs text-gray-400 max-w-xs mx-auto leading-relaxed pt-1">
+          <p className="text-sm text-gray-600 max-w-xs mx-auto leading-relaxed pt-1">
             An administrator has been notified and must authorize your account before you can proceed.
           </p>
         </div>
 
-        <div className="bg-gray-50 rounded-xl p-3 text-[10px] font-mono text-gray-400 border border-gray-100">
+        <div className="bg-gray-50 rounded-xl p-3 text-xs font-mono text-gray-600 border border-gray-100">
           Authenticated Identity: <span className="font-semibold text-gray-600">{email}</span>
         </div>
 
@@ -38,7 +38,7 @@ export function UnapprovedView({ email }: UnapprovedViewProps) {
           <button
             type="submit"
             disabled={loading}
-            className="text-[11px] text-gray-400 hover:text-red-600 transition-colors cursor-pointer font-medium disabled:text-gray-300"
+            className="text-[11px] text-gray-600 hover:text-red-600 transition-colors cursor-pointer font-medium disabled:text-gray-300"
           >
             {loading ? 'Signing out...' : 'Sign Out'}
           </button>

@@ -33,9 +33,9 @@ export function Metric({
     <div className="rounded-lg border border-stone bg-white p-4 shadow-[0_1px_2px_rgba(21,44,75,0.05)] sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-navy/60">{label}</p>
+          <p className="text-sm font-semibold text-navy/70">{label}</p>
           <p className="mt-1 text-3xl font-bold tracking-tight text-navy">{value}</p>
-          <p className="mt-1 truncate text-sm text-navy/50">{helper}</p>
+          <p className="mt-1 truncate text-sm text-navy/65">{helper}</p>
         </div>
         <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-sky/65 text-teal">
           <Icon className="size-5" aria-hidden="true" />
@@ -81,7 +81,7 @@ export function SectionHeading({
       </span>
       <div className="min-w-0">
         <h2 className="text-lg font-bold text-navy">{title}</h2>
-        <p className="truncate text-sm text-navy/55">{meta}</p>
+        <p className="truncate text-sm text-navy/65">{meta}</p>
       </div>
     </div>
   )
@@ -90,7 +90,7 @@ export function SectionHeading({
 export function ContactMatchBadge({ sponsor }: { sponsor: Sponsor | null }) {
   if (!sponsor) {
     return (
-      <span className="inline-flex min-h-10 items-center gap-2 rounded-md border border-stone bg-white px-3 text-sm font-semibold text-navy/60">
+      <span className="inline-flex min-h-10 items-center gap-2 rounded-md border border-stone bg-white px-3 text-sm font-semibold text-navy/70">
         <SearchIcon className="size-4 text-teal" aria-hidden="true" />
         New or unmatched email
       </span>
@@ -124,7 +124,7 @@ export function FilterButton({
       className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-sm px-3 text-sm font-bold motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
         active
           ? 'bg-white text-navy shadow-sm'
-          : 'text-navy/55 hover:text-navy'
+          : 'text-navy/65 hover:text-navy'
       }`}
     >
       {label}
@@ -145,7 +145,7 @@ export function EmptyState({
     <div className="rounded-lg border border-dashed border-stone bg-white px-5 py-10 text-center">
       <Icon className="mx-auto size-7 text-teal" aria-hidden="true" />
       <p className="mt-3 text-base font-semibold text-navy">{title}</p>
-      <p className="mx-auto mt-1 max-w-sm text-base leading-7 text-navy/60">{body}</p>
+      <p className="mx-auto mt-1 max-w-sm text-base leading-7 text-navy/70">{body}</p>
     </div>
   )
 }
@@ -208,7 +208,7 @@ export function PaginationControls({
             Next
           </button>
         </div>
-        <p className="text-center font-semibold text-navy/55 sm:min-w-20">
+        <p className="text-center font-semibold text-navy/65 sm:min-w-20">
           Page {safePage.toLocaleString()} of {pageCount.toLocaleString()}
         </p>
       </div>
@@ -235,7 +235,7 @@ export function RequestTypeButton({
       className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-sm px-3 text-sm font-bold motion-safe:transition motion-safe:duration-150 motion-safe:ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
         active
           ? 'bg-white text-navy shadow-sm'
-          : 'text-navy/55 hover:text-navy'
+          : 'text-navy/65 hover:text-navy'
       }`}
     >
       <Icon className="size-4" aria-hidden="true" />

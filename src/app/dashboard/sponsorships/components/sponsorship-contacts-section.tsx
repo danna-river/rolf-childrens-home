@@ -99,7 +99,7 @@ export function ContactsSection({ sponsors }: { sponsors: Sponsor[] }) {
         <div className="mt-3 space-y-2">
           <label className="relative block">
             <span className="sr-only">Search sponsor database</span>
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-navy/35" aria-hidden="true" />
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-navy/55" aria-hidden="true" />
             <input
               value={query}
               onChange={(event) => updateQuery(event.target.value)}
@@ -170,7 +170,7 @@ export function ContactsSection({ sponsors }: { sponsors: Sponsor[] }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-base font-bold text-navy">{sponsor.full_name}</p>
-                    <div className="mt-1 grid gap-1 text-sm text-navy/60">
+                    <div className="mt-1 grid gap-1 text-sm text-navy/70">
                       {sponsor.email && (
                         <span className="inline-flex min-w-0 items-center gap-1.5">
                           <MailIcon className="size-3.5 shrink-0 text-teal" aria-hidden="true" />
@@ -184,7 +184,7 @@ export function ContactsSection({ sponsors }: { sponsors: Sponsor[] }) {
                         </span>
                       )}
                       {!sponsor.email && !sponsor.phone && (
-                        <span className="text-navy/40">No contact information</span>
+                        <span className="text-navy/55">No contact information</span>
                       )}
                     </div>
                   </div>
@@ -192,7 +192,7 @@ export function ContactsSection({ sponsors }: { sponsors: Sponsor[] }) {
                     {contactTypeLabel(sponsor.contact_type)}
                   </span>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2 text-sm font-semibold text-navy/60">
+                <div className="mt-2 flex flex-wrap gap-2 text-sm font-semibold text-navy/70">
                   <span className="rounded-md border border-stone px-2 py-1">
                     {receiptLabel(sponsor.receipt_preference)}
                   </span>

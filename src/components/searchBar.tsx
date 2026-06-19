@@ -35,7 +35,7 @@ export function SearchBar({ totalCount }: SearchBarProps) {
       {/* Search Utilities Control Bar Layout */}
       <div className="bg-white border border-gray-100 rounded-xl p-3 shadow-xs w-full sm:max-w-md">
         <div className="relative flex items-center">
-          <span className="absolute left-3.5 text-gray-400 pointer-events-none text-xs">
+          <span className="absolute left-3.5 text-gray-600 pointer-events-none text-base">
             🔍
           </span>
           <input
@@ -43,17 +43,17 @@ export function SearchBar({ totalCount }: SearchBarProps) {
             onChange={handleSearchChange}
             maxLength={100}
             placeholder="Search by name or ROLF ID..."
-            className="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-800 outline-none"
+            className="w-full pl-10 pr-4 py-3 text-base bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder:text-gray-500 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
           />
         </div>
       </div>
 
       {/* Metrics Section */}
       <div className="px-1 flex items-center justify-between border-b border-gray-100 pb-2">
-        <h2 className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-600">
           Active Profiles
         </h2>
-        <span className="text-xs font-medium text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">
+        <span className="text-sm font-medium text-gray-700 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">
           {totalCount} files loaded
         </span>
       </div>

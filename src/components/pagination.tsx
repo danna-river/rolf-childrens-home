@@ -45,7 +45,7 @@ function pageItems(
 }
 
 const buttonBase =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-2 text-sm font-medium motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:pointer-events-none disabled:opacity-40"
+  "inline-flex h-10 min-w-10 items-center justify-center rounded-md border px-2.5 text-sm font-semibold motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:pointer-events-none disabled:opacity-40"
 const buttonIdle = "border-stone bg-white text-navy hover:bg-ice"
 const buttonActive = "border-navy bg-navy text-white"
 
@@ -99,7 +99,7 @@ export function Pagination({
       }`}
     >
       <div className="flex min-w-0 flex-col gap-2 sm:gap-2.5">
-        <p className="text-xs text-navy/60">
+        <p className="text-sm text-navy/70">
           Showing{" "}
           <span className="font-semibold text-navy">
             {start.toLocaleString()}–{end.toLocaleString()}
@@ -110,7 +110,7 @@ export function Pagination({
 
         {showJump && (
           <form onSubmit={handleJump} className="flex items-center gap-2">
-            <label htmlFor="page-jump" className="text-xs text-navy/55">
+            <label htmlFor="page-jump" className="text-sm text-navy/65">
               Go to page
             </label>
             <input
@@ -123,11 +123,11 @@ export function Pagination({
               inputMode="numeric"
               defaultValue={page}
               aria-label={`Page number, 1 to ${totalPages}`}
-              className="h-8 w-16 rounded-md border border-stone bg-white px-2 text-sm text-navy outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+              className="h-10 w-16 rounded-md border border-stone bg-white px-2.5 text-base text-navy outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             />
             <button
               type="submit"
-              className="h-8 rounded-md border border-stone bg-white px-3 text-xs font-semibold text-navy motion-safe:transition-colors hover:bg-ice focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+              className="h-10 rounded-md border border-stone bg-white px-3.5 text-sm font-semibold text-navy motion-safe:transition-colors hover:bg-ice focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             >
               Go
             </button>
@@ -162,7 +162,7 @@ export function Pagination({
               <span
                 key={`ellipsis-${i}`}
                 aria-hidden="true"
-                className="inline-flex h-9 w-9 items-center justify-center text-navy/40"
+                className="inline-flex h-9 w-9 items-center justify-center text-navy/55"
               >
                 …
               </span>
@@ -182,7 +182,7 @@ export function Pagination({
         </div>
 
         {/* Compact indicator — mobile + small tablets */}
-        <span className="px-3 text-xs font-medium text-navy/70 md:hidden">
+        <span className="px-3 text-sm font-medium text-navy/70 md:hidden">
           Page {page} of {totalPages}
         </span>
 

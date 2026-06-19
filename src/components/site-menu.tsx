@@ -94,7 +94,7 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
                       {label}
                     </span>
                     <ChevronRightIcon
-                      className="size-6 text-white/40 transition-transform group-hover:translate-x-0.5"
+                      className="size-6 text-white/70 transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
                     />
                   </Link>
@@ -106,7 +106,7 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
           {/* Footer: identity + sign out */}
           <div className="shrink-0 border-t border-white/15 px-4 py-5 sm:px-6 lg:px-8">
             <p className="truncate text-sm font-medium">{email}</p>
-            <p className="text-xs text-white/60">{roleLabel(role)}</p>
+            <p className="text-sm text-white/60">{roleLabel(role)}</p>
             <form action={signOutAction} className="mt-4">
               <button
                 type="submit"

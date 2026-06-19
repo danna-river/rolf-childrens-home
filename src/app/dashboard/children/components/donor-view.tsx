@@ -97,7 +97,7 @@ function MetaItem({
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-xs font-semibold text-navy/50">{children}</h3>
+  return <h3 className="text-sm font-semibold text-navy/65">{children}</h3>
 }
 
 function SummaryItem({
@@ -115,7 +115,7 @@ function SummaryItem({
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-navy/50">{label}</p>
+        <p className="text-sm font-medium text-navy/65">{label}</p>
         <p className="truncate text-sm font-semibold text-navy">{value}</p>
       </div>
     </div>
@@ -133,7 +133,7 @@ function ProfileFact({
 }) {
   return (
     <div className="min-w-0 border-t border-stone pt-3">
-      <dt className="flex items-center gap-1.5 text-xs font-medium text-navy/50">
+      <dt className="flex items-center gap-1.5 text-sm font-medium text-navy/65">
         <Icon className="size-3.5 text-teal" aria-hidden="true" />
         {label}
       </dt>
@@ -177,7 +177,7 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
             </span>
           </div>
         )}
-        <span className="absolute left-3 top-3 rounded-md border border-white/70 bg-white/90 px-2 py-1 text-xs font-semibold text-navy shadow-sm">
+        <span className="absolute left-3 top-3 rounded-md border border-white/70 bg-white/90 px-2 py-1 text-sm font-semibold text-navy shadow-sm">
           Active
         </span>
       </div>
@@ -185,11 +185,11 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
       <div className="flex min-w-0 flex-col gap-5 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-teal">Sponsorship profile</p>
+            <p className="text-sm font-medium text-teal">Sponsorship profile</p>
             <h2 className="mt-1 text-2xl font-semibold leading-tight text-navy">
               {name}
               {child.age ? (
-                <span className="font-normal text-navy/60">, {child.age}</span>
+                <span className="font-normal text-navy/70">, {child.age}</span>
               ) : null}
             </h2>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
@@ -198,7 +198,7 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
             </div>
           </div>
           {lastUpdated && (
-            <p className="text-xs font-medium text-navy/45 sm:text-right">
+            <p className="text-sm font-medium text-navy/60 sm:text-right">
               Updated {lastUpdated}
             </p>
           )}
@@ -251,7 +251,7 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
                   {hobbies.map((hobby, hobbyIndex) => (
                     <span
                       key={`${hobby}-${hobbyIndex}`}
-                      className="inline-flex items-center rounded-md border border-stone bg-ice px-2.5 py-1 text-xs font-medium text-navy/70"
+                      className="inline-flex items-center rounded-md border border-stone bg-ice px-2.5 py-1 text-sm font-medium text-navy/70"
                     >
                       {hobby}
                     </span>
@@ -264,7 +264,7 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
 
         {!child.bio && !child.career_aspiration && hobbies.length === 0 && (
           <div className="border-t border-stone pt-4">
-            <p className="text-sm leading-6 text-navy/60">
+            <p className="text-sm leading-6 text-navy/70">
               The ROLF team is still preparing a fuller profile for {firstName}.
             </p>
           </div>
@@ -372,7 +372,7 @@ async function DonorChildren() {
           {onlyChildName ? `Meet ${onlyChildName}` : 'Your sponsored children'}
         </h1>
         {count > 0 && (
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-navy/60">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-navy/70">
             {onlyChildName
               ? `${onlyChildName}'s profile is maintained by the ROLF team so you can see the basics in one place.`
               : `These ${count} profiles are maintained by the ROLF team so donors can see the basics in one place.`}
@@ -419,7 +419,7 @@ async function DonorChildren() {
           <h2 className="mt-4 text-base font-semibold text-navy">
             No sponsorship profiles are linked yet
           </h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-navy/60">
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-navy/70">
             We couldn&apos;t find an active child sponsorship linked to your account. If
             this looks wrong, the ROLF team can connect the profile for you.
           </p>

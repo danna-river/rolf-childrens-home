@@ -167,12 +167,12 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             type="button"
             onClick={() => step > 0 ? setStep(s => s - 1) : router.back()}
             disabled={submitting || validatingStepZero}
-            className="text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
+            className="text-gray-700 hover:text-gray-800 text-sm font-medium cursor-pointer"
           >
             ← Back
           </button>
           <div className="flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-600">
               Step {step + 1} of {STEPS.length}
             </p>
             <h1 className="text-base font-bold text-gray-900">{STEPS[step]}</h1>
@@ -184,7 +184,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
         </div>
 
         {error && (
-          <div className="m-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
+          <div className="m-4 p-3 bg-red-50 border border-red-100 text-sm text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
             <span className="shrink-0">⚠️</span>
             <div>
               <strong className="font-semibold block mb-0.5">Validation Stop</strong>
@@ -229,7 +229,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
             <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
               {loadingPreview ? (
-                <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">
+                <div className="py-3 px-4 bg-gray-50 text-sm text-gray-600 font-medium italic border border-gray-100 rounded-xl">
                   Syncing next chronological identifier sequence...
                 </div>
               ) : isAdmin ? (
@@ -239,7 +239,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                   disabled={!form.country}
                   onChange={e => set("id_rolf", e.target.value.toUpperCase())}
                   placeholder={form.country ? "e.g. BEN-0010" : "Select Country First..."}
-                  className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold text-gray-800"}
+                  className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 disabled:bg-gray-100 disabled:text-gray-600 disabled:cursor-not-allowed font-semibold text-gray-800"}
                 />
               ) : (
                 <input
@@ -257,7 +257,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                 </div>
               )}
 
-              <p className="text-xs text-gray-400 mt-1.5">
+              <p className="text-sm text-gray-600 mt-1.5">
                 {isAdmin
                   ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
                   : "Automatically calculated based on the highest tracking index parameter currently inside the dataset for this home."}
@@ -299,7 +299,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
         {step === 2 && (
           <div className="space-y-6">
-            <p className="text-xs text-gray-400">Max file size: 15 MB for photos, 100 MB for videos.</p>
+            <p className="text-sm text-gray-600">Max file size: 15 MB for photos, 100 MB for videos.</p>
             <Field label="Profile Photo" htmlFor="photo">
               <MediaPicker type="photo" value={photoUrl} onChange={setPhotoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} />
             </Field>
@@ -337,7 +337,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             type="button"
             onClick={handleStepProgression}
             disabled={!isCurrentStepValid() || mediaUploading || loadingPreview || validatingStepZero}
-            className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+            className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-600 disabled:cursor-not-allowed"
           >
             {validatingStepZero ? "Verifying..." : mediaUploading ? "Processing Media..." : "Continue"}
           </button>
@@ -359,7 +359,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-start px-4 py-3 gap-4">
-      <span className="text-xs text-gray-400 font-medium shrink-0">{label}</span>
+      <span className="text-sm text-gray-600 font-medium shrink-0">{label}</span>
       <span className="text-sm text-gray-800 font-semibold text-right">{value || "—"}</span>
     </div>
   )

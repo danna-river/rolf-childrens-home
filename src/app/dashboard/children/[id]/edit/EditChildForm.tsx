@@ -154,13 +154,13 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         <div className="px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
+            className="text-gray-700 hover:text-gray-800 text-sm font-medium cursor-pointer"
             disabled={submitting}
           >
             ← Cancel
           </button>
           <div className="flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Modifying Profile Records</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-600">Modifying Profile Records</p>
             <h1 className="text-base font-bold text-gray-900">
               {child.first_name} {child.last_name}
             </h1>
@@ -168,7 +168,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         </div>
 
         {error && (
-          <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
+          <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-100 text-sm text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
             <span className="shrink-0">⚠️</span>
             <div>
               <strong className="font-semibold block mb-0.5">Validation Stop</strong>
@@ -183,7 +183,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* Basic Info */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Basic Info</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600 border-b border-gray-50 pb-2">Basic Info</h2>
 
           <Field label="Country *" htmlFor="country">
             <select
@@ -203,7 +203,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
           {/* 🌟 REPLICATED AUTO-INCREMENT PREVIEW AND LOCKED FIELD SCHEME */}
           <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
             {loadingPreview ? (
-              <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">
+              <div className="py-3 px-4 bg-gray-50 text-sm text-gray-600 font-medium italic border border-gray-100 rounded-xl">
                 Syncing next chronological identifier sequence for country choice...
               </div>
             ) : isAdmin ? (
@@ -218,7 +218,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
                 id="id_rolf_locked"
                 value={form.id_rolf}
                 disabled
-                className={inputClass + " bg-gray-100 border-gray-200 text-gray-500 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
+                className={inputClass + " bg-gray-100 border-gray-200 text-gray-700 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
               />
             )}
 
@@ -229,7 +229,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               </div>
             )}
 
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-sm text-gray-600 mt-1.5">
               {isAdmin
                 ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
                 : "Staff accounts cannot alter unique registry codes. To shift this identifier, contact an administrator."}
@@ -277,7 +277,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* About Them */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">About Them</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600 border-b border-gray-50 pb-2">About Them</h2>
 
           <Field label="What do you want to be when you grow up? *" htmlFor="career">
             <input id="career" value={form.career_aspiration}
@@ -317,8 +317,8 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* Photo & Video */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Photo &amp; Video</h2>
-          <p className="text-xs text-gray-400">Max file limits: 15 MB for images, 100 MB for videos.</p>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600 border-b border-gray-50 pb-2">Photo &amp; Video</h2>
+          <p className="text-sm text-gray-600">Max file limits: 15 MB for images, 100 MB for videos.</p>
           <Field label="Profile Photo" htmlFor="photo">
             <MediaPicker
               type="photo"
@@ -345,7 +345,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* Status */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Status</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600 border-b border-gray-50 pb-2">Status</h2>
           <Field label="Child Status" htmlFor="status">
             <div className="flex gap-3">
               {(['active', 'inactive'] as const).map(s => (
@@ -359,7 +359,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               ))}
             </div>
             {form.status === 'inactive' && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 leading-relaxed">
+              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 leading-relaxed">
                 Please document explicitly in the Notes window below why this individual profile is moving to an inactive status.
               </p>
             )}
@@ -368,7 +368,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* Notes */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Internal Notes (Optional)</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600 border-b border-gray-50 pb-2">Internal Notes (Optional)</h2>
           <Field label="Internal Notes" htmlFor="notes">
             <textarea id="notes" value={form.notes} onChange={e => set("notes", e.target.value)}
               placeholder="Staff-only internal ledger notes (special circumstances, family tracing variables...)"
@@ -382,7 +382,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         <button
           onClick={handleSubmit}
           disabled={!isFormValid() || mediaUploading || submitting || loadingPreview}
-          className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+          className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-600 disabled:cursor-not-allowed"
         >
           {submitting ? "Saving..." : mediaUploading ? "Processing Media..." : "Save Changes"}
         </button>

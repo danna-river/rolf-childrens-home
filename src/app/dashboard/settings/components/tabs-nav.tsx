@@ -31,9 +31,9 @@ export function TabsNav({ userRole }: TabsNavProps) {
       {tabs.map((tab) => {
         const isCurrent = activeTab === tab.id
         
-        let linkClass = "flex items-center px-4 py-2.5 text-xs font-semibold rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-100/70 transition-all cursor-pointer whitespace-nowrap md:whitespace-normal"
+        let linkClass = "flex items-center px-4 py-2.5 text-sm font-semibold rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-100/70 transition-all cursor-pointer whitespace-nowrap md:whitespace-normal"
         if (isCurrent) {
-          linkClass = "flex items-center px-4 py-2.5 text-xs font-bold rounded-xl bg-blue-50 text-blue-600 transition-all cursor-pointer whitespace-nowrap md:whitespace-normal"
+          linkClass = "flex items-center px-4 py-2.5 text-sm font-bold rounded-xl bg-blue-50 text-blue-600 transition-all cursor-pointer whitespace-nowrap md:whitespace-normal"
         }
 
         return (

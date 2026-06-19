@@ -16,7 +16,7 @@ import type {
 } from '@/app/dashboard/sponsorships/components/sponsorship-matching-types'
 
 export const fieldClass =
-  'w-full rounded-md border border-stone bg-white px-3.5 py-2.5 text-base leading-6 text-navy outline-none motion-safe:transition-colors focus:border-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:bg-ice disabled:text-navy/50'
+  'w-full rounded-md border border-stone bg-white px-3.5 py-2.5 text-base leading-6 text-navy outline-none motion-safe:transition-colors focus:border-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:bg-ice disabled:text-navy/65'
 
 export const labelClass = 'block text-sm font-semibold text-navy/70'
 

@@ -297,7 +297,7 @@ export function SponsorshipMatchingView({
             <label className={labelClass}>
               Email
               <span className="relative mt-1.5 block">
-                <MailIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-navy/35" aria-hidden="true" />
+                <MailIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-navy/55" aria-hidden="true" />
                 <input
                   name="email"
                   type="email"
@@ -410,7 +410,7 @@ export function SponsorshipMatchingView({
         </section>
 
         <div className="flex flex-col gap-3 border-t border-stone bg-ice px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <p className="text-sm leading-6 text-navy/60">
+          <p className="text-sm leading-6 text-navy/70">
             Children are reserved only after the contact is saved.
           </p>
           <button

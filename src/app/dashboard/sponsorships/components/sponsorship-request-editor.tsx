@@ -74,7 +74,7 @@ export function RequestEditor({
     <div className="rounded-lg border border-stone bg-white shadow-[0_1px_2px_rgba(21,44,75,0.05)] motion-safe:duration-200 motion-safe:ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2">
       <div className="flex flex-col gap-3 border-b border-stone p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-bold uppercase tracking-wide text-navy/50">Request {index + 1}</p>
+          <p className="text-sm font-bold uppercase tracking-wide text-navy/65">Request {index + 1}</p>
           <p className="mt-0.5 truncate text-base font-semibold text-navy">
             {isSponsorship ? 'Child sponsorship' : 'General donation'}
           </p>
@@ -115,7 +115,7 @@ export function RequestEditor({
                 <label className={labelClass}>
                   Search
                   <span className="relative mt-1.5 block">
-                    <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-navy/35" aria-hidden="true" />
+                    <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-navy/55" aria-hidden="true" />
                     <input
                       value={request.childSearch}
                       onChange={(event) => onPatch({ childSearch: event.target.value })}
@@ -180,7 +180,7 @@ export function RequestEditor({
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-base font-bold text-navy">{child.display_name}</span>
-                        <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-navy/55">
+                        <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-navy/65">
                           <span>{child.id_rolf ?? 'No child ID'}</span>
                           <span>{childAgeLabel(child)}</span>
                           <span>{child.country ?? 'No country'}</span>
@@ -194,7 +194,7 @@ export function RequestEditor({
                             Longest unmatched
                           </span>
                         )}
-                        <span className={`flex size-7 items-center justify-center rounded-md border ${selected ? 'border-teal bg-teal text-white' : 'border-stone bg-white text-navy/35'}`}>
+                        <span className={`flex size-7 items-center justify-center rounded-md border ${selected ? 'border-teal bg-teal text-white' : 'border-stone bg-white text-navy/55'}`}>
                           {selected ? (
                             <CheckCircle2Icon className="size-4" aria-hidden="true" />
                           ) : (
@@ -206,7 +206,7 @@ export function RequestEditor({
                   )
                 })}
                 {filtered.length === 0 && (
-                  <div className="px-4 py-8 text-center text-base text-navy/50">
+                  <div className="px-4 py-8 text-center text-base text-navy/65">
                     No available children match this search.
                   </div>
                 )}
@@ -214,11 +214,11 @@ export function RequestEditor({
             </div>
 
             <aside className="rounded-md border border-stone bg-ice p-4">
-              <p className="text-sm font-bold uppercase tracking-wide text-navy/50">
+              <p className="text-sm font-bold uppercase tracking-wide text-navy/65">
                 Selected
               </p>
               {selectedChildren.length === 0 ? (
-                <p className="mt-2 text-sm leading-6 text-navy/55">
+                <p className="mt-2 text-sm leading-6 text-navy/65">
                   No children selected for this request.
                 </p>
               ) : (
@@ -227,7 +227,7 @@ export function RequestEditor({
                     <div key={child.id} className="flex items-center justify-between gap-2 rounded-md bg-white px-3 py-2.5 text-base shadow-sm">
                       <span className="min-w-0">
                         <span className="block truncate font-semibold text-navy">{child.display_name}</span>
-                        <span className="block truncate text-sm text-navy/50">
+                        <span className="block truncate text-sm text-navy/65">
                           {child.id_rolf ?? 'No child ID'} | {childAgeLabel(child)} | {unmatchedSinceLabel(child)}
                         </span>
                       </span>
@@ -235,7 +235,7 @@ export function RequestEditor({
                         type="button"
                         onClick={() => toggleChild(child.id)}
                         aria-label={`Remove ${child.display_name}`}
-                        className="flex size-8 shrink-0 items-center justify-center rounded-md text-navy/45 motion-safe:transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-md text-navy/60 motion-safe:transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
                       >
                         <XIcon className="size-4" aria-hidden="true" />
                       </button>
@@ -243,7 +243,7 @@ export function RequestEditor({
                   ))}
                 </div>
               )}
-              <p className="mt-3 text-sm text-navy/50">
+              <p className="mt-3 text-sm text-navy/65">
                 {filtered.length.toLocaleString()} available result{filtered.length === 1 ? '' : 's'} in view.
               </p>
             </aside>
@@ -316,7 +316,7 @@ export function RequestEditor({
             </div>
           ) : (
             <div className="rounded-md border border-stone bg-ice px-3.5 py-2.5">
-              <p className="text-sm font-semibold text-navy/60">Record type</p>
+              <p className="text-sm font-semibold text-navy/70">Record type</p>
               <p className="mt-1 text-base font-semibold text-navy">Donation only</p>
             </div>
           )}

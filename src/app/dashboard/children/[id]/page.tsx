@@ -8,7 +8,7 @@ import { AuditLogSection } from './AuditLogSection'
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="py-3 border-b border-gray-50 last:border-0">
-      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
+      <p className="text-sm text-gray-600 mb-0.5">{label}</p>
       <p className={`text-sm ${value ? 'text-gray-800' : 'text-gray-300'}`}>{value || '—'}</p>
     </div>
   )
@@ -62,13 +62,13 @@ export default async function ChildProfilePage({
   return (
     <div className="min-h-[calc(100svh_-_4rem)] bg-gray-50 flex flex-col">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
-        <Link href="/dashboard/children" className="text-gray-500 hover:text-gray-800 text-sm font-medium">
+        <Link href="/dashboard/children" className="text-gray-700 hover:text-gray-800 text-sm font-medium">
           ← Back
         </Link>
         <div className="flex-1" />
         <Link
           href={`/dashboard/children/${id}/edit`}
-          className="text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-3 py-1.5 transition-colors"
+          className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-3 py-1.5 transition-colors"
         >
           Edit
         </Link>
@@ -83,8 +83,8 @@ export default async function ChildProfilePage({
           />
           <div className="text-center">
             <h1 className="text-xl font-bold text-gray-900">{name}</h1>
-            <p className={`text-sm font-mono mt-0.5 ${child.id_rolf ? 'text-gray-400' : 'text-gray-300'}`}>{child.id_rolf || 'ROLF ID Unknown'}</p>
-            <span className={`inline-block mt-2 text-xs px-2.5 py-0.5 rounded-full font-medium ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+            <p className={`text-sm font-mono mt-0.5 ${child.id_rolf ? 'text-gray-600' : 'text-gray-300'}`}>{child.id_rolf || 'ROLF ID Unknown'}</p>
+            <span className={`inline-block mt-2 text-sm px-2.5 py-0.5 rounded-full font-medium ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
               {child.status}
             </span>
           </div>
@@ -95,17 +95,17 @@ export default async function ChildProfilePage({
             <p className={`text-lg font-bold ${typeof child.age === 'number' && child.age >= 0 ? 'text-gray-900' : 'text-gray-300'}`}>
               {typeof child.age === 'number' && child.age >= 0 ? child.age : '—'}
             </p>
-            <p className="text-xs text-gray-400">years old</p>
+            <p className="text-sm text-gray-600">years old</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-3 flex flex-col items-center justify-center text-center">
             <p className={`text-sm font-bold truncate w-full ${child.country ? 'text-gray-900' : 'text-gray-300'}`}>{child.country || '—'}</p>
-            <p className="text-xs text-gray-400">country</p>
+            <p className="text-sm text-gray-600">country</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-3 flex flex-col items-center justify-center text-center">
             <p className={`text-lg font-bold ${child.date_joined || child.year_joined ? 'text-gray-900' : 'text-gray-300'}`}>
               {child.date_joined ? new Date(child.date_joined).getFullYear() : child.year_joined || '—'}
             </p>
-            <p className="text-xs text-gray-400">joined</p>
+            <p className="text-sm text-gray-600">joined</p>
           </div>
         </div>
 
@@ -115,7 +115,7 @@ export default async function ChildProfilePage({
           ) : (
             <div className="aspect-video bg-gray-100 flex flex-col items-center justify-center gap-2">
               <span className="text-3xl">🎥</span>
-              <p className="text-xs text-gray-400">No video uploaded yet</p>
+              <p className="text-sm text-gray-600">No video uploaded yet</p>
             </div>
           )}
         </div>
@@ -133,7 +133,7 @@ export default async function ChildProfilePage({
         {/* Internal Notes Segment */}
         {(profile.role === 'admin' || profile.role === 'staff') && (
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-            <p className="text-xs font-semibold text-amber-600 mb-1">Internal Notes</p>
+            <p className="text-sm font-semibold text-amber-600 mb-1">Internal Notes</p>
             {child.notes?.trim() ? (
               <p className="text-sm text-amber-800 whitespace-pre-wrap">{child.notes}</p>
             ) : (

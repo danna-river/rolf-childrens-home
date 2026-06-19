@@ -16,13 +16,13 @@ export default async function SettingsModuleLayout({
         
         {/* Persistent Workspace Header */}
         <div className="border-b border-gray-100 pb-4">
-          <Link href="/dashboard" className="text-xs text-blue-600 hover:underline font-medium">
+          <Link href="/dashboard" className="text-sm text-blue-600 hover:underline font-medium">
             ← Return to Main Dashboard
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-1">
             Settings
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-sm text-gray-600 mt-0.5">
           Manage your profile settings, account authorizations, and global configurations.
           </p>
         </div>
@@ -32,7 +32,7 @@ export default async function SettingsModuleLayout({
           
           {/* Left Column: Navigation Sidebar Panel */}
           <div className="md:col-span-1 md:sticky md:top-6">
-            <span className="hidden md:block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 px-4">
+            <span className="hidden md:block text-xs font-bold uppercase tracking-wider text-gray-600 mb-3 px-4">
               Settings Directory
             </span>
             <TabsNav userRole={profile.role} />

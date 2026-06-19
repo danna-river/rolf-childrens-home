@@ -24,7 +24,7 @@ export function YearJoinedFilter({ years }: { years: number[] }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Year Joined</span>
+      <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Year Joined</span>
       <div className="flex gap-2 flex-wrap">
         {filterOptions.map((option) => {
           const isActive = current === option
@@ -37,10 +37,10 @@ export function YearJoinedFilter({ years }: { years: number[] }) {
             <button
               key={option}
               onClick={() => setYear(option)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors capitalize ${
+              className={`px-3.5 py-2 rounded-full text-sm font-semibold border transition-colors capitalize ${
                 isActive
                   ? activeStyles
-                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                  : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
               }`}
             >
               {option}

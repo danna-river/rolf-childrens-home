@@ -17,7 +17,7 @@ export function PhotoViewer({ src, alt, fallbackInitial }: Props) {
           <img src={src} alt={alt} className="h-36 w-36 rounded-full object-cover border-4 border-white shadow cursor-pointer hover:opacity-90 transition-opacity" />
         ) : (
           <div className="h-36 w-36 rounded-full bg-gray-200 flex items-center justify-center shadow">
-            <span className="text-gray-500 text-4xl font-semibold">{fallbackInitial}</span>
+            <span className="text-gray-700 text-4xl font-semibold">{fallbackInitial}</span>
           </div>
         )}
       </button>

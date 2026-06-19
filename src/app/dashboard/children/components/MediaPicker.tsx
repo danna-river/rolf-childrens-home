@@ -90,28 +90,28 @@ export function MediaPicker({
               <img src={previewSrc} alt="preview" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
               {uploading && (
                 <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
-                  <span className="text-xs text-white font-medium">Uploading…</span>
+                  <span className="text-sm text-white font-medium">Uploading…</span>
                 </div>
               )}
             </div>
-            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove photo</button>}
+            {!uploading && <button type="button" onClick={handleRemove} className="text-sm text-red-500">Remove photo</button>}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {uploading ? (
               <div className="w-full aspect-video bg-gray-100 rounded-xl flex items-center justify-center">
-                <p className="text-xs text-blue-500 font-medium">Uploading video…</p>
+                <p className="text-sm text-blue-500 font-medium">Uploading video…</p>
               </div>
             ) : (
               <video src={previewSrc} controls className="w-full rounded-xl max-h-48" />
             )}
-            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove video</button>}
+            {!uploading && <button type="button" onClick={handleRemove} className="text-sm text-red-500">Remove video</button>}
           </div>
         )
       ) : (
         <div className="space-y-2">
           {isPhoto && existingUrl && (
-            <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+            <p className="text-sm text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
               Existing photo on file — select below to replace it.
             </p>
           )}
@@ -119,20 +119,20 @@ export function MediaPicker({
             <button type="button" onClick={() => cameraRef.current?.click()}
               className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
               <span className="text-2xl">{isPhoto ? "📷" : "🎥"}</span>
-              <span className="text-xs font-medium text-gray-600">
+              <span className="text-sm font-medium text-gray-600">
                 {isPhoto ? (existingUrl ? "Retake Photo" : "Take Photo") : "Record Video"}
               </span>
             </button>
             <button type="button" onClick={() => uploadRef.current?.click()}
               className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
               <span className="text-2xl">{isPhoto ? "🖼️" : "📁"}</span>
-              <span className="text-xs font-medium text-gray-600">
+              <span className="text-sm font-medium text-gray-600">
                 {isPhoto ? (existingUrl ? "Replace File" : "Upload File") : "Upload File"}
               </span>
             </button>
           </div>
           {!isPhoto && (
-            <p className="text-xs text-gray-400 text-center">Child states their name, then does an activity</p>
+            <p className="text-sm text-gray-600 text-center">Child states their name, then does an activity</p>
           )}
         </div>
       )}

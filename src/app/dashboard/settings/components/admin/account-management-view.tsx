@@ -142,7 +142,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
   return (
     <div className="space-y-4">
       {globalError && (
-        <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">
+        <div className="p-3 bg-red-50 border border-red-100 text-sm text-red-600 rounded-xl">
           ⚠️ Action Interrupted: {globalError}
         </div>
       )}
@@ -150,12 +150,12 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
       {/* Search + role filter bar */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
         <div className="relative flex-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" aria-hidden="true" />
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-600" aria-hidden="true" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or email…"
-            className="w-full rounded-xl border border-gray-100 bg-white pl-9 pr-3 py-2 text-xs text-gray-700 outline-none focus:border-gray-300"
+            className="w-full rounded-xl border border-gray-100 bg-white pl-9 pr-3 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
           />
         </div>
         <div className="flex gap-1">
@@ -163,7 +163,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
             <button
               key={f.id}
               onClick={() => setRoleFilter(f.id)}
-              className={roleFilter === f.id ? 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-600 cursor-pointer' : 'px-3 py-1.5 text-xs font-medium rounded-lg text-gray-500 hover:bg-gray-100 cursor-pointer'}
+              className={roleFilter === f.id ? 'px-3 py-1.5 text-sm font-semibold rounded-lg bg-blue-50 text-blue-600 cursor-pointer' : 'px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 cursor-pointer'}
             >
               {f.label}
             </button>
@@ -172,7 +172,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-xs text-gray-400">
+        <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-sm text-gray-600">
           No accounts match your search.
         </div>
       ) : (
@@ -193,9 +193,9 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
                     <h3 className="text-sm font-bold text-gray-900 truncate">
                       {user.full_name || 'Unnamed account'}
                     </h3>
-                    {isSelf && <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">(you)</span>}
+                    {isSelf && <span className="text-xs text-gray-600 font-medium bg-gray-100 px-1.5 py-0.5 rounded">(you)</span>}
                   </div>
-                  <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">{user.email}</p>
+                  <p className="text-sm text-gray-600 font-mono mt-0.5 truncate">{user.email}</p>
                 </div>
 
                 {/* Dropdown Role Selector replacing old read-only status text metadata badges */}
@@ -204,7 +204,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
                     disabled={isSelf || isWorking}
                     value={currentRole}
                     onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                    className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-1.5 text-xs text-gray-700 outline-none font-medium disabled:opacity-50 cursor-pointer"
+                    className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-1.5 text-sm text-gray-700 outline-none font-medium disabled:opacity-50 cursor-pointer"
                   >
                     <option value="staff">Regional Staff</option>
                     <option value="admin">System Administrator</option>
@@ -216,7 +216,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
               {/* 🌟 Dynamic Jurisdictions Matrix (Mounts directly if current active state is Regional Staff) */}
               {currentRole === 'staff' && (
                 <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-2 animate-fade-in">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-600 block">
                     Assigned Jurisdictional Regions
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -231,7 +231,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
                           className={`px-2.5 py-1 text-[11px] font-medium rounded-md border transition-all cursor-pointer ${
                             isChecked 
                               ? "border-blue-400 bg-blue-50 text-blue-600 font-semibold" 
-                              : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                              : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                           }`}
                         >
                           {country} {isChecked ? '✓' : ''}
@@ -250,7 +250,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
                     setConfirmUser(user)
                   }}
                   disabled={isSelf || isWorking}
-                  className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 font-semibold text-xs px-3 py-1.5 rounded-lg cursor-pointer hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 font-semibold text-sm px-3 py-1.5 rounded-lg cursor-pointer hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                 >
                   <Trash2Icon className="size-3.5" aria-hidden="true" />
                   Delete
@@ -260,11 +260,11 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
                 <button
                   disabled={isWorking || currentSaveState === 'saving' || isSelf}
                   onClick={() => handleSaveChanges(user.id)}
-                  className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-all cursor-pointer shadow-3xs ${
+                  className={`text-sm font-bold px-4 py-1.5 rounded-lg transition-all cursor-pointer shadow-3xs ${
                     currentSaveState === 'saved'
                       ? "bg-emerald-50 border border-emerald-200 text-emerald-600 animate-pulse"
                       : isSelf 
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
                         : "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400"
                   }`}
                 >
@@ -277,7 +277,7 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
         })
       )}
 
-      <p className="text-[11px] text-gray-400 px-1">
+      <p className="text-[11px] text-gray-600 px-1">
         Showing {filtered.length} of {users.length} account{users.length === 1 ? '' : 's'}. Deleting is blocked for accounts linked to sponsorships or registered children.
       </p>
 
@@ -297,11 +297,11 @@ export function AccountManagementView({ initialUsers, currentUserId, availableCo
             </DialogDescription>
           </DialogHeader>
 
-          {dialogError && <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">⚠️ {dialogError}</div>}
+          {dialogError && <div className="p-3 bg-red-50 border border-red-100 text-sm text-red-600 rounded-xl">⚠️ {dialogError}</div>}
 
           <DialogFooter>
-            <DialogClose disabled={busy} className="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-100 text-gray-600 cursor-pointer hover:bg-gray-200 disabled:opacity-50">Cancel</DialogClose>
-            <button onClick={handleConfirmDelete} disabled={busy} className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white cursor-pointer hover:bg-red-700 disabled:opacity-50">
+            <DialogClose disabled={busy} className="px-4 py-2 text-sm font-semibold rounded-lg bg-gray-100 text-gray-600 cursor-pointer hover:bg-gray-200 disabled:opacity-50">Cancel</DialogClose>
+            <button onClick={handleConfirmDelete} disabled={busy} className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white cursor-pointer hover:bg-red-700 disabled:opacity-50">
               <Trash2Icon className="size-3.5" aria-hidden="true" /> {busy ? 'Deleting…' : 'Delete account'}
             </button>
           </DialogFooter>

@@ -10,10 +10,10 @@ import { AccountManagementView } from '@/app/dashboard/settings/components/admin
 
 // Temporary UI placeholders for your personal profile/security tabs
 function ProfilePlaceholderForm() {
-  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-xs text-gray-400">👤 Profile settings editing coming soon.</div>
+  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-sm text-gray-600">👤 Profile settings editing coming soon.</div>
 }
 function SecurityPlaceholderForm() {
-  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-xs text-gray-400">🔒 Account authentication and password reset fields coming soon.</div>
+  return <div className="p-6 bg-white rounded-2xl border border-gray-100 text-sm text-gray-600">🔒 Account authentication and password reset fields coming soon.</div>
 }
 
 type SettingsPageProps = {
