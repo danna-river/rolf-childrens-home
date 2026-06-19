@@ -111,7 +111,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         id_rolf: targetIdCode,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
-        age: calcAge(form.birthdate) ?? 0,
         birth_year: dob?.getFullYear(),
         birth_month: dob ? dob.getMonth() + 1 : undefined,
         birth_day: dob?.getDate(),

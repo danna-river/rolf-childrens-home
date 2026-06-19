@@ -14,6 +14,7 @@ import type {
   SponsorshipPoolChild,
   UnmatchedSinceSource,
 } from '@/app/dashboard/sponsorships/components/sponsorship-matching-types'
+import { calculateAge } from '@/components/actions'
 
 type SponsorshipHistoryRow = {
   child_id: string | null
@@ -59,7 +60,7 @@ export default async function SponsorshipsPage() {
       .order('created_at', { ascending: false }),
     adminSupabase
       .from('children')
-      .select('id, id_rolf, display_name, first_name, last_name, age, country, year_joined, date_joined')
+      .select('id, id_rolf, display_name, first_name, last_name, birth_year, birth_month, birth_day, country, year_joined, date_joined')
       .eq('status', 'active'),
     adminSupabase
       .from('sponsorships')
@@ -103,6 +104,7 @@ export default async function SponsorshipsPage() {
         ...child,
         unmatched_since: lastEndedSponsorship ?? joinedHome,
         unmatched_since_source: source,
+        age: calculateAge(child.birth_year, child.birth_month, child.birth_day),
       }
     })
     .sort((left, right) => {

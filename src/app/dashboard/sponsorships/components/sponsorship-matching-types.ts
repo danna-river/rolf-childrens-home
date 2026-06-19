@@ -16,12 +16,15 @@ export type SponsorshipPoolChild = {
   display_name: string
   first_name: string | null
   last_name: string | null
-  age: number | null
   country: string | null
   year_joined: number | null
   date_joined: string | null
   unmatched_since: string | null
   unmatched_since_source: UnmatchedSinceSource
+  birth_year: number | null
+  birth_month: number | null
+  birth_day: number | null
+  age: number
 }
 
 export type ChildAgeFilter = 'all' | '0_5' | '6_10' | '11_14' | '15_plus' | 'unknown'

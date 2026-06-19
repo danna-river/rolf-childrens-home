@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import type { Child } from '@/lib/types'
+import { calculateAge } from '@/components/actions'
 
 type IconComponent = typeof MapPin
 
@@ -151,6 +152,7 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
   const lastUpdated = updatedLabel(child)
   const initial = child.first_name?.[0]?.toUpperCase() ?? '?'
   const hobbies = hobbiesFor(child)
+  const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
 
   return (
     <article
@@ -188,8 +190,8 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
             <p className="text-xs font-medium text-teal">Sponsorship profile</p>
             <h2 className="mt-1 text-2xl font-semibold leading-tight text-navy">
               {name}
-              {child.age ? (
-                <span className="font-normal text-navy/60">, {child.age}</span>
+              {dynamicAge ? (
+                <span className="font-normal text-navy/60">, {dynamicAge}</span>
               ) : null}
             </h2>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">

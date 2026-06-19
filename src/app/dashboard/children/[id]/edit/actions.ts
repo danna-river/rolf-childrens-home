@@ -13,7 +13,6 @@ export type UpdateChildInput = {
   birth_year?: number
   birth_month?: number
   birth_day?: number
-  age: number
   year_joined?: number
   date_joined?: string
   country: string
@@ -149,7 +148,7 @@ export async function updateChildAction(
   const normalizeDate = (val: any) => val ? new Date(val).toISOString().split('T')[0] : null
 
   const fieldsToTrack: Array<keyof UpdateChildInput> = [
-    'id_rolf', 'first_name', 'last_name', 'age', 'country',
+    'id_rolf', 'first_name', 'last_name', 'country',
     'career_aspiration', 'favorite_subject', 'hobby', 'bio', 'notes', 'status'
   ]
 
@@ -207,7 +206,6 @@ export async function updateChildAction(
       display_name,
       first_name: input.first_name,
       last_name: input.last_name,
-      age: input.age,
       birth_year: input.birth_year ?? null,
       birth_month: input.birth_month ?? null,
       birth_day: input.birth_day ?? null,

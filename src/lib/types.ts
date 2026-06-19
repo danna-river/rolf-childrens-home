@@ -55,7 +55,6 @@ export interface Child {
   birth_day: number | null
   profile_photo: string | null
   profile_video: string | null
-  age: number | null
   country: string | null
   year_joined: number | null
   date_joined: string | null
