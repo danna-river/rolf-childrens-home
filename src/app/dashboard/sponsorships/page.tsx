@@ -63,16 +63,16 @@ export default async function SponsorshipsPage() {
     })
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="pb-2">
-        <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-blue-600">
-          Admin Dashboard
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="max-w-3xl pb-1">
+        <div className="mb-2 inline-flex items-center rounded-md bg-sky/65 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-navy">
+          Admin dashboard
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Sponsorships
+        <h1 className="text-3xl font-bold tracking-tight text-navy sm:text-4xl">
+          Sponsor matching
         </h1>
-        <p className="mt-0.5 text-xs text-gray-500">
-          Manage event contacts, match sponsors with children, and track sponsorship terms.
+        <p className="mt-3 text-base leading-7 text-navy/65">
+          Record event contacts, assign child sponsorships, and keep standalone donations in one active record list.
         </p>
       </div>
 
