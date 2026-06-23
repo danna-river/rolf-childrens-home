@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import type { Child } from '@/lib/types'
-import { PhotoViewer } from './PhotoViewer'
-import { AuditLogSection } from './AuditLogSection'
+import { PhotoViewer } from './components/PhotoViewer'
+import { AuditLogSection } from './components/AuditLogSection'
+import { IntakeSection } from './components/IntakeSection'
+import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -36,7 +37,7 @@ export default async function ChildProfilePage({
     return redirect('/login?error=Unauthorized')
   }
 
-  const { data: child } = await supabase
+  const { data: child } = await (supabase as any)
     .from('children')
     .select(`
       *,
@@ -46,14 +47,22 @@ export default async function ChildProfilePage({
       )
     `)
     .eq('id', id)
-    .single() as any
+    .single()
 
   if (!child) return notFound()
 
-  const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
+  // Evaluate eligible records server-side
+  const { eligibleForms, latestCompleted } = await getEligibleIntakeForms(
+    child.id,
+    child.country,
+    child.date_joined,
+    child.year_joined
+  )
 
+  const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
   const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Unnamed'
   const isActive = child.status === 'active'
+  
   const birthdate = child.birth_year && child.birth_month && child.birth_day
     ? new Date(child.birth_year, child.birth_month - 1, child.birth_day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     : null
@@ -95,9 +104,7 @@ export default async function ChildProfilePage({
 
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-xl border border-gray-100 p-3 flex flex-col items-center justify-center text-center">
-            <p className={`text-lg font-bold 'text-gray-900`}>
-              {dynamicAge}
-            </p>
+            <p className="text-lg font-bold text-gray-900">{dynamicAge}</p>
             <p className="text-xs text-gray-400">years old</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-3 flex flex-col items-center justify-center text-center">
@@ -112,6 +119,13 @@ export default async function ChildProfilePage({
           </div>
         </div>
 
+        {/* Mapped custom workbook worksheets panel */}
+        <IntakeSection 
+          childId={id} 
+          eligibleForms={eligibleForms} 
+          latestCompleted={latestCompleted} 
+        />
+
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           {child.profile_video ? (
             <video src={child.profile_video} controls className="w-full aspect-video" />
@@ -123,7 +137,6 @@ export default async function ChildProfilePage({
           )}
         </div>
 
-
         <div className="bg-white rounded-xl border border-gray-100 px-4">
           <DetailRow label="Date of Birth" value={birthdate} />
           <DetailRow label="Date Joined" value={dateJoined} />
@@ -134,23 +147,21 @@ export default async function ChildProfilePage({
         </div>
 
         {/* Internal Notes Segment */}
-        {(profile.role === 'admin' || profile.role === 'staff') && (
-          <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-            <p className="text-xs font-semibold text-amber-600 mb-1">Internal Notes</p>
-            {child.notes?.trim() ? (
-              <p className="text-sm text-amber-800 whitespace-pre-wrap">{child.notes}</p>
-            ) : (
-              <p className="text-sm text-amber-400 italic">No internal notes added yet.</p>
-            )}
-          </div>
-        )}
+        <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <p className="text-xs font-semibold text-amber-600 mb-1">Internal Notes</p>
+          {child.notes?.trim() ? (
+            <p className="text-sm text-amber-800 whitespace-pre-wrap">{child.notes}</p>
+          ) : (
+            <p className="text-sm text-amber-400 italic">No internal notes added yet.</p>
+          )}
+        </div>
 
-        {/* 🌟 READ-ONLY AUDIT LOG TIMELINE SECTION (ADMINS ONLY) */}
+        {/* Read-only historical timeline view */}
         {profile.role === 'admin' && (
           <AuditLogSection
             editLog={child.edit_log}
             createdAt={child.created_at}
-            creatorName={child.creator?.full_name || null} // 🌟 Double check this line matches exactly!
+            creatorName={child.creator?.full_name || null}
             creatorRole={child.creator?.role || null}
           />
         )}
