@@ -9,6 +9,7 @@ import { GlobalConfigsView } from '@/app/dashboard/settings/components/admin/glo
 import { AccountManagementView } from '@/app/dashboard/settings/components/admin/account-management-view'
 import { ProfileView } from './components/profile-view'
 import { SecurityView } from './components/security-view'
+import { IntakeView } from './components/admin/intake-view'
 
 type SettingsPageProps = {
   searchParams: Promise<{ tab?: string }>
@@ -101,9 +102,17 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     return <GlobalConfigsView currentCountries={activeCountries} />
   }
 
+  if (targetTab === 'intake_form') {
+    if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
+
+    return <IntakeView />
+  }
+
   if (targetTab === 'security') {
     return <SecurityView />
   }
+
+
 
   // Base Fallback Tab: Renders the default user profile tab view
   return (
