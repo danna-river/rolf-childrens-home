@@ -22,7 +22,8 @@ export function TabsNav({ userRole }: TabsNavProps) {
     tabs.push(
       { id: 'approvals', label: '🛡️ Approval Requests' },
       { id: 'global_config', label: '🌍 Global Configurations' },
-      { id: 'manage_users', label: '👥 Manage Users' }
+      { id: 'manage_users', label: '👥 Manage Users' },
+      { id: 'intake_form', label: '📝 Intake Forms' }
     )
   }
 
