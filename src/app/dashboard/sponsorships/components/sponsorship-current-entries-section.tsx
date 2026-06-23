@@ -1,43 +1,272 @@
 "use client"
 
-// The "active records" list: every live child sponsorship and standalone donation
-// in one place, with search and country/frequency/payment filters. Ending a record
-// is delegated back up to the view via onEnd.
 import { useMemo, useState } from 'react'
 import {
-  CalendarDaysIcon,
-  CircleDollarSignIcon,
-  HandshakeIcon,
+  CalendarIcon,
+  DollarSignIcon,
+  GiftIcon,
+  HeartIcon,
   ReceiptIcon,
   SearchIcon,
-  UsersIcon,
   XIcon,
 } from 'lucide-react'
-import type {
-  CurrentSponsorship,
-  PageSize,
-} from '@/app/dashboard/sponsorships/components/sponsorship-matching-types'
+import type { CurrentSponsorship } from '@/app/dashboard/sponsorships/components/sponsorship-matching-types'
 import {
-  EmptyState,
-  FilterButton,
-  PaginationControls,
-  SectionHeading,
-} from '@/app/dashboard/sponsorships/components/sponsorship-matching-ui'
-import {
-  fieldClass,
-  formatDate,
-  formatMoney,
-  frequencyLabel,
-  frequencyOptions,
-  labelClass,
-  noCountryFilter,
-  noFrequencyFilter,
-  noPaymentFilter,
-  pageCountFor,
   paymentMethodLabel,
-  paymentOptions,
   searchableText,
 } from '@/app/dashboard/sponsorships/components/sponsorship-matching-utils'
+import type { SponsorshipFrequency } from '@/lib/types'
+
+// ─── Formatting helpers ────────────────────────────────────────────────────────
+
+function frequencySuffix(f: SponsorshipFrequency | null): string {
+  if (!f) return ''
+  const map: Record<SponsorshipFrequency, string> = {
+    one_time: '',
+    weekly: '/wk',
+    biweekly: '/2wk',
+    monthly: '/mo',
+    quarterly: '/qtr',
+    semiannual: '/6mo',
+    annual: '/yr',
+  }
+  return map[f]
+}
+
+function formatCompactAmount(amount: number | null, frequency: SponsorshipFrequency | null): string {
+  if (amount === null) return 'No amount'
+  const dollars = Number.isInteger(amount)
+    ? `$${amount.toLocaleString('en-US')}`
+    : `$${amount.toFixed(2)}`
+  return `${dollars}${frequencySuffix(frequency)}`
+}
+
+function formatDisplayDate(value: string | null | undefined): string {
+  if (!value) return 'present'
+  try {
+    return new Date(`${value}T12:00:00`).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  } catch {
+    return 'Unknown date'
+  }
+}
+
+// ─── SegmentedControl ──────────────────────────────────────────────────────────
+
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="inline-flex rounded-xl border border-stone bg-stone p-0.5">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`rounded-[10px] px-4 py-1.5 text-sm font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
+            value === opt.value
+              ? 'bg-white text-navy shadow-sm'
+              : 'text-navy/50 hover:text-navy/70'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── EndConfirmModal ───────────────────────────────────────────────────────────
+
+function EndConfirmModal({
+  sponsorName,
+  isPending,
+  onConfirm,
+  onCancel,
+}: {
+  sponsorName: string
+  isPending: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="end-modal-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="end-modal-title" className="text-xl font-bold text-navy">
+              End sponsorship?
+            </h2>
+            <p className="mt-0.5 text-base font-semibold text-teal">{sponsorName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close dialog"
+            className="rounded-lg p-1.5 text-navy/40 transition-colors hover:bg-stone hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+          >
+            <XIcon className="size-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <p className="mt-3 text-base leading-relaxed text-navy/65">
+          This will mark this sponsor record as ended. You can still view it using the{' '}
+          <span className="font-semibold text-navy/80">Ended</span> filter.
+        </p>
+
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="rounded-xl border border-stone px-5 py-2.5 text-base font-semibold text-navy/70 transition-colors hover:bg-ice disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className="rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-base font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+          >
+            {isPending ? 'Ending…' : 'End sponsorship'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ChildCard ─────────────────────────────────────────────────────────────────
+
+function ChildCard({ child }: { child: NonNullable<CurrentSponsorship['child']> }) {
+  return (
+    <div className="w-full shrink-0 rounded-xl border border-sky/70 bg-sky/25 px-4 py-3 sm:w-48">
+      {child.id_rolf && (
+        <p className="text-sm font-semibold text-teal">{child.id_rolf}</p>
+      )}
+      <p className="mt-0.5 text-base font-bold leading-tight text-navy">{child.display_name}</p>
+      {child.country && (
+        <p className="mt-0.5 text-sm text-navy/50">{child.country}</p>
+      )}
+    </div>
+  )
+}
+
+// ─── SponsorRecordRow ──────────────────────────────────────────────────────────
+
+function SponsorRecordRow({
+  record,
+  isPending,
+  onEndClick,
+}: {
+  record: CurrentSponsorship
+  isPending: boolean
+  onEndClick: (id: string) => void
+}) {
+  const isChild = record.child_id !== null
+  const isActive = record.status === 'active'
+  const paymentMethod = paymentMethodLabel(record.payment_method)
+  const sponsorName = record.sponsor?.full_name ?? 'Unknown sponsor'
+
+  return (
+    <article className="flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-ice/60 sm:flex-row sm:items-stretch">
+      {/* Icon box */}
+      <div
+        className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${
+          isChild
+            ? 'bg-gradient-to-br from-teal/20 to-sky/50 text-teal'
+            : 'bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600'
+        }`}
+        aria-hidden="true"
+      >
+        {isChild ? <HeartIcon className="size-6" /> : <GiftIcon className="size-6" />}
+      </div>
+
+      {/* Main content */}
+      <div className="min-w-0 flex-1">
+        {/* Name + pill */}
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-lg font-bold text-navy">{sponsorName}</p>
+          <span
+            className={`inline-flex rounded-full px-3 py-0.5 text-sm font-semibold ${
+              isChild ? 'bg-sky/50 text-teal' : 'bg-emerald-50 text-emerald-700'
+            }`}
+          >
+            {isChild ? 'Child sponsorship' : 'Donation only'}
+          </span>
+        </div>
+        {record.sponsor?.email && (
+          <p className="mt-0.5 text-base text-navy/50">{record.sponsor.email}</p>
+        )}
+
+        {/* Metadata */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-base text-navy/55">
+          <span className="inline-flex items-center gap-1.5">
+            <DollarSignIcon className="size-4 shrink-0 text-teal" aria-hidden="true" />
+            {formatCompactAmount(record.amount, record.frequency)}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <CalendarIcon className="size-4 shrink-0 text-teal" aria-hidden="true" />
+            {formatDisplayDate(record.start_date)} – {formatDisplayDate(record.end_date)}
+          </span>
+          {paymentMethod && (
+            <span className="inline-flex items-center gap-1.5">
+              <ReceiptIcon className="size-4 shrink-0 text-teal" aria-hidden="true" />
+              {paymentMethod}
+            </span>
+          )}
+        </div>
+
+        {record.notes && (
+          <p className="mt-2 max-w-prose text-base text-navy/50">{record.notes}</p>
+        )}
+      </div>
+
+      {/* Right column: child card top, ribbon pinned to bottom */}
+      <div className="flex w-full shrink-0 flex-col gap-2 sm:w-48">
+        {isChild && record.child && <ChildCard child={record.child} />}
+        <div className="mt-auto">
+          {isActive ? (
+            <button
+              type="button"
+              onClick={() => onEndClick(record.id)}
+              disabled={isPending}
+              aria-label={`End sponsorship for ${sponsorName}`}
+              className="w-full rounded-lg border border-red-200 bg-red-50 py-1.5 text-center text-xs font-semibold uppercase tracking-widest text-red-500 transition-colors hover:bg-red-100 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+            >
+              End sponsorship
+            </button>
+          ) : (
+            <div className="w-full rounded-lg bg-stone py-1.5 text-center text-xs font-semibold uppercase tracking-widest text-navy/40">
+              Ended
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
+
+// ─── CurrentEntriesSection ─────────────────────────────────────────────────────
+
+type KindFilter = 'all' | 'sponsorship' | 'donation'
+type StatusFilter = 'active' | 'ended' | 'all'
 
 export function CurrentEntriesSection({
   currentSponsorships,
@@ -49,270 +278,166 @@ export function CurrentEntriesSection({
   onEnd: (id: string) => void
 }) {
   const [query, setQuery] = useState('')
-  const [kind, setKind] = useState<'all' | 'sponsorship' | 'donation'>('all')
-  const [countryFilter, setCountryFilter] = useState('all')
-  const [frequencyFilter, setFrequencyFilter] = useState('all')
-  const [paymentFilter, setPaymentFilter] = useState('all')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState<PageSize>(5)
+  const [kind, setKind] = useState<KindFilter>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
-  const countryOptions = useMemo(() => (
-    Array.from(
-      new Set(currentSponsorships.flatMap((match) => (match.child?.country ? [match.child.country] : []))),
-    ).sort()
-  ), [currentSponsorships])
-  // Only offer the explicit "no country / frequency / method" filter options when
-  // there's actually a record missing that field, so the dropdowns stay tidy.
-  const hasCountrylessRecords = currentSponsorships.some((match) => !match.child?.country)
-  const hasRecordsWithoutFrequency = currentSponsorships.some((match) => match.frequency === null)
-  const hasRecordsWithoutPayment = currentSponsorships.some((match) => match.payment_method === null)
+  const activeCount = currentSponsorships.filter((s) => s.status === 'active').length
+  const endedCount = currentSponsorships.filter((s) => s.status === 'ended').length
 
   const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase()
-    return currentSponsorships.filter((match) => {
-      const matchesKind = kind === 'all'
-        || (kind === 'sponsorship' && match.child_id !== null)
-        || (kind === 'donation' && match.child_id === null)
-      const matchesCountry = countryFilter === 'all'
-        || (countryFilter === noCountryFilter ? !match.child?.country : match.child?.country === countryFilter)
-      const matchesFrequency = frequencyFilter === 'all'
-        || (frequencyFilter === noFrequencyFilter ? match.frequency === null : match.frequency === frequencyFilter)
-      const matchesPayment = paymentFilter === 'all'
-        || (paymentFilter === noPaymentFilter ? match.payment_method === null : match.payment_method === paymentFilter)
-      if (!matchesKind || !matchesCountry || !matchesFrequency || !matchesPayment) return false
-
-      if (!normalizedQuery) return true
+    const q = query.trim().toLocaleLowerCase()
+    return currentSponsorships.filter((s) => {
+      if (kind === 'sponsorship' && s.child_id === null) return false
+      if (kind === 'donation' && s.child_id !== null) return false
+      if (statusFilter === 'active' && s.status !== 'active') return false
+      if (statusFilter === 'ended' && s.status !== 'ended') return false
+      if (!q) return true
       const haystack = searchableText([
-        match.sponsor?.full_name,
-        match.sponsor?.email,
-        match.child?.display_name,
-        match.child?.id_rolf,
-        match.child?.country,
-        match.notes,
-        match.frequency ? frequencyLabel(match.frequency) : null,
-        paymentMethodLabel(match.payment_method),
+        s.sponsor?.full_name,
+        s.sponsor?.email,
+        s.child?.display_name,
+        s.child?.id_rolf,
+        s.child?.country,
+        s.notes,
+        paymentMethodLabel(s.payment_method),
       ])
-      return haystack.includes(normalizedQuery)
+      return haystack.includes(q)
     })
-  }, [countryFilter, currentSponsorships, frequencyFilter, kind, paymentFilter, query])
-  const pageCount = pageCountFor(filtered.length, pageSize)
-  const safePage = Math.min(page, pageCount)
-  const paginatedRecords = useMemo(() => (
-    filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
-  ), [filtered, pageSize, safePage])
+  }, [currentSponsorships, query, kind, statusFilter])
 
-  const updateKind = (nextKind: typeof kind) => {
-    setKind(nextKind)
-    setPage(1)
+  const confirmingRecord = confirmingId
+    ? currentSponsorships.find((s) => s.id === confirmingId)
+    : null
+
+  function handleEndClick(id: string) {
+    setConfirmingId(id)
   }
 
-  const updateCountryFilter = (nextCountryFilter: string) => {
-    setCountryFilter(nextCountryFilter)
-    setPage(1)
+  function handleConfirmEnd() {
+    if (!confirmingId) return
+    onEnd(confirmingId)
+    setConfirmingId(null)
   }
 
-  const updateFrequencyFilter = (nextFrequencyFilter: string) => {
-    setFrequencyFilter(nextFrequencyFilter)
-    setPage(1)
-  }
-
-  const updatePaymentFilter = (nextPaymentFilter: string) => {
-    setPaymentFilter(nextPaymentFilter)
-    setPage(1)
-  }
-
-  const updateQuery = (nextQuery: string) => {
-    setQuery(nextQuery)
-    setPage(1)
+  function handleCancelEnd() {
+    setConfirmingId(null)
   }
 
   return (
-    <section className="overflow-hidden rounded-lg border border-stone bg-white shadow-[0_1px_2px_rgba(21,44,75,0.06)]">
-      <div className="border-b border-stone px-4 py-4 sm:px-5">
-        <SectionHeading
-          icon={HandshakeIcon}
-          title="Active records"
-          meta={`${currentSponsorships.length} active entr${currentSponsorships.length === 1 ? 'y' : 'ies'}`}
+    <>
+      {/* Confirmation modal */}
+      {confirmingId && confirmingRecord && (
+        <EndConfirmModal
+          sponsorName={confirmingRecord.sponsor?.full_name ?? 'This sponsor'}
+          isPending={isPending}
+          onConfirm={handleConfirmEnd}
+          onCancel={handleCancelEnd}
         />
-        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <label className="relative block">
-            <span className="sr-only">Search active records</span>
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-navy/35" aria-hidden="true" />
+      )}
+
+      <section className="overflow-hidden rounded-2xl border border-stone bg-white shadow-sm">
+        {/* Card header */}
+        <div className="border-b border-stone px-5 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg font-bold text-navy">All Records</span>
+              <span className="flex size-7 items-center justify-center rounded-full bg-stone text-sm font-bold text-navy/55">
+                {currentSponsorships.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-base">
+              <span>
+                <span className="font-bold text-teal">{activeCount}</span>
+                <span className="ml-1 text-navy/45">active</span>
+              </span>
+              <span className="text-stone" aria-hidden="true">·</span>
+              <span>
+                <span className="font-bold text-navy/40">{endedCount}</span>
+                <span className="ml-1 text-navy/45">ended</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative mt-4">
+            <SearchIcon
+              className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-navy/35"
+              aria-hidden="true"
+            />
             <input
               value={query}
-              onChange={(event) => updateQuery(event.target.value)}
-              placeholder="Search sponsor, email, child, country, notes"
-              className={`${fieldClass} pl-9`}
+              onChange={(e) => { setQuery(e.target.value) }}
+              placeholder="Search name, email, child, ROLF ID..."
+              aria-label="Search sponsor records"
+              className="w-full rounded-2xl border border-stone bg-ice py-3 pl-11 pr-4 text-base text-navy outline-none placeholder:text-navy/35 focus:border-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             />
-          </label>
-          <div className="inline-flex rounded-md border border-stone bg-ice p-1">
-            <FilterButton active={kind === 'all'} label="All" onClick={() => updateKind('all')} />
-            <FilterButton active={kind === 'sponsorship'} label="Child" onClick={() => updateKind('sponsorship')} />
-            <FilterButton active={kind === 'donation'} label="Donation" onClick={() => updateKind('donation')} />
+          </div>
+
+          {/* Filters */}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-navy/45">Type</span>
+              <SegmentedControl
+                options={[
+                  { value: 'all' as KindFilter, label: 'All' },
+                  { value: 'sponsorship' as KindFilter, label: 'Child' },
+                  { value: 'donation' as KindFilter, label: 'Donation' },
+                ]}
+                value={kind}
+                onChange={setKind}
+              />
+            </div>
+
+            <div className="hidden h-5 w-px bg-stone sm:block" aria-hidden="true" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-navy/45">Status</span>
+              <SegmentedControl
+                options={[
+                  { value: 'active' as StatusFilter, label: 'Active' },
+                  { value: 'ended' as StatusFilter, label: 'Ended' },
+                  { value: 'all' as StatusFilter, label: 'All' },
+                ]}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
+            </div>
           </div>
         </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-3">
-          <label className={labelClass}>
-            Country
-            <select
-              value={countryFilter}
-              onChange={(event) => updateCountryFilter(event.target.value)}
-              className={`${fieldClass} mt-1.5`}
-            >
-              <option value="all">All countries</option>
-              {countryOptions.map((country) => (
-                <option key={country} value={country}>{country}</option>
-              ))}
-              {hasCountrylessRecords && <option value={noCountryFilter}>No country</option>}
-            </select>
-          </label>
-          <label className={labelClass}>
-            Frequency
-            <select
-              value={frequencyFilter}
-              onChange={(event) => updateFrequencyFilter(event.target.value)}
-              className={`${fieldClass} mt-1.5`}
-            >
-              <option value="all">All frequencies</option>
-              {frequencyOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-              {hasRecordsWithoutFrequency && <option value={noFrequencyFilter}>No frequency</option>}
-            </select>
-          </label>
-          <label className={labelClass}>
-            Payment method
-            <select
-              value={paymentFilter}
-              onChange={(event) => updatePaymentFilter(event.target.value)}
-              className={`${fieldClass} mt-1.5`}
-            >
-              <option value="all">All methods</option>
-              {paymentOptions.filter((option) => option.value).map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-              {hasRecordsWithoutPayment && <option value={noPaymentFilter}>No method</option>}
-            </select>
-          </label>
-        </div>
-      </div>
-      {currentSponsorships.length === 0 ? (
-        <div className="p-4 sm:p-5">
-          <EmptyState
-            icon={HandshakeIcon}
-            title="No active sponsorships or donations"
-            body="Saved requests will appear here with their contact, child, amount, and term."
-          />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="p-4 sm:p-5">
-          <EmptyState
-            icon={SearchIcon}
-            title="No entries match"
-            body="Adjust the search or filters to return active sponsorships and donations."
-          />
-        </div>
-      ) : (
-        <>
-          <div className="max-h-[48rem] divide-y divide-stone overflow-y-auto">
-            {paginatedRecords.map((match) => {
-              const childLabel = match.child_id
-                ? match.child?.display_name ?? 'Unknown child'
-                : 'General donation'
-              const sponsorLabel = match.sponsor?.full_name ?? 'Unknown sponsor'
-              const recordTypeLabel = match.child_id ? 'Child sponsorship' : 'Donation only'
-              const paymentMethod = paymentMethodLabel(match.payment_method)
-              return (
-                <article
-                  key={match.id}
-                  className="grid gap-4 px-4 py-4 motion-safe:transition-colors hover:bg-ice/70 sm:grid-cols-[minmax(0,1.4fr)_minmax(210px,0.7fr)_auto] sm:items-center sm:px-5"
-                >
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className={`flex size-8 shrink-0 items-center justify-center rounded-md ${match.child_id ? 'bg-sky/70 text-teal' : 'bg-emerald-50 text-emerald-700'}`}>
-                        {match.child_id ? (
-                          <UsersIcon className="size-4" aria-hidden="true" />
-                        ) : (
-                          <CircleDollarSignIcon className="size-4" aria-hidden="true" />
-                        )}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-navy/50">Sponsor</p>
-                        <p className="truncate text-base font-bold text-navy">{sponsorLabel}</p>
-                        {match.sponsor?.email && (
-                          <p className="truncate text-sm text-navy/55">{match.sponsor.email}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-3 grid gap-2 text-sm text-navy/65 sm:grid-cols-2">
-                      <span className="min-w-0 rounded-md border border-stone bg-ice px-3 py-2">
-                        <span className="block font-semibold text-navy/50">{recordTypeLabel}</span>
-                        <span className="block truncate font-semibold text-navy">{childLabel}</span>
-                      </span>
-                      {match.child_id && (
-                        <span className="min-w-0 rounded-md border border-stone bg-white px-3 py-2">
-                          <span className="block font-semibold text-navy/50">Child details</span>
-                          <span className="block truncate font-semibold text-navy">
-                            {match.child?.id_rolf ?? 'No child ID'}
-                            {match.child?.country ? ` | ${match.child.country}` : ''}
-                          </span>
-                        </span>
-                      )}
-                      {match.notes && (
-                        <span className="min-w-0 rounded-md border border-stone bg-white px-3 py-2 sm:col-span-2">
-                          <span className="block font-semibold text-navy/50">Notes</span>
-                          <span className="block break-words font-semibold text-navy">{match.notes}</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="grid gap-1 text-sm text-navy/65">
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <CircleDollarSignIcon className="size-3.5 shrink-0 text-teal" aria-hidden="true" />
-                      <span className="truncate">
-                        {formatMoney(match.amount)}
-                        {match.frequency ? ` ${frequencyLabel(match.frequency).toLocaleLowerCase()}` : ''}
-                      </span>
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <CalendarDaysIcon className="size-3.5 shrink-0 text-teal" aria-hidden="true" />
-                      <span className="truncate">{formatDate(match.start_date)} to {formatDate(match.end_date)}</span>
-                    </span>
-                    {paymentMethod && (
-                      <span className="inline-flex min-w-0 items-center gap-1.5">
-                        <ReceiptIcon className="size-3.5 shrink-0 text-teal" aria-hidden="true" />
-                        <span className="truncate">{paymentMethod}</span>
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => onEnd(match.id)}
-                    disabled={isPending}
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-red-100 bg-red-50 px-4 text-base font-semibold text-red-700 motion-safe:transition motion-safe:duration-150 motion-safe:ease hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
-                  >
-                    <XIcon className="size-4" aria-hidden="true" />
-                    End
-                  </button>
-                </article>
-              )
-            })}
+        {/* Records list */}
+        {currentSponsorships.length === 0 ? (
+          <div className="px-5 py-14 text-center">
+            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-sky/40 text-teal">
+              <HeartIcon className="size-7" aria-hidden="true" />
+            </div>
+            <p className="text-lg font-semibold text-navy">No records yet</p>
+            <p className="mt-1 text-base text-navy/55">
+              Saved sponsorships and donations will appear here.
+            </p>
           </div>
-          <PaginationControls
-            page={safePage}
-            pageSize={pageSize}
-            total={filtered.length}
-            itemLabel="record"
-            onPageChange={setPage}
-            onPageSizeChange={(nextPageSize) => {
-              setPageSize(nextPageSize)
-              setPage(1)
-            }}
-          />
-        </>
-      )}
-    </section>
+        ) : filtered.length === 0 ? (
+          <div className="px-5 py-12 text-center">
+            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-stone text-navy/35">
+              <SearchIcon className="size-7" aria-hidden="true" />
+            </div>
+            <p className="text-lg font-semibold text-navy">No matching records</p>
+            <p className="mt-1 text-base text-navy/55">Try changing your search or filters.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-stone">
+            {filtered.map((record) => (
+              <SponsorRecordRow
+                key={record.id}
+                record={record}
+                isPending={isPending}
+                onEndClick={handleEndClick}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
   )
 }

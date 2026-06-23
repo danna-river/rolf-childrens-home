@@ -34,6 +34,7 @@ export type CurrentSponsorship = {
   id: string
   sponsor_id: string | null
   child_id: string | null
+  status: 'active' | 'ended'
   start_date: string
   end_date: string | null
   amount: number | null

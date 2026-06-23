@@ -29,7 +29,7 @@ export default function RootLayout({
     >
       {/* suppressHydrationWarning: browser extensions inject attributes on <body>
           before React hydrates, which would otherwise log a mismatch warning. */}
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col overflow-x-hidden" suppressHydrationWarning>
         {children}
       </body>
     </html>

@@ -374,14 +374,6 @@ async function DonorChildren() {
           {onlyChildName ? `Meet ${onlyChildName}` : 'Your sponsored children'}
         </h1>
         {count > 0 && (
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-navy/60">
-            {onlyChildName
-              ? `${onlyChildName}'s profile is maintained by the ROLF team so you can see the basics in one place.`
-              : `These ${count} profiles are maintained by the ROLF team so donors can see the basics in one place.`}
-          </p>
-        )}
-
-        {count > 0 && (
           <div className="mt-6 grid border-y border-stone sm:grid-cols-3">
             <SummaryItem
               icon={Heart}

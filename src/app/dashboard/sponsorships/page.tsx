@@ -47,6 +47,7 @@ export default async function SponsorshipsPage() {
         id,
         sponsor_id,
         child_id,
+        status,
         start_date,
         end_date,
         amount,
@@ -56,7 +57,6 @@ export default async function SponsorshipsPage() {
         sponsor:sponsors(id, full_name, email),
         child:children(id, id_rolf, display_name, country)
       `)
-      .eq('status', 'active')
       .order('created_at', { ascending: false }),
     adminSupabase
       .from('children')

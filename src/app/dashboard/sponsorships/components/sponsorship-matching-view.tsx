@@ -69,6 +69,7 @@ export function SponsorshipMatchingView({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [tab, setTab] = useState<'form' | 'records'>('form')
 
   const nextKey = useRef(1)
   const [prefilledSponsorId, setPrefilledSponsorId] = useState<string | null>(null)
@@ -97,8 +98,9 @@ export function SponsorshipMatchingView({
   const loadedSponsor = prefilledSponsorId ? matchedSponsor : null
   const longestWaitId = sortChildrenForRequest(pool, 'longest_wait')[0]?.id ?? ''
 
-  const activeMatches = currentSponsorships.filter((sponsorship) => sponsorship.child_id !== null)
-  const activeDonations = currentSponsorships.length - activeMatches.length
+  const activeRecords = currentSponsorships.filter((s) => s.status === 'active')
+  const activeMatches = activeRecords.filter((s) => s.child_id !== null)
+  const activeDonations = activeRecords.length - activeMatches.length
   const selectedChildCount = requests.reduce((count, request) => count + request.childIds.length, 0)
 
   // Build each sponsorship request's child picker list. A child already picked in
@@ -260,6 +262,11 @@ export function SponsorshipMatchingView({
     runAction(() => endSponsorshipAction(sponsorshipId), 'Entry ended. Any matched child returned to the pool.')
   }
 
+  const tabClass = (active: boolean) =>
+    `inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-base font-semibold motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
+      active ? 'bg-white text-navy shadow-sm' : 'text-navy/55 hover:bg-white/60 hover:text-navy'
+    }`
+
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -267,6 +274,37 @@ export function SponsorshipMatchingView({
         <Metric icon={HandshakeIcon} label="Active matches" value={activeMatches.length.toLocaleString()} helper="Child sponsorships" />
         <Metric icon={CircleDollarSignIcon} label="General donations" value={activeDonations.toLocaleString()} helper="No child attached" />
         <Metric icon={UserRoundIcon} label="Event contacts" value={sponsors.length.toLocaleString()} helper="Sponsor records" />
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Sponsorship views"
+        className="flex gap-1 rounded-2xl border border-stone bg-ice p-1"
+      >
+        <button
+          type="button"
+          role="tab"
+          id="tab-form"
+          aria-selected={tab === 'form'}
+          aria-controls="panel-form"
+          onClick={() => setTab('form')}
+          className={tabClass(tab === 'form')}
+        >
+          <PlusIcon className="size-4" aria-hidden="true" />
+          New entry
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-records"
+          aria-selected={tab === 'records'}
+          aria-controls="panel-records"
+          onClick={() => setTab('records')}
+          className={tabClass(tab === 'records')}
+        >
+          <UsersIcon className="size-4" aria-hidden="true" />
+          Records &amp; contacts
+        </button>
       </div>
 
       {error && (
@@ -280,9 +318,13 @@ export function SponsorshipMatchingView({
         </StatusMessage>
       )}
 
+      {tab === 'form' && (
       <form
+        id="panel-form"
+        role="tabpanel"
+        aria-labelledby="tab-form"
         onSubmit={handleSubmit}
-        className="overflow-hidden rounded-lg border border-stone bg-white shadow-[0_1px_2px_rgba(21,44,75,0.06)] motion-safe:duration-200 motion-safe:ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
+        className="overflow-hidden rounded-2xl border border-stone bg-white shadow-sm motion-safe:duration-200 motion-safe:ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
       >
         <section className="border-b border-stone p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -410,7 +452,7 @@ export function SponsorshipMatchingView({
         </section>
 
         <div className="flex flex-col gap-3 border-t border-stone bg-ice px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <p className="text-sm leading-6 text-navy/60">
+          <p className="text-base leading-6 text-navy/60">
             Children are reserved only after the contact is saved.
           </p>
           <button
@@ -422,8 +464,15 @@ export function SponsorshipMatchingView({
           </button>
         </div>
       </form>
+      )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
+      {tab === 'records' && (
+      <div
+        id="panel-records"
+        role="tabpanel"
+        aria-labelledby="tab-records"
+        className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)] motion-safe:duration-200 motion-safe:ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
+      >
         <CurrentEntriesSection
           currentSponsorships={currentSponsorships}
           isPending={isPending}
@@ -431,6 +480,7 @@ export function SponsorshipMatchingView({
         />
         <ContactsSection sponsors={sponsors} />
       </div>
+      )}
     </div>
   )
 }
