@@ -5,8 +5,6 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
 } from "lucide-react"
 
 import { PAGE_SIZE } from "@/lib/pagination"
@@ -45,7 +43,7 @@ function pageItems(
 }
 
 const buttonBase =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-2 text-sm font-medium motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:pointer-events-none disabled:opacity-40"
+  "inline-flex h-11 min-w-11 items-center justify-center rounded-md border px-3 text-base font-bold motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:pointer-events-none disabled:opacity-35"
 const buttonIdle = "border-stone bg-white text-navy hover:bg-ice"
 const buttonActive = "border-navy bg-navy text-white"
 
@@ -94,22 +92,22 @@ export function Pagination({
     <nav
       aria-label="Pagination"
       aria-busy={isPending}
-      className={`flex flex-col gap-4 border-t border-stone pt-5 motion-safe:transition-opacity motion-safe:duration-200 sm:flex-row sm:items-center sm:justify-between ${
+      className={`flex flex-col gap-4 border-t border-stone pt-6 motion-safe:transition-opacity motion-safe:duration-200 sm:flex-row sm:items-center sm:justify-between ${
         isPending ? "opacity-60" : ""
       }`}
     >
-      <div className="flex min-w-0 flex-col gap-2 sm:gap-2.5">
-        <p className="text-xs text-navy/60">
-          Showing{" "}
-          <span className="font-semibold text-navy">
-            {start.toLocaleString()}–{end.toLocaleString()}
-          </span>{" "}
-          of <span className="font-semibold text-navy">{total.toLocaleString()}</span>{" "}
-          children
+      <div className="order-2 min-w-0 text-center sm:order-1 sm:text-left">
+        <p className="text-base font-semibold text-navy/65">
+          <span className="hidden sm:inline">
+            Page {page.toLocaleString()} of {totalPages.toLocaleString()} · {total.toLocaleString()} records
+          </span>
+          <span className="sm:hidden">
+            Showing {start.toLocaleString()}-{end.toLocaleString()} of {total.toLocaleString()} children
+          </span>
         </p>
 
         {showJump && (
-          <form onSubmit={handleJump} className="flex items-center gap-2">
+          <form onSubmit={handleJump} className="mt-2 flex items-center justify-center gap-2 sm:justify-start">
             <label htmlFor="page-jump" className="text-xs text-navy/55">
               Go to page
             </label>
@@ -135,16 +133,7 @@ export function Pagination({
         )}
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center justify-center gap-1">
-        <button
-          type="button"
-          onClick={() => goTo(1)}
-          disabled={page <= 1}
-          aria-label="First page"
-          className={`${buttonBase} ${buttonIdle}`}
-        >
-          <ChevronsLeft className="size-4" aria-hidden="true" />
-        </button>
+      <div className="order-1 flex shrink-0 flex-wrap items-center justify-center gap-2 sm:order-2">
         <button
           type="button"
           onClick={() => goTo(page - 1)}
@@ -155,14 +144,13 @@ export function Pagination({
           <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
 
-        {/* Numbered pages — desktop */}
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-2 sm:flex">
           {items.map((item, i) =>
             item === "ellipsis" ? (
               <span
                 key={`ellipsis-${i}`}
                 aria-hidden="true"
-                className="inline-flex h-9 w-9 items-center justify-center text-navy/40"
+                className="inline-flex h-11 w-8 items-center justify-center text-navy/40"
               >
                 …
               </span>
@@ -181,9 +169,8 @@ export function Pagination({
           )}
         </div>
 
-        {/* Compact indicator — mobile + small tablets */}
-        <span className="px-3 text-xs font-medium text-navy/70 md:hidden">
-          Page {page} of {totalPages}
+        <span className="px-3 text-sm font-bold text-navy/70 sm:hidden">
+          Page {page.toLocaleString()} of {totalPages.toLocaleString()}
         </span>
 
         <button
@@ -194,15 +181,6 @@ export function Pagination({
           className={`${buttonBase} ${buttonIdle}`}
         >
           <ChevronRight className="size-4" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          onClick={() => goTo(totalPages)}
-          disabled={page >= totalPages}
-          aria-label="Last page"
-          className={`${buttonBase} ${buttonIdle}`}
-        >
-          <ChevronsRight className="size-4" aria-hidden="true" />
         </button>
       </div>
     </nav>

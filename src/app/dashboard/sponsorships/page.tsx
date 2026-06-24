@@ -114,7 +114,7 @@ export default async function SponsorshipsPage() {
     })
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <main className="google-sans-page mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="max-w-3xl pb-1">
         <div className="mb-2 inline-flex items-center rounded-md bg-sky/65 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-navy">
           Admin dashboard

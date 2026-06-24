@@ -42,6 +42,17 @@ interface CountryRow {
   iso_code: string
 }
 
+export type ChildrenRegistryStats = {
+  total: number
+  active: number
+  inactive: number
+  countries: number
+}
+
+type RegistryStatsRow = {
+  status: string | null
+  country: string | null
+}
 
 export async function getJoinedYears(): Promise<number[]> {
   const supabase = createAdminClient()
@@ -70,6 +81,36 @@ export async function getCountries(): Promise<string[]> {
   
   // TypeScript now recognizes 'row' as a valid object instead of 'never'
   return (data as CountryRow[]).map((row) => row.name)
+}
+
+export async function getChildrenRegistryStats(
+  countries?: string[],
+  useSessionClient = false,
+): Promise<ChildrenRegistryStats> {
+  const supabase = useSessionClient ? await createClient() : createAdminClient()
+
+  let query = supabase.from('children').select('status, country')
+
+  if (countries && countries.length > 0) {
+    query = query.in('country', countries)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('Error fetching children registry stats:', error.message)
+    return { total: 0, active: 0, inactive: 0, countries: 0 }
+  }
+
+  const rows = (data ?? []) as RegistryStatsRow[]
+  const countrySet = new Set(rows.flatMap((row) => (row.country ? [row.country] : [])))
+
+  return {
+    total: rows.length,
+    active: rows.filter((row) => row.status === 'active').length,
+    inactive: rows.filter((row) => row.status === 'inactive').length,
+    countries: countrySet.size,
+  }
 }
 
 export async function getChildrenProfiles(

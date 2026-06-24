@@ -1,13 +1,13 @@
 "use client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 
-const SORT_OPTIONS = [
-  { value: "name_asc", label: "Name A→Z" },
-  { value: "name_desc", label: "Name Z→A" },
-  { value: "age_asc", label: "Age ↑" },
-  { value: "age_desc", label: "Age ↓" },
-  { value: "rolf_id_asc", label: "ROLF ID ↑" },
-  { value: "rolf_id_desc", label: "ROLF ID ↓" },
+const OPTIONS = [
+  { value: "name_asc", label: "Name A–Z" },
+  { value: "name_desc", label: "Name Z–A" },
+  { value: "age_asc", label: "Youngest" },
+  { value: "age_desc", label: "Oldest" },
+  { value: "rolf_id_asc", label: "ID ↑" },
+  { value: "rolf_id_desc", label: "ID ↓" },
 ]
 
 export function SortFilter() {
@@ -16,25 +16,26 @@ export function SortFilter() {
   const searchParams = useSearchParams()
   const current = searchParams.get("sort") ?? "name_asc"
 
-  const setSort = (sort: string) => {
+  const set = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    params.set("sort", sort)
-    params.delete("page") // sort changed → back to the first page
+    params.set("sort", value)
+    params.delete("page")
     router.replace(`${pathname}?${params.toString()}`)
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sort</span>
-      <div className="flex gap-2 flex-wrap">
-        {SORT_OPTIONS.map((opt) => (
+    <div>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">Sort</p>
+      <div className="flex flex-wrap gap-1.5">
+        {OPTIONS.map((opt) => (
           <button
             key={opt.value}
-            onClick={() => setSort(opt.value)}
-            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+            type="button"
+            onClick={() => set(opt.value)}
+            className={`min-h-9 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
               current === opt.value
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                ? "border-teal bg-teal text-white"
+                : "border-stone bg-white text-navy/65 hover:border-teal/50 hover:text-navy"
             }`}
           >
             {opt.label}

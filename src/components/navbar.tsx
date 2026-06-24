@@ -10,13 +10,13 @@ interface NavbarProps {
 
 /**
  * Universal top navigation bar shown across the authenticated dashboard.
- * Sticky on all viewports, ROLF teal-blue background. Holds only the menu
+ * Sticky on all viewports, ROLF navy background. Holds only the menu
  * trigger (three lines) and the white logo; the SiteMenu opens a full-page
  * overlay with the page links (Children / Profile / Settings) + sign out.
  */
 export function Navbar({ email, role }: NavbarProps) {
   return (
-    <header className="sticky top-0 z-50 w-full bg-teal shadow-sm">
+    <header className="sticky top-0 z-50 w-full bg-navy shadow-sm">
       <nav className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href="/dashboard"

@@ -1,42 +1,42 @@
 "use client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 
+const OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+]
+
 export function StatusFilter() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const current = searchParams.get("status") ?? "all"
 
-  const setStatus = (status: string) => {
+  const set = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (status === "all") {
-      params.delete("status")
-    } else {
-      params.set("status", status)
-    }
-    params.delete("page") // filter changed → back to the first page
+    if (value === "all") params.delete("status")
+    else params.set("status", value)
+    params.delete("page")
     router.replace(`${pathname}?${params.toString()}`)
   }
 
-  const activeClass: Record<string, string> = {
-    all: "bg-gray-800 text-white border-gray-800",
-    active: "bg-green-600 text-white border-green-600",
-    inactive: "bg-gray-400 text-white border-gray-400",
-  }
-
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Status</span>
-      <div className="flex gap-2">
-        {["all", "active", "inactive"].map((s) => (
+    <div>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">Status</p>
+      <div className="flex flex-wrap gap-1.5">
+        {OPTIONS.map((opt) => (
           <button
-            key={s}
-            onClick={() => setStatus(s)}
-            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-              current === s ? activeClass[s] : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+            key={opt.value}
+            type="button"
+            onClick={() => set(opt.value)}
+            className={`min-h-9 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
+              current === opt.value
+                ? "border-teal bg-teal text-white"
+                : "border-stone bg-white text-navy/65 hover:border-teal/50 hover:text-navy"
             }`}
           >
-            {s.charAt(0).toUpperCase() + s.slice(1)}
+            {opt.label}
           </button>
         ))}
       </div>

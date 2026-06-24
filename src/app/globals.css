@@ -134,6 +134,15 @@
   }
 }
 
+.google-sans-page,
+.google-sans-registry,
+.google-sans-registry-title {
+  font-family: "Google Sans", var(--font-geist-sans), sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+  font-variation-settings: "GRAD" 0;
+}
+
 /* Respect users who prefer reduced motion: neutralize entrance/loading/hover
    animations and transitions app-wide while keeping content fully visible. */
 @media (prefers-reduced-motion: reduce) {
