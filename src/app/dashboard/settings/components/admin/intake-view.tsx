@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { PlusIcon, TrashIcon, ToggleLeftIcon, ToggleRightIcon, PencilIcon, SaveIcon, XIcon, GlobeIcon, AlertCircleIcon } from "lucide-react"
+import { PlusIcon, TrashIcon, ToggleLeftIcon, ToggleRightIcon, PencilIcon, SaveIcon, XIcon, GlobeIcon, AlertCircleIcon, MoveIcon } from "lucide-react"
 import {
     getIntakeTemplates,
     createIntakeTemplate,
@@ -27,7 +27,9 @@ export function IntakeView() {
     const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
     const [templateDeleteConfirmId, setTemplateDeleteConfirmId] = useState<string | null>(null)
 
-    // Local execution guard states replacing native window confirmations
+    // Drag tracking state
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+
     const [showSavePrompt, setShowSavePrompt] = useState(false)
     const [transactionError, setTransactionError] = useState<string | null>(null)
 
@@ -102,6 +104,44 @@ export function IntakeView() {
         const updated = [...formQuestions]
         updated[qIndex].choices = (updated[qIndex].choices || []).filter((_, i) => i !== cIndex)
         setFormQuestions(updated)
+    }
+
+    const handleDragStart = (index: number) => {
+        setDraggedIndex(index)
+    }
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault()
+        if (draggedIndex === null || draggedIndex === index) return
+
+        const reorderedQuestions = [...formQuestions]
+        const targetItem = reorderedQuestions[draggedIndex]
+        
+        reorderedQuestions.splice(draggedIndex, 1)
+        reorderedQuestions.splice(index, 0, targetItem)
+        
+        setDraggedIndex(index)
+        setFormQuestions(reorderedQuestions)
+
+        if (validationErrors.attempted) {
+            const updateErrors = (arr: number[]) =>
+                arr.map(errIdx => {
+                    if (errIdx === draggedIndex) return index
+                    if (errIdx >= Math.min(draggedIndex, index) && errIdx <= Math.max(draggedIndex, index)) {
+                        return errIdx + (draggedIndex > index ? 1 : -1)
+                    }
+                    return errIdx
+                })
+            setValidationErrors(prev => ({
+                ...prev,
+                questions: updateErrors(prev.questions),
+                choices: updateErrors(prev.choices)
+            }))
+        }
+    }
+
+    const handleDragEnd = () => {
+        setDraggedIndex(null)
     }
 
     const resetForm = () => {
@@ -216,24 +256,6 @@ export function IntakeView() {
                     </div>
                 )}
 
-                {showSavePrompt && (
-                    <div className="p-4 bg-amber-50/50 border border-amber-200 rounded-md text-xs text-navy/85 font-semibold space-y-3 animate-fade-in">
-                        <p>
-                            {editingId 
-                              ? "Confirm adjustments to this template configuration? Existing downstream historical field metrics may alter alignment."
-                              : "Deploy this custom dynamic intake format live systemwide?"}
-                        </p>
-                        <div className="flex items-center gap-2">
-                            <button type="button" onClick={executeSaveTransaction} className="bg-teal hover:bg-teal/90 text-white px-3 py-1.5 rounded-md cursor-pointer text-xs font-bold shadow-2xs">
-                                Confirm Deployment
-                              </button>
-                            <button type="button" onClick={() => setShowSavePrompt(false)} className="bg-white text-navy/65 border border-stone px-3 py-1.5 rounded-md cursor-pointer text-xs">
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 <div className="flex items-center justify-between border-b border-stone pb-3">
                     <h2 className="text-base font-bold tracking-tight text-navy sm:text-lg">
                         {editingId ? `Edit Existing Form` : `Create an Intake Form`}
@@ -282,7 +304,8 @@ export function IntakeView() {
                     </div>
 
                     <div className="space-y-3">
-                        <div className="hidden sm:grid sm:grid-cols-[1fr_12rem] gap-3 items-center px-1">
+                        <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_12rem] gap-3 items-center px-1">
+                            <div />
                             <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">
                                 Insert Questions ({formQuestions.length})
                             </label>
@@ -295,17 +318,28 @@ export function IntakeView() {
                             const isArmedForDelete = deleteConfirmIndex === qIndex
                             const hasTextError = validationErrors.questions.includes(qIndex)
                             const hasChoiceError = validationErrors.choices.includes(qIndex)
+                            const isBeingDragged = draggedIndex === qIndex
 
                             return (
                                 <div 
-                                    key={qIndex} 
-                                    className={`p-3.5 rounded-md border space-y-3 relative transition-all ${
+                                    key={qIndex}
+                                    draggable
+                                    onDragStart={() => handleDragStart(qIndex)}
+                                    onDragOver={(e) => handleDragOver(e, qIndex)}
+                                    onDragEnd={handleDragEnd}
+                                    className={`p-3.5 rounded-md border space-y-3 relative transition-all group/card ${
+                                        isBeingDragged ? "opacity-30 border-dashed border-teal bg-teal/5 scale-[0.99]" : ""
+                                    } ${
                                         hasTextError || hasChoiceError 
                                             ? "bg-rose-50/30 border-rose-300" 
-                                            : "bg-ice/50 border-stone"
+                                            : "bg-ice/50 border-stone hover:border-stone/80"
                                     }`}
                                 >
                                     <div className="flex flex-col sm:flex-row gap-2.5 sm:items-center">
+                                        <div className="hidden sm:flex items-center justify-center text-navy/30 group-hover/card:text-navy/50 transition-colors cursor-grab active:cursor-grabbing p-1 shrink-0 -ml-1">
+                                            <MoveIcon className="size-4" />
+                                        </div>
+
                                         <div className="w-full sm:flex-1">
                                             <span className="sm:hidden block text-[10px] font-bold uppercase tracking-wider text-navy/40 mb-1">
                                                 Question #{qIndex + 1}
@@ -366,23 +400,25 @@ export function IntakeView() {
                                             <span className={`block text-[10px] font-medium uppercase tracking-wide ${hasChoiceError ? 'text-rose-600 font-bold' : 'text-navy/55'}`}>
                                                 Add Answer Choices: {hasChoiceError && <span className="lowercase font-normal italic">(Requires at least one non-empty value)</span>}
                                             </span>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <div className="flex flex-col gap-2">
                                                 {(q.choices || []).map((choice, cIndex) => (
-                                                    <div key={cIndex} className="flex gap-1.5 items-center">
-                                                        <input
-                                                            type="text"
-                                                            value={choice}
-                                                            onChange={(e) => handleChoiceChange(qIndex, cIndex, e.target.value)}
-                                                            className={`font-medium flex-1 rounded-md border px-3 py-1.5 text-xs text-navy outline-none focus:border-teal placeholder:text-navy/30 ${
-                                                                hasChoiceError && !choice.trim() ? "border-rose-300 bg-rose-50/20" : "border-stone"
-                                                            }`}
-                                                            placeholder={`Option #${cIndex + 1}`}
-                                                        />
+                                                    <div key={cIndex} className="flex items-center gap-2 w-full min-w-0">
+                                                        <div className="flex-1 min-w-0">
+                                                            <input
+                                                                type="text"
+                                                                value={choice}
+                                                                onChange={(e) => handleChoiceChange(qIndex, cIndex, e.target.value)}
+                                                                className={`font-medium w-full rounded-md border px-3 py-1.5 text-xs text-navy outline-none focus:border-teal placeholder:text-navy/30 ${
+                                                                    hasChoiceError && !choice.trim() ? "border-rose-300 bg-rose-50/20" : "border-stone"
+                                                                }`}
+                                                                placeholder={`Option #${cIndex + 1}`}
+                                                            />
+                                                        </div>
                                                         {(q.choices || []).length > 1 && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleRemoveChoice(qIndex, cIndex)}
-                                                                className="p-1 text-navy/35 hover:text-rose-600 cursor-pointer"
+                                                                className="p-1.5 text-navy/35 hover:text-rose-600 cursor-pointer hover:bg-ice rounded transition-colors shrink-0"
                                                             >
                                                                 <XIcon className="size-3.5" />
                                                             </button>
@@ -404,27 +440,60 @@ export function IntakeView() {
                         })}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-stone pt-4">
+                    {/* 🌟 Footer Bar: Confirmation switches inline next to the execution track */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-stone pt-4">
                         <button
                             type="button"
+                            disabled={showSavePrompt}
                             onClick={handleAddQuestion}
-                            className="w-full sm:w-auto justify-center inline-flex items-center gap-1.5 text-xs font-bold text-navy hover:text-navy/80 bg-ice border border-stone px-3 py-2.5 sm:py-2 rounded-md cursor-pointer transition-colors"
+                            className="w-full sm:w-auto justify-center inline-flex items-center gap-1.5 text-xs font-bold text-navy hover:text-navy/80 bg-ice border border-stone px-3 py-2.5 sm:py-2 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                             <PlusIcon className="size-3.5 text-teal" /> Add Question
                         </button>
                         
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 w-full sm:w-auto">
-                            <button
-                                type="button"
-                                onClick={validateAndTriggerPrompt}
-                                className={`w-full sm:w-auto justify-center inline-flex items-center gap-1.5 text-white text-xs sm:text-sm font-bold px-5 py-2.5 sm:py-2 rounded-md transition-all shadow-2xs cursor-pointer ${
-                                    formHasErrors 
-                                        ? "bg-rose-700 hover:bg-rose-800" 
-                                        : "bg-teal hover:bg-teal/90"
-                                    }`}
-                            >
-                                <SaveIcon className="size-3.5" /> {editingId ? "Save Form Updates" : "Save and Deploy Form"}
-                            </button>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 w-full sm:w-auto">
+                            {showSavePrompt ? (
+                                <div className="flex flex-col sm:flex-row items-center gap-3 w-full bg-amber-50/40 border border-amber-200 rounded-md px-3 py-2 animate-fade-in">
+                                    <span className="text-[11px] font-bold text-amber-800 text-center sm:text-left leading-tight">
+                                        Apply configuration configurations systemwide?
+                                    </span>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto justify-center shrink-0">
+                                        <button 
+                                            type="button" 
+                                            onClick={executeSaveTransaction} 
+                                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3 py-1.5 rounded-md cursor-pointer transition-all shadow-3xs"
+                                        >
+                                            Confirm Save
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowSavePrompt(false)} 
+                                            className="bg-white text-navy/65 border border-stone font-semibold text-xs px-3 py-1.5 rounded-md cursor-pointer hover:bg-ice"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                                    {formHasErrors && (
+                                        <span className="text-xs font-semibold text-rose-700 flex items-center justify-center gap-1 animate-fade-in">
+                                            <AlertCircleIcon className="size-3.5 shrink-0" /> Missing setup
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={validateAndTriggerPrompt}
+                                        className={`w-full sm:w-auto justify-center inline-flex items-center gap-1.5 text-white text-xs sm:text-sm font-bold px-5 py-2.5 sm:py-2 rounded-md transition-all shadow-2xs cursor-pointer ${
+                                            formHasErrors 
+                                                ? "bg-rose-700 hover:bg-rose-800" 
+                                                : "bg-teal hover:bg-teal/90"
+                                            }`}
+                                    >
+                                        <SaveIcon className="size-3.5" /> {editingId ? "Save Form Updates" : "Save and Deploy Form"}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </form>
