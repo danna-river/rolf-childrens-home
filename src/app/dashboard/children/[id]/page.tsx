@@ -6,14 +6,196 @@ import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
-import { resolveVideo } from '@/lib/childMedia'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
+import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
+import type { Child } from '@/lib/types'
+
+type ChildWithCreator = Child & {
+  creator?: {
+    full_name: string | null
+    role: string | null
+  } | null
+}
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="py-3 border-b border-stone last:border-0 flex flex-col gap-1">
       <span className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">{label}</span>
       <span className={`text-xs font-semibold ${value ? 'text-navy' : 'text-navy/40 italic'}`}>{value || 'Not recorded'}</span>
+    </div>
+  )
+}
+
+const donorDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+})
+
+function safeDate(value: string | null): Date | null {
+  if (!value) return null
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T12:00:00`
+    : value
+  const date = new Date(normalized)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function donorDateLabel(value: string | null): string | null {
+  const date = safeDate(value)
+  return date ? donorDateFormatter.format(date) : null
+}
+
+function donorChildName(child: Child): string {
+  return (
+    [child.first_name, child.last_name].filter(Boolean).join(' ') ||
+    child.display_name ||
+    'Unnamed'
+  )
+}
+
+function donorHobbies(child: Child): string[] {
+  return (child.hobby ?? '')
+    .split(',')
+    .map((hobby) => hobby.trim())
+    .filter(Boolean)
+}
+
+function donorSentenceList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? ''
+  if (items.length === 2) return `${items[0]} and ${items[1]}`
+  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`
+}
+
+function DonorProfileFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-[#eadfd0] bg-[#f6f1e8] px-3 py-3">
+      <dt className="text-xs font-bold uppercase tracking-[0.18em] text-navy/45">
+        {label}
+      </dt>
+      <dd className="mt-1 text-base font-bold leading-snug text-[#241b16]">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function DonorChildDetail({ child }: { child: Child }) {
+  const name = donorChildName(child)
+  const firstName = child.first_name || child.display_name || name
+  const age = calculateAge(child.birth_year, child.birth_month, child.birth_day)
+  const birthdate = child.birth_year && child.birth_month && child.birth_day
+    ? donorDateFormatter.format(new Date(child.birth_year, child.birth_month - 1, child.birth_day))
+    : null
+  const joined = donorDateLabel(child.date_joined) ?? (child.year_joined ? String(child.year_joined) : 'Unknown')
+  const hobbies = donorHobbies(child)
+  const photoSrc = resolvePhotoSrc(child.profile_photo, 1800)
+  const video = resolveVideo(child.profile_video)
+  const storyParts = [
+    child.bio?.trim() ||
+      `My name is ${name}. ${age ? `I am ${age} years old. ` : ''}${child.country ? `I live at the Children's Home in ${child.country}. ` : ''}`,
+    child.favorite_subject ? `My favorite subject is ${child.favorite_subject}.` : null,
+    hobbies.length > 0 ? ` ${donorSentenceList(hobbies)}.` : null,
+    child.career_aspiration ? `When I grow up, I hope to be ${child.career_aspiration}.` : null,
+  ].filter((part): part is string => Boolean(part))
+
+  return (
+    <div className="google-sans-page min-h-[calc(100svh_-_4rem)] bg-[#f8f1e8]">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        <Link
+          href="/dashboard/children"
+          className="inline-flex items-center rounded-full border border-[#e1d6c7] bg-white/70 px-4 py-2 text-sm font-bold text-navy/70 transition-colors hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+        >
+          Back to my sponsorships
+        </Link>
+
+        <article className="mt-8 overflow-hidden rounded-[2rem] border border-[#eadfd0] border-t-8 border-teal/80 bg-[#fffdf8] shadow-[0_24px_60px_rgba(21,44,75,0.10)]">
+          <div className="space-y-8 p-5 sm:p-8 lg:p-10">
+            <div className="flex flex-col gap-6 md:flex-row md:items-start">
+              <div className="mx-auto w-full max-w-[18rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-[#eadfd0] bg-[#f6f1e8] shadow-[0_18px_45px_rgba(21,44,75,0.10)] md:mx-0 md:w-72 lg:w-80">
+                <div className="flex aspect-[3/4] w-full items-center justify-center">
+                  {photoSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- donor media can be S3 or Google Drive URLs resolved at runtime.
+                    <img
+                      src={photoSrc}
+                      alt={`${name} profile photo`}
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-teal text-6xl font-bold text-white sm:text-8xl">
+                      {(child.first_name?.slice(0, 2) || child.display_name?.slice(0, 2) || '?').toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1 md:pt-2">
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-teal">
+                  {child.country || 'Sponsorship profile'}
+                </p>
+                <h1 className="mt-3 font-serif text-5xl font-bold leading-none tracking-tight text-[#241b16] sm:text-6xl">
+                  {name}
+                </h1>
+                <p className="mt-4 text-base font-semibold leading-7 text-[#7a6d5d]">
+                  {age ? `${age} years old` : 'Age being prepared'}
+                  {birthdate ? ` - Born ${birthdate}` : ''}
+                </p>
+                <dl className="mt-5 grid grid-cols-2 gap-2">
+                  <DonorProfileFact label="Country" value={child.country || 'To be added'} />
+                  <DonorProfileFact label="Date joined" value={joined} />
+                  <DonorProfileFact label="Favorite subject" value={child.favorite_subject || 'To be added'} />
+                  <DonorProfileFact label="Hobbies" value={hobbies.length > 0 ? donorSentenceList(hobbies) : 'To be added'} />
+                </dl>
+              </div>
+            </div>
+
+            <section className="space-y-3">
+              <h2 className="text-xs font-bold uppercase tracking-[0.28em] text-teal">
+                My story
+              </h2>
+              <div className="space-y-3 font-serif text-xl italic leading-9 text-[#2d241d] sm:text-2xl sm:leading-10">
+                <p>Dearest Sponsor,</p>
+                {storyParts.map((part, index) => (
+                  <p key={index}>{part}</p>
+                ))}
+                <p>Thank you for sponsoring me and loving me. I pray that God will bless you too!</p>
+              </div>
+            </section>
+
+            {video.kind !== 'none' && (
+              <section className="overflow-hidden rounded-3xl border border-teal/10 bg-sky/65">
+                <div className="aspect-video overflow-hidden bg-sky">
+                  {video.kind === 'drive' ? (
+                    <iframe
+                      src={video.src}
+                      allow="autoplay"
+                      allowFullScreen
+                      className="h-full w-full"
+                      title={`${firstName} video`}
+                    />
+                  ) : (
+                    <video
+                      src={video.src}
+                      controls
+                      preload="metadata"
+                      className="h-full w-full"
+                    />
+                  )}
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal">
+                    Video message
+                  </p>
+                  <p className="mt-1 text-base font-bold text-[#241b16]">
+                    A message from {firstName}
+                  </p>
+                </div>
+              </section>
+            )}
+          </div>
+        </article>
+      </main>
     </div>
   )
 }
@@ -35,11 +217,23 @@ export default async function ChildProfilePage({
     .eq('id', user.id)
     .single() as { data: { role: string; country: string | string[] | null } | null; error: unknown }
 
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'staff' && profile.role !== 'donor')) {
     return redirect('/login?error=Unauthorized')
   }
 
-  const { data: child } = await (supabase as any)
+  if (profile.role === 'donor') {
+    const donorChildResult = await supabase
+      .from('children')
+      .select('*')
+      .eq('id', id)
+      .single()
+    const donorChild = donorChildResult.data as Child | null
+
+    if (!donorChild) return notFound()
+    return <DonorChildDetail child={donorChild} />
+  }
+
+  const childResult = await supabase
     .from('children')
     .select(`
       *,
@@ -50,12 +244,13 @@ export default async function ChildProfilePage({
     `)
     .eq('id', id)
     .single()
+  const child = childResult.data as ChildWithCreator | null
 
   if (!child) return notFound()
 
   const { eligibleForms, latestCompleted } = await getEligibleIntakeForms(
     child.id,
-    child.country,
+    child.country ?? '',
     child.date_joined,
     child.year_joined
   )
