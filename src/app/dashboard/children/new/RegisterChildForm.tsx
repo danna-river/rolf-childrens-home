@@ -301,10 +301,10 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
           <div className="space-y-6">
             <p className="text-xs text-gray-400">Max file size: 15 MB for photos, 100 MB for videos.</p>
             <Field label="Profile Photo" htmlFor="photo">
-              <MediaPicker type="photo" value={photoUrl} onChange={setPhotoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} />
+              <MediaPicker type="photo" value={photoUrl} onChange={setPhotoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} />
             </Field>
             <Field label="Short Video (~30 sec)" htmlFor="video">
-              <MediaPicker type="video" value={videoUrl} onChange={setVideoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} />
+              <MediaPicker type="video" value={videoUrl} onChange={setVideoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} />
             </Field>
           </div>
         )}

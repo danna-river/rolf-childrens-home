@@ -1,6 +1,13 @@
 "use client"
 import { useRef, useState } from "react"
 import { getUploadUrl } from "@/lib/storageActions"
+import {
+  DRIVE_SHARE_HINT,
+  extractDriveFileId,
+  getDriveVideoPreview,
+  isGoogleDriveUrl,
+  resolvePhotoSrc,
+} from "@/lib/childMedia"
 
 const MAX_MB = { photo: 15, video: 100 }
 const ACCEPT = { photo: "image/*", video: "video/*" }
@@ -13,18 +20,25 @@ interface MediaPickerProps {
   onError?: (msg: string | null) => void
   onUploadStart?: () => void
   onUploadEnd?: () => void
+  /** Show the "Use Google Drive link" option. Off for new-child registration. */
+  allowDriveLink?: boolean
 }
 
 export function MediaPicker({
   type, value, onChange, existingUrl, onError, onUploadStart, onUploadEnd,
+  allowDriveLink = true,
 }: MediaPickerProps) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
+  const [showDrive, setShowDrive] = useState(false)
+  const [driveInput, setDriveInput] = useState("")
   const isPhoto = type === "photo"
 
   const previewSrc = localPreview ?? value
+  // A stored Drive link (not a fresh local file upload) needs special rendering.
+  const isDriveValue = !localPreview && isGoogleDriveUrl(value)
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -71,9 +85,23 @@ export function MediaPicker({
     onChange(publicUrl)
   }
 
+  const handleDriveApply = () => {
+    const link = driveInput.trim()
+    if (!extractDriveFileId(link) || !isGoogleDriveUrl(link)) {
+      onError?.("Enter a valid Google Drive share link.")
+      return
+    }
+    onError?.(null)
+    setShowDrive(false)
+    setDriveInput("")
+    onChange(link)
+  }
+
   const handleRemove = () => {
     onChange(null)
     setLocalPreview(null)
+    setShowDrive(false)
+    setDriveInput("")
     if (cameraRef.current) cameraRef.current.value = ""
     if (uploadRef.current) uploadRef.current.value = ""
   }
@@ -87,13 +115,14 @@ export function MediaPicker({
         isPhoto ? (
           <div className="flex flex-col items-center gap-2">
             <div className="relative">
-              <img src={previewSrc} alt="preview" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
+              <img src={resolvePhotoSrc(previewSrc) ?? previewSrc} alt="preview" referrerPolicy="no-referrer" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
               {uploading && (
                 <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
                   <span className="text-xs text-white font-medium">Uploading…</span>
                 </div>
               )}
             </div>
+            {isDriveValue && <p className="text-xs text-gray-400">Google Drive link</p>}
             {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove photo</button>}
           </div>
         ) : (
@@ -102,9 +131,18 @@ export function MediaPicker({
               <div className="w-full aspect-video bg-gray-100 rounded-xl flex items-center justify-center">
                 <p className="text-xs text-blue-500 font-medium">Uploading video…</p>
               </div>
+            ) : isDriveValue ? (
+              <iframe
+                src={getDriveVideoPreview(extractDriveFileId(value) as string)}
+                allow="autoplay"
+                allowFullScreen
+                title="video preview"
+                className="w-full aspect-video rounded-xl"
+              />
             ) : (
               <video src={previewSrc} controls className="w-full rounded-xl max-h-48" />
             )}
+            {isDriveValue && <p className="text-xs text-gray-400">Google Drive link</p>}
             {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove video</button>}
           </div>
         )
@@ -131,7 +169,40 @@ export function MediaPicker({
               </span>
             </button>
           </div>
-          {!isPhoto && (
+
+          {allowDriveLink && (
+            showDrive ? (
+              <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={driveInput}
+                  onChange={e => setDriveInput(e.target.value)}
+                  placeholder="https://drive.google.com/file/d/…"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                />
+                <p className="text-xs text-gray-400">{DRIVE_SHARE_HINT}</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={handleDriveApply}
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+                    Use link
+                  </button>
+                  <button type="button" onClick={() => { setShowDrive(false); setDriveInput(""); onError?.(null) }}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setShowDrive(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-white py-3 hover:border-blue-300 transition-colors">
+                <span className="text-base">🔗</span>
+                <span className="text-xs font-medium text-gray-600">Use Google Drive link</span>
+              </button>
+            )
+          )}
+
+          {!isPhoto && !showDrive && (
             <p className="text-xs text-gray-400 text-center">Child states their name, then does an activity</p>
           )}
         </div>

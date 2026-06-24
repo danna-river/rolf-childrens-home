@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import { resolvePhotoSrc } from "@/lib/childMedia"
 
 interface Props {
   src: string
@@ -10,11 +11,15 @@ interface Props {
 export function PhotoViewer({ src, alt, fallbackInitial }: Props) {
   const [open, setOpen] = useState(false)
 
+  // Drive links become thumbnails; uploaded URLs pass through unchanged.
+  const thumbSrc = resolvePhotoSrc(src, 1000)
+  const fullSrc = resolvePhotoSrc(src, 2000)
+
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="focus:outline-none">
-        {src ? (
-          <img src={src} alt={alt} className="h-36 w-36 rounded-full object-cover border-4 border-white shadow cursor-pointer hover:opacity-90 transition-opacity" />
+        {thumbSrc ? (
+          <img src={thumbSrc} alt={alt} referrerPolicy="no-referrer" className="h-36 w-36 rounded-full object-cover border-4 border-white shadow cursor-pointer hover:opacity-90 transition-opacity" />
         ) : (
           <div className="h-36 w-36 rounded-full bg-gray-200 flex items-center justify-center shadow">
             <span className="text-gray-500 text-4xl font-semibold">{fallbackInitial}</span>
@@ -22,14 +27,15 @@ export function PhotoViewer({ src, alt, fallbackInitial }: Props) {
         )}
       </button>
 
-      {open && src && (
+      {open && fullSrc && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setOpen(false)}
         >
           <img
-            src={src}
+            src={fullSrc}
             alt={alt}
+            referrerPolicy="no-referrer"
             className="max-h-full max-w-full rounded-2xl object-contain shadow-2xl"
             onClick={e => e.stopPropagation()}
           />

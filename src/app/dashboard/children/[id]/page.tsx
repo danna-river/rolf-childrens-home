@@ -6,6 +6,7 @@ import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
+import { resolveVideo } from '@/lib/childMedia'
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
@@ -62,6 +63,7 @@ export default async function ChildProfilePage({
   const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
   const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Unnamed'
   const isActive = child.status === 'active'
+  const video = resolveVideo(child.profile_video)
   
   const birthdate = child.birth_year && child.birth_month && child.birth_day
     ? new Date(child.birth_year, child.birth_month - 1, child.birth_day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -127,8 +129,16 @@ export default async function ChildProfilePage({
         />
 
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          {child.profile_video ? (
-            <video src={child.profile_video} controls className="w-full aspect-video" />
+          {video.kind === "file" ? (
+            <video src={video.src} controls className="w-full aspect-video" />
+          ) : video.kind === "drive" ? (
+            <iframe
+              src={video.src}
+              allow="autoplay"
+              allowFullScreen
+              className="w-full aspect-video"
+              title={`${name} video`}
+            />
           ) : (
             <div className="aspect-video bg-gray-100 flex flex-col items-center justify-center gap-2">
               <span className="text-3xl">🎥</span>

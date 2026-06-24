@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { PencilIcon } from "lucide-react"
 import type { ChildProfile } from "@/types/profile"
+import { resolvePhotoSrc } from "@/lib/childMedia"
 
 const avatarPalette = [
   "bg-teal text-white",
@@ -77,9 +78,10 @@ function Avatar({ profile, size }: { profile: ChildProfile; size: "sm" | "md" })
   const name = childName(profile)
   const cls = size === "sm" ? "size-8" : "size-12 sm:size-16"
   const textCls = size === "sm" ? "text-xs font-bold" : "text-base font-bold sm:text-xl"
-  return profile.profilePictureURL ? (
+  const photoSrc = resolvePhotoSrc(profile.profilePictureURL)
+  return photoSrc ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={profile.profilePictureURL} alt={name} className={`${cls} shrink-0 rounded-full object-cover ring-1 ring-stone`} />
+    <img src={photoSrc} alt={name} referrerPolicy="no-referrer" className={`${cls} shrink-0 rounded-full object-cover ring-1 ring-stone`} />
   ) : (
     <div className={`${cls} flex shrink-0 items-center justify-center rounded-full ${avatarClass(profile)}`}>
       <span className={textCls}>{initialsFor(profile)}</span>

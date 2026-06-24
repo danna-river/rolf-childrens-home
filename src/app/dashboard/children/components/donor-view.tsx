@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import type { Child } from '@/lib/types'
 import { calculateAge } from '@/components/actions'
+import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 
 type IconComponent = typeof MapPin
 
@@ -153,6 +154,8 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
   const initial = child.first_name?.[0]?.toUpperCase() ?? '?'
   const hobbies = hobbiesFor(child)
   const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
+  const photoSrc = resolvePhotoSrc(child.profile_photo)
+  const video = resolveVideo(child.profile_video)
 
   return (
     <article
@@ -164,12 +167,13 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
       }
     >
       <div className="relative min-h-56 overflow-hidden bg-sky sm:min-h-full">
-        {child.profile_photo ? (
+        {photoSrc ? (
           // eslint-disable-next-line @next/next/no-img-element -- remote S3 URLs without configured remotePatterns; matches existing components
           <img
-            src={child.profile_photo}
+            src={photoSrc}
             alt={`${name} profile photo`}
             loading="lazy"
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover"
           />
         ) : (
@@ -272,7 +276,7 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
           </div>
         )}
 
-        {child.profile_video && (
+        {video.kind !== "none" && (
           <div className="space-y-2 border-t border-stone pt-4">
             <SectionLabel>
               <span className="inline-flex items-center gap-1.5">
@@ -281,12 +285,22 @@ function ChildCard({ child, index }: { child: Child; index: number }) {
               </span>
             </SectionLabel>
             <div className="overflow-hidden rounded-md border border-stone bg-navy/5">
-              <video
-                src={child.profile_video}
-                controls
-                preload="metadata"
-                className="w-full [aspect-ratio:16/9]"
-              />
+              {video.kind === "drive" ? (
+                <iframe
+                  src={video.src}
+                  allow="autoplay"
+                  allowFullScreen
+                  title={`Meet ${firstName}`}
+                  className="w-full [aspect-ratio:16/9]"
+                />
+              ) : (
+                <video
+                  src={video.src}
+                  controls
+                  preload="metadata"
+                  className="w-full [aspect-ratio:16/9]"
+                />
+              )}
             </div>
           </div>
         )}
