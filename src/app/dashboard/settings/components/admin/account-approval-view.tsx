@@ -20,8 +20,8 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
 
   if (users.length === 0) {
     return (
-      <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-xs text-gray-400">
-        ✨ No accounts are currently awaiting system authorization.
+      <div className="google-sans-registry bg-white border border-stone rounded-md p-8 text-center text-xs text-navy/45 italic font-semibold shadow-sm">
+        No accounts are currently awaiting system authorization.
       </div>
     )
   }
@@ -62,10 +62,10 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
   }
 
   return (
-    <div className="space-y-4">
+    <div className="google-sans-registry space-y-3">
       {errorMsg && (
-        <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">
-          ⚠️ Action Interrupted: {errorMsg}
+        <div className="p-3 bg-rose-50/50 border border-rose-200 text-xs text-rose-700 rounded-md font-bold">
+          Action Interrupted: {errorMsg}
         </div>
       )}
 
@@ -78,15 +78,15 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
         let staffOptionPanel = null
         if (currentRole === 'staff') {
           staffOptionPanel = (
-            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+            <div className="bg-ice/50 rounded-md p-3.5 border border-stone space-y-2.5">
+              <span className="block text-[10px] font-medium uppercase tracking-[0.13em] text-navy/55">
                 Assign Regional Jurisdictions (Optional)
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {availableCountries.map((country) => {
                   const isChecked = currentCountries.includes(country)
-                  let checkClass = "px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-600 cursor-pointer transition-all"
-                  if (isChecked) checkClass = "px-2.5 py-1 text-xs font-medium rounded-lg border border-blue-500 bg-blue-50 text-blue-600 cursor-pointer transition-all"
+                  let checkClass = "px-2.5 py-1 text-xs font-semibold rounded-md border border-stone bg-white text-navy/65 cursor-pointer transition-all"
+                  if (isChecked) checkClass = "px-2.5 py-1 text-xs font-bold rounded-md border border-teal/50 bg-teal/10 text-teal cursor-pointer transition-all"
                   
                   return (
                     <button type="button" key={country} onClick={() => toggleCountrySelection(user.id, country)} className={checkClass}>
@@ -103,11 +103,11 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
         if (currentStage === 'approve-prompt') {
           actionButtonsPanel = (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-amber-600 mr-1">Apply authorization changes?</span>
-              <button onClick={() => handleApproveExecute(user.id)} disabled={isWorking} className="bg-emerald-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+              <span className="text-[11px] font-bold text-amber-700 mr-1">Apply authorization changes?</span>
+              <button onClick={() => handleApproveExecute(user.id)} disabled={isWorking} className="bg-teal hover:bg-teal/90 text-white font-bold text-xs px-3.5 py-1.5 rounded-md cursor-pointer shadow-2xs">
                 Confirm Approval
               </button>
-              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'idle' })} className="bg-gray-100 text-gray-500 text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'idle' })} className="bg-ice border border-stone text-navy/70 font-semibold text-xs px-3 py-1.5 rounded-md cursor-pointer hover:bg-stone/50">
                 Cancel
               </button>
             </div>
@@ -115,11 +115,11 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
         } else if (currentStage === 'deny-prompt') {
           actionButtonsPanel = (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-red-600 mr-1">Permanently delete this user?</span>
-              <button onClick={() => handleDenyExecute(user.id)} disabled={isWorking} className="bg-red-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+              <span className="text-[11px] font-bold text-rose-700 mr-1">Permanently delete this user?</span>
+              <button onClick={() => handleDenyExecute(user.id)} disabled={isWorking} className="bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs px-3.5 py-1.5 rounded-md cursor-pointer shadow-2xs">
                 Confirm Deletion
               </button>
-              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'idle' })} className="bg-gray-100 text-gray-500 text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'idle' })} className="bg-ice border border-stone text-navy/70 font-semibold text-xs px-3 py-1.5 rounded-md cursor-pointer hover:bg-stone/50">
                 Cancel
               </button>
             </div>
@@ -127,10 +127,10 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
         } else {
           actionButtonsPanel = (
             <div className="flex items-center gap-2">
-              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'approve-prompt' })} disabled={isWorking} className="bg-emerald-50 text-emerald-700 font-semibold text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'approve-prompt' })} disabled={isWorking} className="bg-teal/15 border border-teal/40 text-teal hover:bg-teal hover:text-white font-bold text-xs px-3.5 py-1.5 rounded-md cursor-pointer transition-all">
                 Approve
               </button>
-              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'deny-prompt' })} disabled={isWorking} className="bg-red-50 text-red-700 font-semibold text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+              <button onClick={() => setConfirmState({ ...confirmState, [user.id]: 'deny-prompt' })} disabled={isWorking} className="bg-ice border border-stone text-navy/70 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 font-bold text-xs px-3.5 py-1.5 rounded-md cursor-pointer transition-all">
                 Deny & Delete
               </button>
             </div>
@@ -138,17 +138,17 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
         }
 
         return (
-          <div key={user.id} className="bg-white border border-gray-100 rounded-2xl p-5 space-y-4 shadow-xs">
+          <div key={user.id} className="bg-white border border-stone rounded-md p-5 space-y-4 shadow-sm hover:border-teal/60 transition-all">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-gray-900">{user.full_name}</h3>
-                <p className="text-xs text-gray-400 font-mono mt-0.5">{user.email}</p>
+                <h3 className="text-base font-bold tracking-tight leading-tight text-navy">{user.full_name}</h3>
+                <p className="font-mono mt-0.5 truncate text-xs text-teal">{user.email}</p>
               </div>
               <div className="flex items-center gap-2">
                 <select
                   value={currentRole}
                   onChange={(e) => setSelectedRoles({ ...selectedRoles, [user.id]: e.target.value })}
-                  className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-1.5 text-xs text-gray-700 outline-none font-medium"
+                  className="bg-ice border border-stone rounded-md px-3 py-1.5 text-xs text-navy outline-none font-bold focus:border-teal cursor-pointer"
                 >
                   <option value="staff">Regional Staff</option>
                   <option value="admin">System Administrator</option>
@@ -157,7 +157,7 @@ export function AccountApprovalView({ initialUsers, availableCountries }: Accoun
               </div>
             </div>
             {staffOptionPanel}
-            <div className="flex justify-end border-t border-gray-50 pt-3">{actionButtonsPanel}</div>
+            <div className="flex justify-end border-t border-stone pt-3.5">{actionButtonsPanel}</div>
           </div>
         )
       })}

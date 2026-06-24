@@ -29,36 +29,36 @@ export function ProfileView({ initialName = '', email = '' }: ProfileViewProps) 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 bg-white rounded-2xl border border-gray-100 space-y-4 max-w-md shadow-2xs">
-      <div>
-        <h3 className="text-sm font-bold text-gray-800 mb-1">Account Information</h3>
-        <p className="text-xs text-gray-400 mb-4">Update your general identity parameters.</p>
+    <form onSubmit={handleSubmit} className="google-sans-registry p-5 sm:p-6 bg-white rounded-md border border-stone space-y-4 max-w-md shadow-sm">
+      <div className="border-b border-stone pb-3">
+        <h3 className="text-base font-bold tracking-tight text-navy sm:text-lg">Account Information</h3>
+        <p className="text-xs font-medium text-navy/55 mt-0.5">Update your general identity parameters.</p>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] font-bold text-gray-400 uppercase">Email Address</label>
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">Email Address</label>
         <input 
           type="text" 
           disabled 
           value={email} 
-          className="w-full text-xs p-2.5 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 cursor-not-allowed outline-none" 
+          className="font-mono w-full text-xs px-3 py-2 bg-ice/60 border border-stone rounded-md text-navy/50 cursor-not-allowed outline-none" 
         />
       </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] font-bold text-gray-500 uppercase">Full Name</label>
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">Full Name</label>
         <input 
           type="text" 
           value={name} 
           onChange={(e) => setName(e.target.value)} 
-          className="w-full text-xs p-2.5 border border-gray-200 rounded-lg text-gray-800 focus:border-blue-500 focus:outline-none transition-colors"
+          className="font-semibold w-full text-xs px-3 py-2 bg-white border border-stone rounded-md text-navy placeholder:text-navy/30 placeholder:font-normal focus:border-teal focus:outline-none transition-colors"
           placeholder="Enter your full name"
           required
         />
       </div>
 
       {message && (
-        <p className={`text-xs font-medium ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+        <p className={`text-xs font-semibold ${message.type === 'success' ? 'text-teal' : 'text-rose-700'}`}>
           {message.text}
         </p>
       )}
@@ -66,7 +66,7 @@ export function ProfileView({ initialName = '', email = '' }: ProfileViewProps) 
       <button
         type="submit"
         disabled={loading || name.trim() === initialName.trim()}
-        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        className="w-full py-2.5 bg-teal hover:bg-teal/90 text-white font-bold rounded-md text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
       >
         {loading ? 'Saving Changes...' : 'Update Name'}
       </button>
