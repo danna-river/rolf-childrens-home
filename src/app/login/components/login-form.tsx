@@ -17,9 +17,8 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
     setLoading(true)
 
     const formData = new FormData(e.currentTarget)
-    
     const result = await loginAction(formData)
-    
+
     if (result?.error) {
       setErrorMsg(result.error)
       setLoading(false)
@@ -29,13 +28,13 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {errorMsg && (
-        <div className="p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl">
-          ⚠️ {errorMsg}
+        <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-600">
+          {errorMsg}
         </div>
       )}
 
       <div className="space-y-1">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+        <label className="text-[11px] font-bold uppercase tracking-widest text-navy/45">
           Email Address
         </label>
         <input
@@ -43,12 +42,12 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           type="email"
           required
           placeholder="example@email.com"
-          className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-100 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+          className="w-full rounded-xl border border-stone bg-ice px-3 py-2 text-sm text-navy outline-none transition-all placeholder:text-navy/25 focus:border-teal focus:bg-white focus:ring-2 focus:ring-teal/20"
         />
       </div>
 
       <div className="space-y-1">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+        <label className="text-[11px] font-bold uppercase tracking-widest text-navy/45">
           Password
         </label>
         <input
@@ -56,23 +55,23 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           type="password"
           required
           placeholder="••••••••••••••••"
-          className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-100 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+          className="w-full rounded-xl border border-stone bg-ice px-3 py-2 text-sm text-navy outline-none transition-all placeholder:text-navy/25 focus:border-teal focus:bg-white focus:ring-2 focus:ring-teal/20"
         />
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold text-xs py-2.5 rounded-xl shadow-xs transition-all active:scale-98 cursor-pointer"
+        className="w-full cursor-pointer rounded-xl bg-navy py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy/90 disabled:opacity-50"
       >
-        {loading ? 'Authenticating...' : 'Sign In'}
+        {loading ? 'Signing in…' : 'Sign In'}
       </button>
 
-      <div className="text-center pt-2">
+      <div className="pt-1 text-center">
         <button
           type="button"
           onClick={onSwitchToRegister}
-          className="text-xs text-gray-400 hover:text-blue-600 transition-colors cursor-pointer"
+          className="cursor-pointer text-xs font-medium text-navy/40 transition-colors hover:text-teal"
         >
           Need an account? Register here
         </button>
