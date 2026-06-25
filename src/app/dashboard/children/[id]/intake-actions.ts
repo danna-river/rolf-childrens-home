@@ -1,15 +1,12 @@
 "use server"
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
-/**
- * Evaluates template list filtering rules and joins relational submission states
- */
 export async function getEligibleIntakeForms(childId: string, childCountry: string, dateJoinedStr: string | null, yearJoinedNum: number | null) {
   const supabase = await createClient()
 
-  // 1. Resolve child's baseline start date threshold metrics
   let joinDateThreshold: Date | null = null
   if (dateJoinedStr) {
     joinDateThreshold = new Date(dateJoinedStr)
@@ -17,7 +14,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     joinDateThreshold = new Date(yearJoinedNum, 0, 1)
   }
 
-  // 2. Fetch all templates matching scope rules from latest to oldest
   const { data: templates } = await (supabase as any)
     .from('intake_templates')
     .select(`
@@ -28,7 +24,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
 
   if (!templates) return { eligibleForms: [], latestCompleted: false }
 
-  // 3. Fetch all existing relational progress reports and answers submitted for this specific child
   const { data: existingReports } = await (supabase as any)
     .from('progress_reports')
     .select(`
@@ -41,7 +36,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     `)
     .eq('child_id', childId)
 
-  // 4. Transform relational results into a searchable record map
   const submissionMap: Record<string, Record<string, string>> = {}
   existingReports?.forEach((report: any) => {
     const answersObj: Record<string, string> = {}
@@ -52,7 +46,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     submissionMap[report.template_id] = answersObj
   })
 
-  // 5. Apply filtering sequence rules
   const eligibleForms = templates.map((tpl: any) => {
     const isTargetRegion = tpl.country === 'all' || tpl.country === childCountry
     const templateCreatedAt = new Date(tpl.created_at)
@@ -63,7 +56,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     const questionsList = tpl.template_questions || []
     const savedQuestionAnswers = submissionMap[tpl.id] || {}
 
-    // Map answer states matched explicitly to target relational database Question IDs
     const componentViewAnswers: Record<string, string> = {}
     questionsList.forEach((q: any) => {
       componentViewAnswers[q.question_text] = savedQuestionAnswers[q.id] || ""
@@ -94,10 +86,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
   return { eligibleForms, latestCompleted }
 }
 
-/**
- * Saves input matrices directly into progress_reports and report_answers tables
- * and correctly logs custom delta tracking lines into your child edit_log array.
- */
 export async function saveIntakeFormAction(
   childId: string,
   templateId: string,
@@ -109,7 +97,6 @@ export async function saveIntakeFormAction(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Authentication session expired." }
 
-  // 1. Fetch metadata profiles and child record details to generate the edit logs properly
   const [profileRes, childRes] = await Promise.all([
     supabase.from('profiles').select('full_name, role, country').eq('id', user.id).single(),
     (supabase as any).from('children').select('*').eq('id', childId).single()
@@ -120,7 +107,6 @@ export async function saveIntakeFormAction(
   const actorProfile = profileRes.data
   const childData = childRes.data
 
-  // 2. Resolve Master Question IDs associated with this template profile layout
   const { data: dbQuestions } = await (supabase as any)
     .from('template_questions')
     .select('id, question_text')
@@ -128,7 +114,6 @@ export async function saveIntakeFormAction(
 
   if (!dbQuestions) return { error: "Failed to resolve blueprint master questions setup." }
 
-  // 3. Look up or upsert a parent transaction header inside progress_reports
   let { data: existingReport } = await (supabase as any)
     .from('progress_reports')
     .select('id')
@@ -154,7 +139,6 @@ export async function saveIntakeFormAction(
     reportId = newReport.id
   }
 
-  // 4. Pull original answers submitted previously to build audit comparison changes
   const { data: oldAnswersList } = await (supabase as any)
     .from('report_answers')
     .select('question_id, answer_value')
@@ -165,7 +149,6 @@ export async function saveIntakeFormAction(
     priorAnswersMap[ans.question_id] = ans.answer_value
   })
 
-  // 5. Evaluate modifications and schedule clean transaction arrays
   const changes: Array<{ field: string; from: any; to: any }> = []
   const answersUpsertPayload: any[] = []
 
@@ -191,13 +174,12 @@ export async function saveIntakeFormAction(
     })
   })
 
-  // 6. If mutations are captured, append transaction details onto edit_log matching global structures
   if (changes.length > 0) {
     let updatedLog = childData.edit_log || []
     
     const newLogEntry = {
       timestamp: new Date().toISOString(),
-      edited_by: actorProfile?.full_name || 'System User', // Match explicit project types
+      edited_by: actorProfile?.full_name || 'System User', 
       edited_at: new Date().toISOString(),
       profile: {
         id: user.id,
@@ -209,14 +191,17 @@ export async function saveIntakeFormAction(
     }
     updatedLog = [newLogEntry, ...updatedLog]
 
-    // Save changes into the child's edit log tracking column using a loose query structure
-    await (supabase as any)
+    const adminSupabase = await createAdminClient()
+    const { error: logUpdateError } = await (adminSupabase as any)
       .from('children')
       .update({ edit_log: updatedLog })
       .eq('id', childId)
+
+    if (logUpdateError) {
+      return { error: `Failed saving log to child matrix: ${logUpdateError.message}` }
+    }
   }
 
-  // 7. Bulk execute answer writes to report_answers table
   if (answersUpsertPayload.length > 0) {
     const { error: upsertErr } = await (supabase as any)
       .from('report_answers')
