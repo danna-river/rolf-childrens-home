@@ -7,11 +7,12 @@ import type { UpdateChildInput } from "./actions"
 import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
 import { MediaPicker } from "../../components/MediaPicker"
+import { AlertTriangleIcon, CornerUpLeftIcon } from "lucide-react"
 
 interface Props {
   child: Child
   availableCountries: string[]
-  isAdmin: boolean // 🌟 Clearance boolean passed down from the page layout server client
+  isAdmin: boolean 
 }
 
 export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
@@ -41,9 +42,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
   const [initialGeneratedId, setInitialGeneratedId] = useState<string>(child.id_rolf ?? "")
 
-  // 🌟 Side effect listening to country changes to auto-generate identifiers for administrators
   useEffect(() => {
-    // If country rolls back to the child's true original placement, restore initial ROLF ID
     if (form.country === child.country) {
       setForm(f => ({ ...f, id_rolf: child.id_rolf ?? "" }))
       setInitialGeneratedId(child.id_rolf ?? "")
@@ -95,26 +94,27 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     setSubmitting(true)
 
     try {
-      // 🌟 ASYNCHRONOUS SECURITY BLOCK: Run live uniqueness & code format verification on submission
       const { isValid, error: validationError } = await checkRolfIdForEdit(targetIdCode, form.country, child.id)
 
       if (!isValid) {
         setError(validationError)
         setSubmitting(false)
         window.scrollTo({ top: 0, behavior: 'smooth' })
-        return // Safely exits the pipeline; blocks the write update script entirely
+        return 
       }
 
-      const dob = form.birthdate ? new Date(form.birthdate) : null
+      // Split strings to completely eliminate timezone local conversion shift distortions
+      const [birthYear, birthMonth, birthDay] = form.birthdate.split("-").map(Number)
+      const [joinedYear] = form.year_joined ? form.year_joined.split("-").map(Number) : [undefined]
 
       const input: UpdateChildInput = {
         id_rolf: targetIdCode,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
-        birth_year: dob?.getFullYear(),
-        birth_month: dob ? dob.getMonth() + 1 : undefined,
-        birth_day: dob?.getDate(),
-        year_joined: form.year_joined ? new Date(form.year_joined).getFullYear() : undefined,
+        birth_year: birthYear,
+        birth_month: birthMonth,
+        birth_day: birthDay,
+        year_joined: joinedYear,
         date_joined: form.year_joined || undefined,
         country: form.country,
         career_aspiration: form.career_aspiration.trim(),
@@ -135,7 +135,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         return
       }
 
-      // Revalidation happened on the server, just push the clean transition
       router.push("/dashboard/children")
     } catch (err) {
       setError("An unexpected network fault occurred while attempting to write updates to the child record.")
@@ -153,10 +152,11 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         <div className="px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
             disabled={submitting}
           >
-            ← Cancel
+            <CornerUpLeftIcon className="size-4" />
+            <span>Cancel</span>
           </button>
           <div className="flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Modifying Profile Records</p>
@@ -168,7 +168,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {error && (
           <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
-            <span className="shrink-0">⚠️</span>
+            <AlertTriangleIcon className="size-4 text-red-500 shrink-0 mt-0.5" />
             <div>
               <strong className="font-semibold block mb-0.5">Validation Stop</strong>
               {error}
@@ -199,7 +199,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
             </select>
           </Field>
 
-          {/* 🌟 REPLICATED AUTO-INCREMENT PREVIEW AND LOCKED FIELD SCHEME */}
           <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
             {loadingPreview ? (
               <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">
@@ -221,10 +220,12 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               />
             )}
 
-            {/* Inline warning notification banner if an administrator shifts the pre-calculated sequence string */}
             {isAdmin && form.id_rolf && form.id_rolf !== initialGeneratedId && (
-              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal animate-fade-in">
-                <strong>Notice:</strong> You are overriding the auto-increment structure. Saving will verify formatting and look for duplicate key entries.
+              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal animate-fade-in flex items-start gap-1.5">
+                <AlertTriangleIcon className="size-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong>Notice:</strong> You are overriding the auto-increment structure. Saving will verify formatting and look for duplicate key entries.
+                </div>
               </div>
             )}
 
