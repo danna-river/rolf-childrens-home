@@ -19,7 +19,7 @@ type IconComponent = typeof MapPin
 
 type DonorSponsorshipRow = Pick<
   Sponsorship,
-  'id' | 'child_id' | 'status' | 'start_date'
+  'id' | 'child_id' | 'status' | 'start_date' | 'end_date' | 'amount' | 'frequency'
 > & {
   child: Child | Child[] | null
 }
@@ -27,6 +27,9 @@ type DonorSponsorshipRow = Pick<
 type DonorChildProfile = {
   child: Child
   sponsorshipStart: string | null
+  sponsorshipEnd: string | null
+  amount: number | null
+  frequency: Sponsorship['frequency']
 }
 
 type DonorChildUpdate = Pick<ChildUpdate, 'child_id' | 'title' | 'body' | 'created_at'>
@@ -241,6 +244,9 @@ function donorProfilesFromRows(rows: DonorSponsorshipRow[]): DonorChildProfile[]
       profilesByChildId.set(child.id, {
         child,
         sponsorshipStart: row.start_date,
+        amount: row.amount,
+        frequency: row.frequency,
+        sponsorshipEnd: row.end_date,
       })
       continue
     }
@@ -252,6 +258,9 @@ function donorProfilesFromRows(rows: DonorSponsorshipRow[]): DonorChildProfile[]
       profilesByChildId.set(child.id, {
         child,
         sponsorshipStart: row.start_date,
+        amount: row.amount,
+        frequency: row.frequency,
+        sponsorshipEnd: row.end_date,
       })
     }
   }
@@ -343,12 +352,39 @@ function ChildPhotoPanel({
   )
 }
 
+const FREQUENCY_LABELS: Record<NonNullable<Sponsorship['frequency']>, string> = {
+  one_time: 'One-time',
+  weekly: '/week',
+  biweekly: '/biweekly',
+  monthly: '/month',
+  quarterly: '/quarter',
+  semiannual: '/6 months',
+  annual: '/year',
+}
+
+
+function formatContribution(
+  amount: number | null,
+  frequency: Sponsorship['frequency'],
+): string {
+  if (!amount) return 'On file'
+  const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
+  if (!frequency || frequency === 'one_time') return usd
+  return `${usd}${FREQUENCY_LABELS[frequency]}`
+}
+
 function DetailStrip({
   child,
   sponsorshipStart,
+  sponsorshipEnd,
+  amount,
+  frequency,
 }: {
   child: Child
   sponsorshipStart: string | null
+  sponsorshipEnd: string | null
+  amount: number | null
+  frequency: Sponsorship['frequency']
 }) {
   const hobbies = hobbiesFor(child)
   const items = [
@@ -365,8 +401,16 @@ function DetailStrip({
       value: joinedLabel(child),
     },
     {
-      label: 'Sponsorship',
-      value: sponsorshipStart ? `Active since ${shortDateLabel(sponsorshipStart)}` : 'Active',
+      label: 'Sponsorship since',
+      value: sponsorshipStart ? shortDateLabel(sponsorshipStart) ?? 'Active' : 'Active',
+    },
+    {
+      label: 'Contribution',
+      value: formatContribution(amount, frequency),
+    },
+    {
+      label: 'End date',
+      value: sponsorshipEnd ? shortDateLabel(sponsorshipEnd) ?? 'Ongoing' : 'Ongoing',
     },
   ]
 
@@ -451,7 +495,7 @@ function FeaturedChildCard({
   update: DonorChildUpdate | undefined
   index: number
 }) {
-  const { child, sponsorshipStart } = profile
+  const { child, sponsorshipStart, sponsorshipEnd, amount, frequency } = profile
   const name = childName(child)
   const story = storyFor(child)
   const latest = latestUpdateFor(child, update)
@@ -487,7 +531,13 @@ function FeaturedChildCard({
             <p className="mt-3 text-base font-semibold leading-7 text-[#7a6d5d]">
               {ageLine(child)}
             </p>
-            <DetailStrip child={child} sponsorshipStart={sponsorshipStart} />
+            <DetailStrip
+              child={child}
+              sponsorshipStart={sponsorshipStart}
+              sponsorshipEnd={sponsorshipEnd}
+              amount={amount}
+              frequency={frequency}
+            />
           </div>
         </div>
 
@@ -597,6 +647,9 @@ async function DonorChildren() {
       child_id,
       status,
       start_date,
+      amount,
+      frequency,
+      end_date,
       child:children(*)
     `)
     .eq('status', 'active')
