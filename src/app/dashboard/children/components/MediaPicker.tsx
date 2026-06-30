@@ -143,7 +143,11 @@ export function MediaPicker({
             ) : (
               <video src={previewSrc} controls className="w-full rounded-xl max-h-48" />
             )}
-            {isDriveValue && <p className="text-xs text-gray-400">Google Drive link</p>}
+            {isDriveValue && (
+              <p className="text-xs text-gray-400">
+                Google Drive link — if the video isn&apos;t playing, it may still be processing. Check back in a few minutes.
+              </p>
+            )}
             {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove video</button>}
           </div>
         )
