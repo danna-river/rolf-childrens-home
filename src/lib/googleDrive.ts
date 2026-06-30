@@ -95,7 +95,7 @@ export async function uploadToDrive(
   mimeType: string,
   type: "photo" | "video",
   meta: ChildMeta,
-): Promise<{ fileId: string; url: string }> {
+): Promise<{ fileId: string; url: string; filename: string }> {
   const { drive, sharedDriveId } = getDriveClient()
 
   const ext = originalName.split(".").pop() ?? (type === "photo" ? "jpg" : "mp4")
@@ -131,6 +131,7 @@ export async function uploadToDrive(
   return {
     fileId,
     url: `https://drive.google.com/file/d/${fileId}/view`,
+    filename
   }
 }
 
