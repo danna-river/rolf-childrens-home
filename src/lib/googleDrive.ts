@@ -35,15 +35,26 @@ function buildFilename(
   type: "photo" | "video",
   ext: string,
 ): string {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+  // 1. Get the human-readable date (YYYYMMDD)
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+
+  // 2. Get the high-resolution microsecond timestamp
+  const ms = Date.now();
+  const microfraction = performance.now().toFixed(3).split('.')[1] || "000";
+  const exactTimestamp = `${ms}${microfraction}`;
+
+  // 3. Combine date and microsecond timestamp
+  const timingContext = `${dateStr}-${exactTimestamp}`;
+
   const parts = [
     meta.idRolf ? sanitize(meta.idRolf) : null,
     meta.lastName ? sanitize(meta.lastName) : null,
     meta.firstName ? sanitize(meta.firstName) : null,
     type,
-    today,
+    timingContext,
   ].filter(Boolean)
-  return `${parts.join("_")}.${ext}`
+  
+  return `${parts.join("_")}.${ext.toLowerCase()}`
 }
 
 /** Find a folder by name under a parent within the Shared Drive, or create it. */
