@@ -1,7 +1,12 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import {
+  sendRegistrationReceivedEmail,
+  sendNewAccountAlertToAdmins,
+} from '@/lib/email'
 
 export async function loginAction(formData: FormData) {
   const email = formData.get('email') as string
@@ -67,6 +72,19 @@ export async function signUpAction(formData: FormData) {
     if (error) {
       return { error: error.message }
     }
+
+    // Fire-and-forget: don't let email failures block registration
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    void sendRegistrationReceivedEmail(email, fullName).catch(() => null)
+    void (async () => {
+      const adminClient = createAdminClient()
+      const { data: admins } = await adminClient
+        .from('profiles')
+        .select('email')
+        .eq('role', 'admin')
+      const adminEmails = (admins ?? []).map((a: { email: string }) => a.email).filter(Boolean)
+      sendNewAccountAlertToAdmins(adminEmails, fullName, email, appUrl).catch(() => null)
+    })()
   }
 
   redirect('/dashboard')
