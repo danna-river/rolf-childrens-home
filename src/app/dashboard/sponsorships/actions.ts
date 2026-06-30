@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendSponsorInvitationEmail } from '@/lib/email'
 
 const frequencyEnum = z.enum([
   'one_time',
@@ -199,6 +200,7 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
     if (updateError) return { error: updateError.message }
   }
 
+  let isNewSponsor = false
   if (!sponsorId) {
     const { data: sponsor, error: insertError } = await adminSupabase
       .from('sponsors')
@@ -216,6 +218,7 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
 
     if (insertError) return { error: insertError.message }
     sponsorId = sponsor.id
+    isNewSponsor = true
   }
 
   const expiryError = await expirePastSponsorships()
@@ -240,6 +243,11 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
     return { error: 'One of the selected children was just matched by another administrator.' }
   }
   if (error) return { error: error.message }
+
+  if (isNewSponsor) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    void sendSponsorInvitationEmail(normalizedEmail, contact.fullName, appUrl).catch(() => null)
+  }
 
   revalidatePath('/dashboard/sponsorships')
   revalidatePath('/dashboard/children')

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { sendPasswordChangedEmail } from '@/lib/email'
 
 export async function updateProfileName(fullName: string) {
   const supabase = await createClient()
@@ -51,6 +52,15 @@ export async function updateAccountPassword(password: string) {
   if (error) {
     return { success: false, error: error.message }
   }
+
+  // Fetch name for the email — user.email is already available from getUser above
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  void sendPasswordChangedEmail(user.email!, profile?.full_name ?? 'there').catch(() => null)
 
   return { success: true }
 }
