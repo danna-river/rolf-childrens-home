@@ -133,3 +133,30 @@ export async function uploadToDrive(
     url: `https://drive.google.com/file/d/${fileId}/view`,
   }
 }
+
+/** * Soft-deletes a file by moving it out of its current Country/Year folder 
+ * and into a central "SYSTEM_TRASH" folder on the Shared Drive.
+ */
+export async function moveFileToSystemTrash(fileId: string): Promise<void> {
+  const { drive, sharedDriveId } = getDriveClient()
+  
+  // 1. Ensure the central System Trash folder exists at the root of the Shared Drive
+  const trashFolderId = await findOrCreateFolder(drive, sharedDriveId, "SYSTEM_TRASH", sharedDriveId)
+
+  // 2. Fetch the current parents of the file so we can remove it cleanly
+  const { data: fileData } = await drive.files.get({
+    fileId,
+    fields: "parents",
+    supportsAllDrives: true,
+  })
+
+  const previousParents = fileData.parents?.join(",") || ""
+
+  // 3. Update the file's parents via Drive API
+  await drive.files.update({
+    fileId,
+    addParents: trashFolderId,
+    removeParents: previousParents,
+    supportsAllDrives: true,
+  })
+}
