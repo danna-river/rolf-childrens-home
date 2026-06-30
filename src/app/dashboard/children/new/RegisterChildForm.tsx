@@ -299,12 +299,12 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
         {step === 2 && (
           <div className="space-y-6">
-            <p className="text-xs text-gray-400">Max file size: 15 MB for photos, 100 MB for videos.</p>
+            <p className="text-xs text-gray-400">Max file size: 15 MB for photos, 50 MB for videos.</p>
             <Field label="Profile Photo" htmlFor="photo">
-              <MediaPicker type="photo" value={photoUrl} onChange={setPhotoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} />
+              <MediaPicker type="photo" value={photoUrl} onChange={setPhotoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }} />
             </Field>
             <Field label="Short Video (~30 sec)" htmlFor="video">
-              <MediaPicker type="video" value={videoUrl} onChange={setVideoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} />
+              <MediaPicker type="video" value={videoUrl} onChange={setVideoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }} />
             </Field>
           </div>
         )}

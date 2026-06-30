@@ -318,7 +318,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         {/* Photo & Video */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
           <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Photo &amp; Video</h2>
-          <p className="text-xs text-gray-400">Max file limits: 15 MB for images, 100 MB for videos.</p>
+          <p className="text-xs text-gray-400">Max file limits: 15 MB for images, 50 MB for videos.</p>
           <Field label="Profile Photo" htmlFor="photo">
             <MediaPicker
               type="photo"
@@ -328,6 +328,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}
               onUploadEnd={() => setMediaUploading(false)}
+              childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }}
             />
           </Field>
           <Field label="Short Video (~30 sec)" htmlFor="video">
@@ -339,6 +340,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}
               onUploadEnd={() => setMediaUploading(false)}
+              childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }}
             />
           </Field>
         </section>

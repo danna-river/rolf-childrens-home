@@ -12,6 +12,7 @@ import {
   SettingsIcon,
   UsersIcon,
   HandshakeIcon,
+  HeartHandshakeIcon,
 } from "lucide-react"
 
 import { signOutAction } from "@/app/login/actions"
@@ -42,6 +43,9 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
       : [{ href: "/dashboard/children", label: "Children", icon: UsersIcon }]),
     ...(isAdminRole(role)
       ? [{ href: "/dashboard/sponsorships", label: "Sponsorships", icon: HandshakeIcon }]
+      : []),
+    ...((isAdminRole(role) || isStaffRole(role))
+      ? [{ href: "/dashboard/matches", label: "Matches", icon: HeartHandshakeIcon }]
       : []),
     { href: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
   ]

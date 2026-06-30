@@ -1,6 +1,5 @@
 "use client"
 import { useRef, useState } from "react"
-import { getUploadUrl } from "@/lib/storageActions"
 import {
   DRIVE_SHARE_HINT,
   extractDriveFileId,
@@ -9,8 +8,15 @@ import {
   resolvePhotoSrc,
 } from "@/lib/childMedia"
 
-const MAX_MB = { photo: 15, video: 100 }
+const MAX_MB = { photo: 15, video: 50 }
 const ACCEPT = { photo: "image/*", video: "video/*" }
+
+type ChildMeta = {
+  idRolf?: string | null
+  firstName?: string | null
+  lastName?: string | null
+  country?: string | null
+}
 
 interface MediaPickerProps {
   type: "photo" | "video"
@@ -22,11 +28,12 @@ interface MediaPickerProps {
   onUploadEnd?: () => void
   /** Show the "Use Google Drive link" option. Off for new-child registration. */
   allowDriveLink?: boolean
+  childMeta?: ChildMeta
 }
 
 export function MediaPicker({
   type, value, onChange, existingUrl, onError, onUploadStart, onUploadEnd,
-  allowDriveLink = true,
+  allowDriveLink = true, childMeta,
 }: MediaPickerProps) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
@@ -53,36 +60,30 @@ export function MediaPicker({
     setUploading(true)
     onUploadStart?.()
 
-    const ext = file.name.split(".").pop() ?? (isPhoto ? "jpg" : "mp4")
-    const path = `${type}s/${crypto.randomUUID()}.${ext}`
-    const { signedUrl, publicUrl, error } = await getUploadUrl(path)
+    const body = new FormData()
+    body.append("file", file)
+    body.append("type", type)
+    if (childMeta?.idRolf) body.append("idRolf", childMeta.idRolf)
+    if (childMeta?.firstName) body.append("firstName", childMeta.firstName)
+    if (childMeta?.lastName) body.append("lastName", childMeta.lastName)
+    if (childMeta?.country) body.append("country", childMeta.country)
 
-    if (error || !signedUrl || !publicUrl) {
-      onError?.(error ?? "Upload failed.")
-      setLocalPreview(null)
-      setUploading(false)
-      onUploadEnd?.()
-      return
-    }
-
-    const res = await fetch(signedUrl, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": file.type },
-    })
+    const res = await fetch("/api/upload", { method: "POST", body })
 
     if (!res.ok) {
-      onError?.("Upload failed. Please try again.")
+      const { error } = await res.json().catch(() => ({ error: "Upload failed." }))
+      onError?.(error ?? "Upload failed. Please try again.")
       setLocalPreview(null)
       setUploading(false)
       onUploadEnd?.()
       return
     }
 
+    const { url } = await res.json()
     setLocalPreview(null)
     setUploading(false)
     onUploadEnd?.()
-    onChange(publicUrl)
+    onChange(url)
   }
 
   const handleDriveApply = () => {

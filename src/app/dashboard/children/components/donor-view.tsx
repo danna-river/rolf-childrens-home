@@ -481,6 +481,11 @@ function VideoPanel({ child, accentIndex }: { child: Child; accentIndex: number 
             A message from {firstName}
           </p>
         </div>
+        {video.kind === 'drive' && (
+          <p className="mt-2 text-xs font-medium text-[#9a8d7d]">
+            If the video isn&apos;t playing, it may still be processing — please check back in a few minutes.
+          </p>
+        )}
       </div>
     </section>
   )

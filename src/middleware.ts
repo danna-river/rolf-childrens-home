@@ -44,8 +44,9 @@ export async function middleware(request: NextRequest) {
 }
 
 // 3. Configure the matcher to run on all dashboard pages, but skip static assets
+// and the upload route (which buffers large files and calls requireAuth directly).
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/upload|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
