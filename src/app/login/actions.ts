@@ -73,18 +73,25 @@ export async function signUpAction(formData: FormData) {
       return { error: error.message }
     }
 
-    // Fire-and-forget: don't let email failures block registration
+    // Await the emails before redirecting — redirect() ends the serverless
+    // function, so detached (fire-and-forget) sends get killed before they run.
+    // Wrapped in try/catch so an email failure never blocks registration.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-    void sendRegistrationReceivedEmail(email, fullName).catch(() => null)
-    void (async () => {
+    try {
+      await sendRegistrationReceivedEmail(email, fullName)
+
       const adminClient = createAdminClient()
       const { data: admins } = await adminClient
         .from('profiles')
         .select('email')
         .eq('role', 'admin')
-      const adminEmails = (admins ?? []).map((a: { email: string }) => a.email).filter(Boolean)
-      sendNewAccountAlertToAdmins(adminEmails, fullName, email, appUrl).catch(() => null)
-    })()
+      const adminEmails = (admins ?? [])
+        .map((a: { email: string }) => a.email)
+        .filter(Boolean)
+      await sendNewAccountAlertToAdmins(adminEmails, fullName, email, appUrl)
+    } catch (err) {
+      console.error('[signup] notification email error:', err)
+    }
   }
 
   redirect('/dashboard')
