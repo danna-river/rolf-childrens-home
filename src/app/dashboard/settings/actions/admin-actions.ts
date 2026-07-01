@@ -40,7 +40,11 @@ export async function approveAccountAction(userId: string, role: string, countri
 
   if (profile?.email) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-    void sendAccountApprovedEmail(profile.email, profile.full_name ?? 'there', role, appUrl).catch(() => null)
+    try {
+      await sendAccountApprovedEmail(profile.email, profile.full_name ?? 'there', role, appUrl)
+    } catch (err) {
+      console.error('[approveAccount] email error:', err)
+    }
   }
 
   revalidatePath('/dashboard/settings')
@@ -69,7 +73,11 @@ export async function denyAccountAction(userId: string) {
   if (authError) return { error: authError.message }
 
   if (profile?.email) {
-    void sendAccountDeniedEmail(profile.email, profile.full_name ?? 'there').catch(() => null)
+    try {
+      await sendAccountDeniedEmail(profile.email, profile.full_name ?? 'there')
+    } catch (err) {
+      console.error('[denyAccount] email error:', err)
+    }
   }
 
   revalidatePath('/dashboard/settings')

@@ -246,7 +246,11 @@ export async function createContactWithRequestsAction(input: CreateContactWithRe
 
   if (isNewSponsor) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-    void sendSponsorInvitationEmail(normalizedEmail, contact.fullName, appUrl).catch(() => null)
+    try {
+      await sendSponsorInvitationEmail(normalizedEmail, contact.fullName, appUrl)
+    } catch (err) {
+      console.error('[createContact] sponsor invite email error:', err)
+    }
   }
 
   revalidatePath('/dashboard/sponsorships')

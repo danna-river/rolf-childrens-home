@@ -60,7 +60,11 @@ export async function updateAccountPassword(password: string) {
     .eq('id', user.id)
     .single()
 
-  void sendPasswordChangedEmail(user.email!, profile?.full_name ?? 'there').catch(() => null)
+  try {
+    await sendPasswordChangedEmail(user.email!, profile?.full_name ?? 'there')
+  } catch (err) {
+    console.error('[updatePassword] email error:', err)
+  }
 
   return { success: true }
 }
