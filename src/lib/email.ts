@@ -57,6 +57,28 @@ function btn(href: string, label: string) {
   return `<a href="${href}" style="display:inline-block;margin-top:20px;padding:12px 28px;background:#3CB6B2;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">${label}</a>`
 }
 
+// Central send wrapper. Resend returns errors as a value (not a throw), so we
+// must inspect `error` explicitly and log it — otherwise failures are invisible
+// (no exception, no log). Logs surface in Vercel runtime logs for debugging.
+async function deliver(args: { to: string | string[]; subject: string; html: string }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.error(`[email] RESEND_API_KEY missing — cannot send "${args.subject}"`)
+    return { data: null, error: { name: "config", message: "RESEND_API_KEY is not set" } }
+  }
+  try {
+    const result = await resend.emails.send({ from: FROM, ...args })
+    if (result.error) {
+      console.error(`[email] send failed "${args.subject}" → ${args.to}:`, JSON.stringify(result.error))
+    } else {
+      console.log(`[email] sent "${args.subject}" → ${args.to} (id: ${result.data?.id})`)
+    }
+    return result
+  } catch (err) {
+    console.error(`[email] threw sending "${args.subject}" → ${args.to}:`, err)
+    return { data: null, error: { name: "exception", message: String(err) } }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 1. Account registration received → new user
 // ---------------------------------------------------------------------------
@@ -68,8 +90,7 @@ export async function sendRegistrationReceivedEmail(to: string, fullName: string
     <p>You will receive another email once your account has been approved. If you have any questions, please reach out to your ROLF contact directly.</p>
     <p style="color:#888;font-size:13px;margin-top:32px;">If you did not create this account, you can safely ignore this email.</p>
   `
-  return resend.emails.send({
-    from: FROM,
+  return deliver({
     to,
     subject: "Your ROLF account request has been received",
     html: layout("Account Request Received", body),
@@ -96,8 +117,7 @@ export async function sendNewAccountAlertToAdmins(
     <p>Visit the settings page to approve or deny access.</p>
     ${btn(`${appUrl}/dashboard/settings`, "Review in Dashboard")}
   `
-  return resend.emails.send({
-    from: FROM,
+  return deliver({
     to: adminEmails,
     subject: `New account request from ${newUserName}`,
     html: layout("New Account Awaiting Approval", body),
@@ -121,8 +141,7 @@ export async function sendAccountApprovedEmail(
     ${btn(`${appUrl}/login`, "Log In to ROLF")}
     <p style="color:#888;font-size:13px;margin-top:32px;">If you have any questions, please contact your ROLF administrator.</p>
   `
-  return resend.emails.send({
-    from: FROM,
+  return deliver({
     to,
     subject: "Your ROLF account has been approved",
     html: layout("Account Approved", body),
@@ -139,8 +158,7 @@ export async function sendAccountDeniedEmail(to: string, fullName: string) {
     <p>After review, we were unable to approve your ROLF Children&rsquo;s Home account request at this time.</p>
     <p>If you believe this is an error or would like more information, please reach out to your ROLF contact directly.</p>
   `
-  return resend.emails.send({
-    from: FROM,
+  return deliver({
     to,
     subject: "Update on your ROLF account request",
     html: layout("Account Request Update", body),
@@ -158,8 +176,7 @@ export async function sendPasswordChangedEmail(to: string, fullName: string) {
     <p>If you made this change, no action is needed.</p>
     <p style="color:#c0392b;font-size:14px;"><strong>If you did not change your password</strong>, please contact your ROLF administrator immediately.</p>
   `
-  return resend.emails.send({
-    from: FROM,
+  return deliver({
     to,
     subject: "Your ROLF account password has been changed",
     html: layout("Password Changed", body),
@@ -184,8 +201,7 @@ export async function sendSponsorInvitationEmail(
       If you have any questions, please reach out to your ROLF contact.
     </p>
   `
-  return resend.emails.send({
-    from: FROM,
+  return deliver({
     to,
     subject: "You're invited to the ROLF donor portal",
     html: layout("Donor Portal Invitation", body),
