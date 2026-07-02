@@ -57,21 +57,12 @@ export async function signUpAction(formData: FormData) {
 
   // Non-OTP Version (Remove block once OTP added)
   if (data?.user) {
-    const fullName = data.user.user_metadata?.full_name
-
-    const { error } = await supabase
-    .from('profiles')
-    .insert({
-      id: data.user.id,
-      email: email,
-      full_name: fullName,
-      role: 'unapproved',
-      country: null
-    } as any)
-
-    if (error) {
-      return { error: error.message }
-    }
+    // The profile row is created automatically by the `on_auth_user_created`
+    // trigger (public.handle_new_user), which reads role/full_name from the
+    // signUp metadata above. Do NOT insert it here: a manual insert collides
+    // with the trigger's row and throws a duplicate-key error, which used to
+    // abort this action before the notification emails could send.
+    const fullName = data.user.user_metadata?.full_name ?? `${firstName} ${lastName}`
 
     // Await the emails before redirecting — redirect() ends the serverless
     // function, so detached (fire-and-forget) sends get killed before they run.
