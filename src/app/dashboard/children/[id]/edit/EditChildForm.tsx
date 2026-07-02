@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { updateChildAction, checkRolfIdForEdit, getLatestIdPreviewForEdit } from "./actions"
 import type { UpdateChildInput } from "./actions"
 import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
 import { MediaPicker } from "../../components/MediaPicker"
-import { AlertTriangleIcon, CornerUpLeftIcon } from "lucide-react"
+import { AlertTriangleIcon, CornerUpLeftIcon, UploadCloudIcon, CheckCircle2Icon, Loader2Icon } from "lucide-react"
 
 interface Props {
   child: Child
@@ -17,10 +17,15 @@ interface Props {
 
 export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
   const router = useRouter()
+  const libraryFileRef = useRef<HTMLInputElement>(null)
   const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // API Ingestion States for Library Hub
+  const [libraryUploading, setLibraryUploading] = useState(false)
+  const [lastUploadedFilename, setLastUploadedFilename] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     id_rolf: child.id_rolf ?? "",
@@ -67,6 +72,48 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
+  // Pure API upload stream configuration matching your MediaPicker file limits
+  const handleLibraryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const isPhoto = file.type.startsWith("image/")
+    const isVideo = file.type.startsWith("video/")
+    const maxBytes = (isPhoto ? 15 : 50) * 1024 * 1024
+
+    if (file.size > maxBytes) {
+      setError(`${isPhoto ? "Photo" : "Video"} must be under ${isPhoto ? 15 : 50} MB.`)
+      return
+    }
+
+    setLibraryUploading(true)
+    setLastUploadedFilename(null)
+    setError(null)
+
+    const body = new FormData()
+    body.append("file", file)
+    body.append("type", isPhoto ? "photo" : "video")
+    body.append("usageType", "library") 
+    body.append("childId", child.id)    
+
+    if (form.id_rolf) body.append("idRolf", form.id_rolf)
+    if (form.first_name) body.append("firstName", form.first_name)
+    if (form.last_name) body.append("lastName", form.last_name)
+    if (form.country) body.append("country", form.country)
+
+    const res = await fetch("/api/upload", { method: "POST", body })
+    setLibraryUploading(false)
+
+    if (!res.ok) {
+      const { error: apiError } = await res.json().catch(() => ({ error: "Upload failed." }))
+      setError(apiError ?? "Upload failed. Please try again.")
+      return
+    }
+
+    setLastUploadedFilename(file.name)
+    if (libraryFileRef.current) libraryFileRef.current.value = ""
+  }
+
   const isFormValid = () => {
     return !!(
       form.first_name.trim() &&
@@ -103,7 +150,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         return 
       }
 
-      // Split strings to completely eliminate timezone local conversion shift distortions
       const [birthYear, birthMonth, birthDay] = form.birthdate.split("-").map(Number)
       const [joinedYear] = form.year_joined ? form.year_joined.split("-").map(Number) : [undefined]
 
@@ -345,6 +391,52 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
           </Field>
         </section>
 
+        {/* LIBRARY UPLOADER MODULE */}
+        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Library File Ingestion</h2>
+          
+          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-200 bg-gray-50/50 rounded-xl transition-all hover:bg-gray-50">
+            {libraryUploading ? (
+              <div className="flex flex-col items-center gap-2 py-4 animate-pulse">
+                <Loader2Icon className="size-8 text-blue-600 animate-spin" />
+                <p className="text-xs font-medium text-gray-600">Uploading file directly via API stream...</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => libraryFileRef.current?.click()}
+                className="flex flex-col items-center gap-2 w-full text-center cursor-pointer group"
+              >
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-full group-hover:bg-blue-100 transition-colors">
+                  <UploadCloudIcon className="size-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">Add asset to child library</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Supports images up to 15MB, videos up to 50MB</p>
+                </div>
+              </button>
+            )}
+
+            <input
+              type="file"
+              ref={libraryFileRef}
+              accept="image/*,video/*"
+              onChange={handleLibraryUpload}
+              className="hidden"
+            />
+          </div>
+
+          {lastUploadedFilename && (
+            <div className="p-3 bg-green-50 border border-green-100 rounded-xl flex items-center gap-2.5 animate-fade-in">
+              <CheckCircle2Icon className="size-4 text-green-600 shrink-0" />
+              <div className="text-xs text-green-800 leading-normal">
+                <span className="font-semibold block text-green-900">Upload Secured</span>
+                Stored <code className="font-mono bg-white px-1 py-0.5 border border-green-200 rounded text-[11px]">{lastUploadedFilename}</code> on Drive and logged in Supabase portfolio.
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* Status */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
           <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Status</h2>
@@ -383,10 +475,10 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 max-w-lg mx-auto z-40">
         <button
           onClick={handleSubmit}
-          disabled={!isFormValid() || mediaUploading || submitting || loadingPreview}
-          className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+          disabled={!isFormValid() || mediaUploading || submitting || loadingPreview || libraryUploading}
+          className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400"
         >
-          {submitting ? "Saving..." : mediaUploading ? "Processing Media..." : "Save Changes"}
+          {submitting ? "Saving..." : mediaUploading || libraryUploading ? "Processing Media..." : "Save Changes"}
         </button>
       </div>
     </div>

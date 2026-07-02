@@ -116,6 +116,7 @@ export async function updateChildAction(
 
   const supabase = await createClient()
 
+  // 1. Fetch current child record to compare deltas and find existing media links
   const { data: currentChild, error: fetchError } = await (supabase as any)
     .from('children')
     .select('*')
@@ -134,13 +135,15 @@ export async function updateChildAction(
 
   const actorFullName = fullProfileData?.full_name || 'Unknown User'
 
+  // 2. Track changes for the edit audit log
   const changes: Array<{ field: string; from: any; to: any }> = []
   const normalizeDate = (val: any) => val ? new Date(val).toISOString().split('T')[0] : null
 
   const fieldsToTrack: Array<keyof UpdateChildInput> = [
     'id_rolf', 'first_name', 'last_name', 'country',
     'career_aspiration', 'favorite_subject', 'hobby', 'bio', 'notes', 'status',
-    'date_joined', 'year_joined', 'birth_year', 'birth_month', 'birth_day'
+    'date_joined', 'year_joined', 'birth_year', 'birth_month', 'birth_day',
+    'profile_photo', 'profile_video'
   ]
 
   fieldsToTrack.forEach((field) => {
@@ -183,8 +186,93 @@ export async function updateChildAction(
   }
 
   const display_name = `${input.first_name} ${input.last_name}`.trim()
-
   const adminSupabase = await createAdminClient()
+
+  // 3. Operational Media Lifecycle Rotation (Preserving Historical Context Labels)
+  try {
+    // A. Track Profile Photo Changes
+    if (currentChild.profile_photo !== input.profile_photo) {
+      // Archive the old profile picture, maintaining its specific contextual identity label
+      await (adminSupabase as any)
+        .from('child_media')
+        .update({ usage_type: 'past_profile_picture' })
+        .eq('child_id', id)
+        .eq('usage_type', 'profile_picture')
+
+      if (input.profile_photo) {
+        const { data: existingMedia } = await (adminSupabase as any)
+          .from('child_media')
+          .select('id')
+          .eq('url', input.profile_photo)
+          .maybeSingle()
+
+        if (existingMedia) {
+          await (adminSupabase as any)
+            .from('child_media')
+            .update({ usage_type: 'profile_picture' })
+            .eq('id', existingMedia.id)
+        } else {
+          const extractedId = input.profile_photo.split('/d/')[1]?.split('/')[0] || `manual-${Date.now()}`
+          await (adminSupabase as any)
+            .from('child_media')
+            .insert({
+              child_id: id,
+              gdrive_file_id: extractedId,
+              filename: `${input.id_rolf || 'CHILD'}_pasted_photo_${Date.now()}`,
+              url: input.profile_photo,
+              media_type: 'photo',
+              usage_type: 'profile_picture',
+              source: 'direct_upload',
+              uploaded_by: actorProfile.id
+            })
+        }
+      }
+    }
+
+    // B. Track Profile Video Changes
+    if (currentChild.profile_video !== input.profile_video) {
+      // Archive the old profile video safely under a distinct historic category flag
+      await (adminSupabase as any)
+        .from('child_media')
+        .update({ usage_type: 'past_profile_video' })
+        .eq('child_id', id)
+        .eq('usage_type', 'profile_video')
+
+      if (input.profile_video) {
+        const { data: existingVideo } = await (adminSupabase as any)
+          .from('child_media')
+          .select('id')
+          .eq('url', input.profile_video)
+          .maybeSingle()
+
+        if (existingVideo) {
+          await (adminSupabase as any)
+            .from('child_media')
+            .update({ usage_type: 'profile_video' })
+            .eq('id', existingVideo.id)
+        } else {
+          const extractedId = input.profile_video.split('/d/')[1]?.split('/')[0] || `manual-${Date.now()}`
+          await (adminSupabase as any)
+            .from('child_media')
+            .insert({
+              child_id: id,
+              gdrive_file_id: extractedId,
+              filename: `${input.id_rolf || 'CHILD'}_pasted_video_${Date.now()}`,
+              url: input.profile_video,
+              media_type: 'video',
+              usage_type: 'profile_video',
+              source: 'direct_upload',
+              uploaded_by: actorProfile.id
+            })
+        }
+      }
+    }
+  } catch (mediaError: any) {
+    console.error("Media registry synchronization failure:", mediaError)
+    return { error: `Media alignment error: ${mediaError.message}` }
+  }
+
+  // 4. Update core child profile table attributes (storing raw Drive links in the row)
   const { error } = await (adminSupabase as any)
     .from('children')
     .update({
