@@ -23,7 +23,8 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // API Ingestion States for Library Hub
+  // Session Staged File Tracker — Stores Drive File IDs to migrate out of SYSTEM_TRASH on save
+  const [stagedDriveFileIds, setStagedDriveFileIds] = useState<string[]>([])
   const [libraryUploading, setLibraryUploading] = useState(false)
   const [lastUploadedFilename, setLastUploadedFilename] = useState<string | null>(null)
 
@@ -72,6 +73,19 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
+  // Captures the updated URL from MediaPicker and extracts the new file ID to add to our save staging array
+  const handleProfileMediaChange = (type: "photo" | "video", url: string | null) => {
+    if (type === "photo") setPhotoUrl(url)
+    if (type === "video") setVideoUrl(url)
+
+    if (url && url.includes("/d/")) {
+      const extractedId = url.split("/d/")[1]?.split("/")[0]
+      if (extractedId) {
+        setStagedDriveFileIds(prev => [...prev, extractedId])
+      }
+    }
+  }
+
   // Pure API upload stream configuration matching your MediaPicker file limits
   const handleLibraryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -110,7 +124,12 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
       return
     }
 
+    const result = await res.json()
     setLastUploadedFilename(file.name)
+    
+    if (result.fileId) {
+      setStagedDriveFileIds(prev => [...prev, result.fileId])
+    }
     if (libraryFileRef.current) libraryFileRef.current.value = ""
   }
 
@@ -173,7 +192,10 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         status: form.status,
       }
 
-      const { error: actionError } = await updateChildAction(child.id, input)
+      // Filter array down to unique file ID values collected during the session
+      const targetSessionStagedIds = Array.from(new Set(stagedDriveFileIds))
+
+      const { error: actionError } = await updateChildAction(child.id, input, targetSessionStagedIds)
       if (actionError) {
         setError(actionError)
         setSubmitting(false)
@@ -369,7 +391,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
             <MediaPicker
               type="photo"
               value={photoUrl}
-              onChange={photoUrl => setPhotoUrl(photoUrl)}
+              onChange={url => handleProfileMediaChange("photo", url)}
               existingUrl={child.profile_photo}
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}
@@ -381,7 +403,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
             <MediaPicker
               type="video"
               value={videoUrl}
-              onChange={videoUrl => setVideoUrl(videoUrl)}
+              onChange={url => handleProfileMediaChange("video", url)}
               existingUrl={child.profile_video}
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}

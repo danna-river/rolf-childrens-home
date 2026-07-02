@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
+import { commitStagedFilesToCountry } from '@/lib/googleDrive'
 
 export type UpdateChildInput = {
   id_rolf: string
@@ -103,6 +104,7 @@ export async function checkRolfIdForEdit(
 export async function updateChildAction(
   id: string,
   input: UpdateChildInput,
+  stagedFileIds?: string[]
 ): Promise<{ error: string | null }> {
   const { profile: actorProfile } = await requireAuth()
   const isSystemAdmin = isAdminRole(actorProfile.role)
@@ -192,7 +194,6 @@ export async function updateChildAction(
   try {
     // A. Track Profile Photo Changes
     if (currentChild.profile_photo !== input.profile_photo) {
-      // Archive the old profile picture, maintaining its specific contextual identity label
       await (adminSupabase as any)
         .from('child_media')
         .update({ usage_type: 'past_profile_picture' })
@@ -231,7 +232,6 @@ export async function updateChildAction(
 
     // B. Track Profile Video Changes
     if (currentChild.profile_video !== input.profile_video) {
-      // Archive the old profile video safely under a distinct historic category flag
       await (adminSupabase as any)
         .from('child_media')
         .update({ usage_type: 'past_profile_video' })
@@ -272,7 +272,12 @@ export async function updateChildAction(
     return { error: `Media alignment error: ${mediaError.message}` }
   }
 
-  // 4. Update core child profile table attributes (storing raw Drive links in the row)
+  // 4. ATOMIC DRIVE MIGRATE: Pull confirmed files out of SYSTEM_TRASH staging
+  if (stagedFileIds && stagedFileIds.length > 0) {
+    await commitStagedFilesToCountry(input.country, stagedFileIds)
+  }
+
+  // 5. Update core child profile table attributes
   const { error } = await (adminSupabase as any)
     .from('children')
     .update({
@@ -291,8 +296,8 @@ export async function updateChildAction(
       hobby: input.hobby,
       bio: input.bio ?? null,
       notes: input.notes ?? null,
-      profile_photo: input.profile_photo,
-      profile_video: input.profile_video,
+      profile_photo: input.profile_photo, 
+      profile_video: input.profile_video, 
       status: input.status,
       edit_log: updatedLog, 
     })

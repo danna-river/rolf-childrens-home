@@ -42,10 +42,13 @@ export async function POST(request: NextRequest) {
     firstName: formData.get("firstName") as string | null,
     lastName: formData.get("lastName") as string | null,
     country: formData.get("country") as string | null,
+    // Every single incoming file is staged inside the garbage folder layout by default
+    folderOverride: "SYSTEM_TRASH", 
   }
 
   const buffer = Buffer.from(await file.arrayBuffer())
-  const { url } = await uploadToDrive(buffer, file.name, file.type, type, meta)
+  const { url, fileId } = await uploadToDrive(buffer, file.name, file.type, type, meta)
 
-  return NextResponse.json({ url })
+  // Deliver both tracking pointers down to the client context
+  return NextResponse.json({ url, fileId })
 }

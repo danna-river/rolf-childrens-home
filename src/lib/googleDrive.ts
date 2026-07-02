@@ -7,6 +7,7 @@ export type ChildMeta = {
   firstName: string | null
   lastName: string | null
   country: string | null
+  folderOverride?: string
 }
 
 function getDriveClient() {
@@ -35,29 +36,22 @@ function buildFilename(
   type: "photo" | "video",
   ext: string,
 ): string {
-  // 1. Get the human-readable date (YYYYMMDD)
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "")
-
-  // 2. Get the high-resolution microsecond timestamp
   const ms = Date.now();
   const microfraction = performance.now().toFixed(3).split('.')[1] || "000";
-  const exactTimestamp = `${ms}${microfraction}`;
-
-  // 3. Combine date and microsecond timestamp
-  const timingContext = `${dateStr}-${exactTimestamp}`;
+  const exactTimestamp = `${dateStr}-${ms}${microfraction}`;
 
   const parts = [
     meta.idRolf ? sanitize(meta.idRolf) : null,
     meta.lastName ? sanitize(meta.lastName) : null,
     meta.firstName ? sanitize(meta.firstName) : null,
     type,
-    timingContext,
+    exactTimestamp,
   ].filter(Boolean)
   
   return `${parts.join("_")}.${ext.toLowerCase()}`
 }
 
-/** Find a folder by name under a parent within the Shared Drive, or create it. */
 async function findOrCreateFolder(
   drive: ReturnType<typeof google.drive>,
   sharedDriveId: string,
@@ -100,17 +94,24 @@ export async function uploadToDrive(
 
   const ext = originalName.split(".").pop() ?? (type === "photo" ? "jpg" : "mp4")
   const filename = buildFilename(meta, type, ext)
-  const year = new Date().getFullYear().toString()
+  
+  let targetFolderId: string
 
-  // Resolve destination: Shared Drive root / country / year
-  const country = meta.country ? sanitize(meta.country) : "Unknown"
-  const countryFolderId = await findOrCreateFolder(drive, sharedDriveId, country, sharedDriveId)
-  const yearFolderId = await findOrCreateFolder(drive, sharedDriveId, year, countryFolderId)
+  // If we are overriding the location to staging (SYSTEM_TRASH)
+  if (meta.folderOverride === "SYSTEM_TRASH") {
+    targetFolderId = await findOrCreateFolder(drive, sharedDriveId, "SYSTEM_TRASH", sharedDriveId)
+  } else {
+    // Standard direct permanent structure path routing
+    const year = new Date().getFullYear().toString()
+    const country = meta.country ? sanitize(meta.country) : "Unknown"
+    const countryFolderId = await findOrCreateFolder(drive, sharedDriveId, country, sharedDriveId)
+    targetFolderId = await findOrCreateFolder(drive, sharedDriveId, year, countryFolderId)
+  }
 
   const { data } = await drive.files.create({
     requestBody: {
       name: filename,
-      parents: [yearFolderId],
+      parents: [targetFolderId],
     },
     media: {
       mimeType,
@@ -135,16 +136,10 @@ export async function uploadToDrive(
   }
 }
 
-/** * Soft-deletes a file by moving it out of its current Country/Year folder 
- * and into a central "SYSTEM_TRASH" folder on the Shared Drive.
- */
 export async function moveFileToSystemTrash(fileId: string): Promise<void> {
   const { drive, sharedDriveId } = getDriveClient()
-  
-  // 1. Ensure the central System Trash folder exists at the root of the Shared Drive
   const trashFolderId = await findOrCreateFolder(drive, sharedDriveId, "SYSTEM_TRASH", sharedDriveId)
 
-  // 2. Fetch the current parents of the file so we can remove it cleanly
   const { data: fileData } = await drive.files.get({
     fileId,
     fields: "parents",
@@ -153,11 +148,48 @@ export async function moveFileToSystemTrash(fileId: string): Promise<void> {
 
   const previousParents = fileData.parents?.join(",") || ""
 
-  // 3. Update the file's parents via Drive API
   await drive.files.update({
     fileId,
     addParents: trashFolderId,
     removeParents: previousParents,
     supportsAllDrives: true,
   })
+}
+
+/**
+ * Moves dynamic file IDs out of the central SYSTEM_TRASH staging folder
+ * and places them into the correct Country/Year folder array on form submission save.
+ */
+export async function commitStagedFilesToCountry(countryName: string, fileIds: string[]): Promise<void> {
+  if (!fileIds || fileIds.length === 0) return
+
+  try {
+    const { drive, sharedDriveId } = getDriveClient()
+    
+    // Resolve standard core target location maps: Root -> Country -> Year
+    const year = new Date().getFullYear().toString()
+    const country = countryName ? sanitize(countryName) : "Unknown"
+    const countryFolderId = await findOrCreateFolder(drive, sharedDriveId, country, sharedDriveId)
+    const targetFolderId = await findOrCreateFolder(drive, sharedDriveId, year, countryFolderId)
+
+    for (const fileId of fileIds) {
+      const { data: fileData } = await drive.files.get({
+        fileId,
+        fields: "parents",
+        supportsAllDrives: true,
+      })
+
+      const previousParents = fileData.parents?.join(",") || ""
+
+      // Atomic parent inversion migration swap out of SYSTEM_TRASH staging
+      await drive.files.update({
+        fileId,
+        addParents: targetFolderId,
+        removeParents: previousParents,
+        supportsAllDrives: true,
+      })
+    }
+  } catch (error) {
+    console.error("Failed to commit staged files out of garbage staging to target destination:", error)
+  }
 }
