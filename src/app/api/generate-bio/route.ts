@@ -30,15 +30,14 @@ function ageFromBirthdate(birthdate: string): string {
   return age >= 0 && age < 30 ? String(age) : ''
 }
 
-/** Turn a raw hobby field into a grammatical third-person clause:
- *  "I like to play soccer" → "likes to play soccer"; "soccer" → "enjoys soccer". */
-function hobbyClause(raw: string): string {
+/** Turn a raw hobby field into a first-person sentence:
+ *  "I like to play soccer." → "I like to play soccer." (kept, tidied);
+ *  "soccer" → "I like soccer." */
+function hobbySentence(raw: string): string {
   const stripped = raw.replace(/\.+$/, '').trim()
-  const leadIn = stripped.match(/^i\s+(?:really\s+)?(?:like to|love to)\s+(.+)$/i)
-  if (leadIn) return `likes to ${leadIn[1]}`
-  const bare = stripped.replace(/^i\s+(?:really\s+)?(?:enjoy|like|love)\s+/i, '')
-  if (!bare) return ''
-  return `enjoys ${bare.charAt(0).toLowerCase()}${bare.slice(1)}`
+  if (!stripped) return ''
+  if (/^i\s/i.test(stripped)) return `I${stripped.slice(1)}.`
+  return `I like ${stripped.charAt(0).toLowerCase()}${stripped.slice(1)}.`
 }
 
 /** "Soccer Player" → "a soccer player" (article + lowercase for mid-sentence use). */
@@ -60,33 +59,30 @@ type Fields = {
   notes: string
 }
 
-/** Grammar-safe template bio — used when no HF key is set or the model call fails. */
+/** Grammar-safe first-person template bio — used when no HF key is set or the
+ *  model call fails. Written in the child's voice to match the donor letter. */
 function templateBio(f: Fields): string {
-  const name = [f.firstName, f.lastName].filter(Boolean).join(' ')
   const parts: string[] = []
-  const agePart = f.age ? `a ${f.age}-year-old` : 'a child'
-  parts.push(`${name || 'This child'} is ${agePart} from ${f.country || 'their home country'}.`)
-  const hobby = hobbyClause(f.hobby)
-  if (hobby) {
-    // "Erling likes to play soccer." / with no name: "They like to play soccer."
-    parts.push(
-      f.firstName
-        ? `${f.firstName} ${hobby}.`
-        : `They ${hobby.replace(/^(likes|enjoys)/, (v) => v.slice(0, -1))}.`,
-    )
-  }
-  if (f.subject) parts.push(`Their favorite subject is ${f.subject}.`)
+  if (f.firstName) parts.push(`My name is ${f.firstName}.`)
+  const facts: string[] = []
+  if (f.age) facts.push(`I am ${f.age} years old`)
+  if (f.country) facts.push(`I am from ${f.country}`)
+  if (facts.length) parts.push(`${facts.join(' and ')}.`)
+  const hobby = hobbySentence(f.hobby)
+  if (hobby) parts.push(hobby)
+  if (f.subject) parts.push(`My favorite subject is ${f.subject}.`)
   const career = cleanCareer(f.career)
-  if (career) parts.push(`They dream of becoming ${career} one day.`)
+  if (career) parts.push(`One day I hope to become ${career}.`)
   return parts.join(' ')
 }
 
-const SYSTEM_PROMPT = `You write short biographies of children living at a children's home, shown to potential sponsors.
+const SYSTEM_PROMPT = `You write short introductions for children living at a children's home, shown to potential sponsors as a letter from the child.
 
 Rules:
 - Write in fluent, grammatically correct English, even if the input is in another language.
-- Exactly 1-2 sentences, third person, using only the child's first name.
-- Rephrase the raw details into natural prose; never copy the input wording verbatim (e.g. turn "I like to play soccer" into "loves playing soccer").
+- First person, in the child's own voice, starting with "My name is <first name>." — e.g. "My name is Awa. I am 9 years old and I live in Benin. I love drawing, and one day I hope to become an artist."
+- 2-4 short, simple sentences, phrased the way a child of that age would speak.
+- Rephrase the raw details naturally; fix any grammar in the input.
 - Tone: warm, hopeful, dignified, age-appropriate.
 - The background notes are private staff context. If they describe hardship (orphaned, abandoned, single-parent home, etc.), you may allude to it briefly and gently — never in graphic, pitying, or shaming detail. It is fine to omit it entirely if it cannot be phrased with dignity.
 - Never invent facts that are not in the input.
