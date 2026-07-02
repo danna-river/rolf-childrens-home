@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import {
   sendRegistrationReceivedEmail,
-  sendNewAccountAlertToAdmins,
+  sendPendingAccountsDigest,
   sendAccountApprovedEmail,
   sendAccountDeniedEmail,
   sendPasswordChangedEmail,
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   const results = await Promise.allSettled([
     sendRegistrationReceivedEmail(to, "Test User"),
-    sendNewAccountAlertToAdmins([to], "Test User", to, appUrl),
+    sendPendingAccountsDigest([to], 2, appUrl),
     sendAccountApprovedEmail(to, "Test User", "staff", appUrl),
     sendAccountDeniedEmail(to, "Test User"),
     sendPasswordChangedEmail(to, "Test User"),

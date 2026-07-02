@@ -98,29 +98,26 @@ export async function sendRegistrationReceivedEmail(to: string, fullName: string
 }
 
 // ---------------------------------------------------------------------------
-// 2. New account awaiting approval → admins
+// 2. Daily digest of accounts awaiting approval → admins
+//    Sent once a day (only when count > 0) instead of one email per signup.
 // ---------------------------------------------------------------------------
 
-export async function sendNewAccountAlertToAdmins(
+export async function sendPendingAccountsDigest(
   adminEmails: string[],
-  newUserName: string,
-  newUserEmail: string,
+  count: number,
   appUrl: string,
 ) {
-  if (adminEmails.length === 0) return
+  if (adminEmails.length === 0 || count < 1) return
+  const isOne = count === 1
   const body = `
-    <p>A new account is waiting for your review:</p>
-    <table style="margin:20px 0;font-size:14px;">
-      <tr><td style="padding:4px 12px 4px 0;color:#888;">Name</td><td><strong>${newUserName}</strong></td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td>${newUserEmail}</td></tr>
-    </table>
+    <p><strong>${count}</strong> ${isOne ? "account is" : "accounts are"} waiting for your review.</p>
     <p>Visit the settings page to approve or deny access.</p>
     ${btn(`${appUrl}/dashboard/settings`, "Review in Dashboard")}
   `
   return deliver({
     to: adminEmails,
-    subject: `New account request from ${newUserName}`,
-    html: layout("New Account Awaiting Approval", body),
+    subject: `${count} account${isOne ? "" : "s"} awaiting approval`,
+    html: layout("Accounts Awaiting Approval", body),
   })
 }
 
