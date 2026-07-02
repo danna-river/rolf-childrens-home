@@ -1,9 +1,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { sendRegistrationReceivedEmail, sendPendingAccountsDigest } from '@/lib/email'
+import { sendRegistrationReceivedEmail } from '@/lib/email'
 
 export async function loginAction(formData: FormData) {
   const email = formData.get('email') as string
@@ -61,41 +60,14 @@ export async function signUpAction(formData: FormData) {
     // abort this action before the notification emails could send.
     const fullName = data.user.user_metadata?.full_name ?? `${firstName} ${lastName}`
 
-    // Awaited before redirect() so the sends complete before the function ends.
+    // Confirm registration to the new user. Admins are NOT emailed per signup —
+    // they get a weekday digest of pending accounts via the cron route
+    // /api/cron/pending-accounts-digest, so a burst of signups doesn't spam them.
+    // Awaited before redirect() so the send completes before the function ends.
     try {
-      // 1. Confirm registration to the new user.
       await sendRegistrationReceivedEmail(email, fullName)
-
-      // 2. Notify admins — debounced to at most one email per 24h so a burst of
-      //    signups on the same day yields a single "N awaiting approval" email
-      //    instead of one per registration. The profile row already exists (the
-      //    on_auth_user_created trigger created it), so we detect the first
-      //    signup of the window: if this is the only unapproved account created
-      //    in the last 24h, send; otherwise a notice already went out today.
-      const adminClient = createAdminClient()
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      const { count: recentPending } = await adminClient
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('role', 'unapproved')
-        .gte('created_at', since)
-
-      if ((recentPending ?? 0) <= 1) {
-        const [{ count: totalPending }, { data: admins }] = await Promise.all([
-          adminClient
-            .from('profiles')
-            .select('id', { count: 'exact', head: true })
-            .eq('role', 'unapproved'),
-          adminClient.from('profiles').select('email').eq('role', 'admin'),
-        ])
-        const adminEmails = (admins ?? [])
-          .map((a: { email: string }) => a.email)
-          .filter(Boolean)
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-        await sendPendingAccountsDigest(adminEmails, totalPending ?? recentPending ?? 1, appUrl)
-      }
     } catch (err) {
-      console.error('[signup] notification email error:', err)
+      console.error('[signup] registration email error:', err)
     }
   }
 
