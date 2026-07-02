@@ -7,6 +7,7 @@ import { IntakeSection } from './components/IntakeSection'
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
+import { ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 import type { Child } from '@/lib/types'
 
@@ -91,13 +92,25 @@ function DonorChildDetail({ child }: { child: Child }) {
   const hobbies = donorHobbies(child)
   const photoSrc = resolvePhotoSrc(child.profile_photo, 1800)
   const video = resolveVideo(child.profile_video)
-  const storyParts = [
-    child.bio?.trim() ||
-      `My name is ${name}. ${age ? `I am ${age} years old. ` : ''}${child.country ? `I live at the Children's Home in ${child.country}. ` : ''}`,
-    child.favorite_subject ? `My favorite subject is ${child.favorite_subject}.` : null,
-    hobbies.length > 0 ? ` ${donorSentenceList(hobbies)}.` : null,
-    child.career_aspiration ? `When I grow up, I hope to be ${child.career_aspiration}.` : null,
-  ].filter((part): part is string => Boolean(part))
+  const bioAge = child.birth_year ? age : null
+  const homeDuration = homeDurationFromDate(child.date_joined ?? (child.year_joined ? `${child.year_joined}-01-01` : null))
+  // A saved bio is the child's whole letter (generated bios are self-contained
+  // and end with a blessing). The assembled sentences are only a fallback for
+  // children without one; their facts still show in the grid above.
+  const bioText = child.bio?.trim()
+  const displayBioText = bioText
+    ? ensureBioIncludesAgeAndCountry(bioText, { age: bioAge, country: child.country, homeDuration })
+    : null
+  const storyParts = displayBioText
+    ? [displayBioText]
+    : [
+        `My name is ${name}. ${bioAge !== null ? `I am ${bioAge} years old. ` : ''}${child.country ? `I live at the Children's Home in ${child.country}. ` : ''}${homeDuration ? `I have been at the Children's Home for ${homeDuration}. ` : ''}`,
+        child.favorite_subject ? `My favorite subject is ${child.favorite_subject}.` : null,
+        hobbies.length > 0 ? ` ${donorSentenceList(hobbies)}.` : null,
+        child.career_aspiration ? `When I grow up, I hope to be ${child.career_aspiration}.` : null,
+      ].filter((part): part is string => Boolean(part))
+  // Older bios don't end with a blessing — keep the template closing for those.
+  const bioHasBlessing = displayBioText ? /god bless/i.test(displayBioText) : false
 
   return (
     <div className="google-sans-page min-h-[calc(100svh_-_4rem)] bg-[#f8f1e8]">
@@ -159,7 +172,9 @@ function DonorChildDetail({ child }: { child: Child }) {
                 {storyParts.map((part, index) => (
                   <p key={index}>{part}</p>
                 ))}
-                <p>Thank you for sponsoring me and loving me. I pray that God will bless you too!</p>
+                {!bioHasBlessing && (
+                  <p>Thank you for sponsoring me and loving me. I pray that God will bless you too!</p>
+                )}
               </div>
             </section>
 
@@ -259,6 +274,13 @@ export default async function ChildProfilePage({
   const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Unnamed'
   const isActive = child.status === 'active'
   const video = resolveVideo(child.profile_video)
+  const detailBio = child.bio?.trim()
+    ? ensureBioIncludesAgeAndCountry(child.bio, {
+        age: child.birth_year ? dynamicAge : null,
+        country: child.country,
+        homeDuration: homeDurationFromDate(child.date_joined ?? (child.year_joined ? `${child.year_joined}-01-01` : null)),
+      })
+    : null
   
   const birthdate = child.birth_year && child.birth_month && child.birth_day
     ? new Date(child.birth_year, child.birth_month - 1, child.birth_day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -354,7 +376,7 @@ export default async function ChildProfilePage({
           <DetailRow label="Career Aspiration" value={child.career_aspiration} />
           <DetailRow label="Favorite Subject" value={child.favorite_subject} />
           <DetailRow label="Hobbies" value={child.hobby} />
-          <DetailRow label="Bio" value={child.bio} />
+          <DetailRow label="Bio" value={detailBio} />
         </div>
 
         {/* Internal Notes Segment */}

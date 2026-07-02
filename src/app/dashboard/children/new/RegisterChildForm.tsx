@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { registerChildAction, getLatestIdPreview, checkRolfIdForRegistration } from "./actions"
-import { calcAge, SUBJECTS, Field, inputClass } from "../components/form-utils"
+import { calcAge, SUBJECTS, Field } from "../components/form-utils"
 import { MediaPicker } from "../components/MediaPicker"
-import QuickNotes from '@/components/QuickNotes'
 
 const STEPS = ["Basic Info", "About Them", "Photo & Video", "Review"]
+
+// Brand-styled input (register flow only) — matches the dashboard palette.
+const inputClass = "w-full px-4 py-3 rounded-xl border border-stone text-sm text-navy bg-white placeholder:text-navy/30 focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
 
 type FormData = {
   id_rolf: string
@@ -20,6 +22,7 @@ type FormData = {
   favorite_subject: string
   hobby: string
   bio: string
+  notes: string
 }
 
 function formatDate(dateStr: string): string {
@@ -45,7 +48,8 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     career_aspiration: "",
     favorite_subject: "",
     hobby: "I like to ",
-    bio: ""
+    bio: "",
+    notes: ""
   })
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -54,7 +58,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [generatingBio, setGeneratingBio] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [generatedFromQuickNotes, setGeneratedFromQuickNotes] = useState<string | null>(null)
+  const [bioGenerated, setBioGenerated] = useState(false)
 
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [validatingStepZero, setValidatingStepZero] = useState(false)
@@ -100,6 +104,8 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     return true
   }
 
+  const canGenerateBio = () => isStep0Valid() && isStep1Valid()
+
   // 🌟 ASYNCHRONOUS STEP GATE: Handles live background lookups on Step 0 to block continuation if input errors exist
   const handleStepProgression = async () => {
     setError(null)
@@ -141,6 +147,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       favorite_subject: form.favorite_subject.trim(),
       hobby: form.hobby.trim(),
       bio: form.bio.trim() || undefined,
+      notes: form.notes.trim() || undefined,
       profile_photo: photoUrl,
       profile_video: videoUrl,
     }
@@ -165,10 +172,6 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     setError(null)
     setGeneratingBio(true)
     try {
-      // include quick notes saved on this device, if any
-      let quickNotes: string | null = null
-      try { quickNotes = localStorage.getItem('quick_notes_register_child') } catch (e) { quickNotes = null }
-
       const res = await fetch('/api/generate-bio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -180,7 +183,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
           favorite_subject: form.favorite_subject,
           country: form.country,
           birthdate: form.birthdate,
-          quick_notes: quickNotes,
+          date_joined: form.year_joined,
         })
       })
 
@@ -192,9 +195,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       const data = await res.json()
       if (data?.bio) {
         set('bio', data.bio)
-        // mark generated source for UI
-        if (data?.used_quick_notes) setGeneratedFromQuickNotes('quick notes')
-        else setGeneratedFromQuickNotes('model')
+        setBioGenerated(true)
       } else {
         throw new Error('No bio returned')
       }
@@ -207,28 +208,28 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="google-sans-registry min-h-screen bg-ice flex flex-col">
       {/* STICKY HEADER MATRIX BAR */}
-      <div className="sticky top-16 z-40 bg-white border-b border-gray-100 shadow-sm">
+      <div className="sticky top-16 z-40 bg-white border-b border-stone shadow-sm">
         <div className="px-4 py-4 flex items-center gap-3">
           <button
             type="button"
             onClick={() => step > 0 ? setStep(s => s - 1) : router.back()}
             disabled={submitting || validatingStepZero}
-            className="text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
+            className="text-navy/60 hover:text-navy text-sm font-medium cursor-pointer"
           >
             ← Back
           </button>
           <div className="flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-navy/45">
               Step {step + 1} of {STEPS.length}
             </p>
-            <h1 className="text-base font-bold text-gray-900">{STEPS[step]}</h1>
+            <h1 className="text-base font-bold text-navy">{STEPS[step]}</h1>
           </div>
         </div>
 
-        <div className="h-1 bg-gray-100">
-          <div className="h-1 bg-blue-600 transition-all duration-300" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+        <div className="h-1 bg-stone">
+          <div className="h-1 bg-teal transition-all duration-300" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
 
         {error && (
@@ -256,9 +257,9 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             <Field label="Date of Birth *" htmlFor="birthdate">
               <input id="birthdate" type="date" value={form.birthdate} onChange={e => set("birthdate", e.target.value)} max={new Date().toISOString().split("T")[0]} min="2000-01-01" className={inputClass} />
               {form.birthdate && (
-                <div className="mt-2 inline-flex items-baseline gap-1.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
-                  <span className="text-sm font-semibold text-blue-600">{calcAge(form.birthdate)}</span>
-                  <span className="text-sm text-blue-400">years old</span>
+                <div className="mt-2 inline-flex items-baseline gap-1.5 bg-sky/50 border border-sky rounded-xl px-4 py-2">
+                  <span className="text-sm font-semibold text-navy">{calcAge(form.birthdate)}</span>
+                  <span className="text-sm text-navy/50">years old</span>
                 </div>
               )}
             </Field>
@@ -277,7 +278,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
             <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
               {loadingPreview ? (
-                <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">
+                <div className="py-3 px-4 bg-ice text-xs text-navy/40 font-medium italic border border-stone rounded-xl">
                   Syncing next chronological identifier sequence...
                 </div>
               ) : isAdmin ? (
@@ -287,14 +288,14 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                   disabled={!form.country}
                   onChange={e => set("id_rolf", e.target.value.toUpperCase())}
                   placeholder={form.country ? "e.g. BEN-0010" : "Select Country First..."}
-                  className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold text-gray-800"}
+                  className={inputClass + " font-mono tracking-wider bg-white border-teal/40 focus:border-teal disabled:bg-ice disabled:text-navy/40 disabled:cursor-not-allowed font-semibold text-navy"}
                 />
               ) : (
                 <input
                   id="id_rolf_locked"
                   value={form.country ? form.id_rolf : "Select Country First..."}
                   disabled
-                  className={inputClass + " bg-gray-100 border-gray-200 text-gray-700 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
+                  className={inputClass + " bg-ice border-stone text-navy/70 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
                 />
               )}
 
@@ -305,7 +306,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                 </div>
               )}
 
-              <p className="text-xs text-gray-400 mt-1.5">
+              <p className="text-xs text-navy/45 mt-1.5">
                 {isAdmin
                   ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
                   : "Automatically calculated based on the highest tracking index parameter currently inside the dataset for this home."}
@@ -327,9 +328,9 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       {presets.map(s => (
-                        <button key={s} type="button" onClick={() => set("favorite_subject", s)} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"}`}>{s}</button>
+                        <button key={s} type="button" onClick={() => set("favorite_subject", s)} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s ? "bg-navy text-white border-navy" : "bg-white text-navy/70 border-stone hover:border-teal"}`}>{s}</button>
                       ))}
-                      <button type="button" onClick={() => set("favorite_subject", " ")} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"}`}>Other</button>
+                      <button type="button" onClick={() => set("favorite_subject", " ")} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-navy text-white border-navy" : "bg-white text-navy/70 border-stone hover:border-teal"}`}>Other</button>
                     </div>
                     {isOther && <input autoFocus value={form.favorite_subject.trim()} onChange={e => set("favorite_subject", e.target.value)} placeholder="Type custom subject details..." className={inputClass + " mt-2"} />}
                   </>
@@ -339,24 +340,42 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             <Field label="Hobbies *" htmlFor="hobby">
               <textarea id="hobby" value={form.hobby} onChange={e => set("hobby", e.target.value)} placeholder="Hobbies description..." rows={3} className={inputClass + " resize-none"} />
             </Field>
-            <QuickNotes placeholder={`e.g. Found wandering the streets without family; or lives with a single-mother household. (Used to seed generated bio; saved on this device)`} />
+            <Field label="Internal Notes (Optional)" htmlFor="notes">
+              <textarea id="notes" value={form.notes} onChange={e => set("notes", e.target.value)}
+                placeholder="Staff-only internal notes, e.g. found without family; lives in a single-mother household. Never shown to donors or used in the bio."
+                rows={3} className={inputClass + " resize-none"} />
+            </Field>
 
-            <Field label="Short Bio (Optional)" htmlFor="bio">
-              <div className="relative">
-                <textarea id="bio" value={form.bio} onChange={e => set("bio", e.target.value)} placeholder="Provide biographical summary details..." rows={3} className={inputClass + " resize-none"} />
-                <div className="absolute right-2 top-2">
+            <Field label="Short Bio (Optional)" htmlFor={bioGenerated ? "bio" : "generate-bio"}>
+              {!bioGenerated ? (
+                <div className="rounded-xl border border-sky bg-sky/40 p-4">
+                  <p className="text-xs font-medium leading-relaxed text-navy/80">
+                    You will only have one try to generate this bio. Make sure all prior information is filled out before generating.
+                  </p>
                   <button
+                    id="generate-bio"
                     type="button"
                     onClick={generateBio}
-                    disabled={generatingBio}
-                    className={`py-1 px-3 rounded-lg text-xs font-medium border ${generatingBio ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'}`}
+                    disabled={generatingBio || !canGenerateBio()}
+                    className="mt-3 w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-navy/90 disabled:bg-stone disabled:text-navy/35 disabled:cursor-not-allowed"
                   >
-                    {generatingBio ? 'Generating…' : 'Generate bio'}
+                    {generatingBio ? 'Generating...' : 'Generate bio'}
                   </button>
                 </div>
-              </div>
-              {generatedFromQuickNotes && (
-                <p className="mt-2 text-xs text-gray-500">{generatedFromQuickNotes === 'quick notes' ? 'Generated from your quick notes (editable).' : 'Generated by model (editable).'}</p>
+              ) : (
+                <>
+                  <textarea
+                    id="bio"
+                    value={form.bio}
+                    onChange={e => set("bio", e.target.value)}
+                    placeholder="Review and edit the generated bio..."
+                    rows={5}
+                    className={inputClass + " resize-none"}
+                  />
+                  <p className="mt-2 text-xs font-medium leading-relaxed text-amber-700">
+                    Please review the generated biography carefully and confirm it is accurate and appropriate before continuing.
+                  </p>
+                </>
               )}
             </Field>
           </>
@@ -364,7 +383,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
         {step === 2 && (
           <div className="space-y-6">
-            <p className="text-xs text-gray-400">Max file size: 15 MB for photos, 50 MB for videos.</p>
+            <p className="text-xs text-navy/45">Max file size: 15 MB for photos, 50 MB for videos.</p>
             <Field label="Profile Photo" htmlFor="photo">
               <MediaPicker type="photo" value={photoUrl} onChange={setPhotoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }} />
             </Field>
@@ -376,7 +395,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
         {step === 3 && (
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50 shadow-2xs">
+            <div className="bg-white rounded-xl border border-stone divide-y divide-stone/60 shadow-2xs">
               <ReviewRow label="Full Name" value={`${form.first_name} ${form.last_name}`} />
               <ReviewRow label="Date of Birth" value={form.birthdate ? formatDate(form.birthdate) : "—"} />
               <ReviewRow label="Calculated Age" value={calcAge(form.birthdate)?.toString() ?? "—"} />
@@ -396,13 +415,13 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       </div>
 
       {/* Sticky Bottom Context Footer */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-4 mt-auto z-40">
+      <div className="sticky bottom-0 bg-white border-t border-stone px-4 py-4 mt-auto z-40">
         {step < STEPS.length - 1 ? (
           <button
             type="button"
             onClick={handleStepProgression}
             disabled={!isCurrentStepValid() || mediaUploading || loadingPreview || validatingStepZero}
-            className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+            className="w-full py-3.5 rounded-xl bg-navy text-white font-semibold text-sm transition-colors duration-150 cursor-pointer hover:bg-navy/90 disabled:bg-stone disabled:text-navy/35 disabled:cursor-not-allowed"
           >
             {validatingStepZero ? "Verifying..." : mediaUploading ? "Processing Media..." : "Continue"}
           </button>
@@ -411,7 +430,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-3.5 rounded-xl bg-teal text-white font-semibold text-sm transition-colors duration-150 cursor-pointer hover:bg-teal/90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {submitting ? "Saving..." : "Register Child"}
           </button>
@@ -424,8 +443,8 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-start px-4 py-3 gap-4">
-      <span className="text-xs text-gray-400 font-medium shrink-0">{label}</span>
-      <span className="text-sm text-gray-800 font-semibold text-right">{value || "—"}</span>
+      <span className="text-xs text-navy/45 font-medium shrink-0">{label}</span>
+      <span className="text-sm text-navy font-semibold text-right">{value || "—"}</span>
     </div>
   )
 }

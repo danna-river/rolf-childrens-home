@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
+import { ageFromBirthParts, ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
 
@@ -20,6 +21,7 @@ export type RegisterChildInput = {
   favorite_subject: string
   hobby: string
   bio?: string
+  notes?: string
   profile_photo?: string | null
   profile_video?: string | null
 }
@@ -151,6 +153,13 @@ export async function registerChildAction(
   }
 
   const display_name = `${input.first_name} ${input.last_name}`.trim()
+  const normalizedBio = input.bio
+    ? ensureBioIncludesAgeAndCountry(input.bio, {
+        age: ageFromBirthParts(input.birth_year, input.birth_month, input.birth_day),
+        country: input.country,
+        homeDuration: homeDurationFromDate(input.date_joined ?? (input.year_joined ? `${input.year_joined}-01-01` : null)),
+      })
+    : null
 
   const { data, error: insertError } = await (supabase as any)
     .from('children')
@@ -168,7 +177,8 @@ export async function registerChildAction(
       career_aspiration: input.career_aspiration,
       favorite_subject: input.favorite_subject,
       hobby: input.hobby,
-      bio: input.bio ?? null,
+      bio: normalizedBio,
+      notes: input.notes ?? null,
       profile_photo: input.profile_photo ?? null,
       profile_video: input.profile_video ?? null,
       status: 'active',

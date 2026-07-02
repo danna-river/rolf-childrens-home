@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { ensureBioIncludesAgeAndCountry, hasRequiredBioFacts, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole, isStaffRole } from '@/lib/profiles'
 
-// Lightweight in-memory cache and rate-limiter. Per-instance and ephemeral on
-// Vercel, which is fine at this volume — no need for Redis.
-const CACHE = new Map<string, { bio: string; expiresAt: number }>()
-const CACHE_TTL_MS = 5 * 60 * 1000
+// Lightweight in-memory rate-limiter. Per-instance and ephemeral on Vercel,
+// which is fine at this volume — no need for Redis. (No response cache:
+// clicking Generate again should re-roll a fresh variant of the bio.)
 const RATE = new Map<string, { remaining: number; resetAt: number }>()
 const RATE_LIMIT = Number(process.env.GENERATE_BIO_RATE_LIMIT || 30) // requests
 const RATE_WINDOW = Number(process.env.GENERATE_BIO_RATE_WINDOW_SECONDS || 60) // seconds
@@ -41,8 +41,16 @@ function hobbySentence(raw: string): string {
 }
 
 /** "Soccer Player" → "a soccer player" (article + lowercase for mid-sentence use). */
+function normalizeCareer(raw: string): string {
+  return raw
+    .replace(
+      /\b(professeur(?:e?s?)?|enseignantes?|enseignants?|institutrices?|instituteurs?|ma[iî]tresses?|ma[iî]tres|profesor(?:as?|es)?|maestras?|maestros?|professor(?:as?|es)?)\b/gi,
+      'teacher',
+    )
+}
+
 function cleanCareer(raw: string): string {
-  const noun = raw.replace(/\.+$/, '').trim().toLowerCase().replace(/^(a|an)\s+/, '')
+  const noun = normalizeCareer(raw).replace(/\.+$/, '').trim().toLowerCase().replace(/^(a|an)\s+/, '')
   if (!noun) return ''
   const article = /^[aeiou]/.test(noun) ? 'an' : 'a'
   return `${article} ${noun}`
@@ -56,23 +64,48 @@ type Fields = {
   subject: string
   country: string
   age: string
-  notes: string
+  homeDuration: string
+}
+
+function pick<T>(options: T[]): T {
+  return options[Math.floor(Math.random() * options.length)]
 }
 
 /** Grammar-safe first-person template bio — used when no HF key is set or the
- *  model call fails. Written in the child's voice to match the donor letter. */
+ *  model call fails. Written in the child's voice to match the donor letter,
+ *  with randomized phrasings so repeated generations vary. */
 function templateBio(f: Fields): string {
   const parts: string[] = []
   if (f.firstName) parts.push(`My name is ${f.firstName}.`)
   const facts: string[] = []
-  if (f.age) facts.push(`I am ${f.age} years old`)
-  if (f.country) facts.push(`I am from ${f.country}`)
+  if (f.age) facts.push(pick([`I am ${f.age} years old`, `I just turned ${f.age}`, `I am ${f.age}`]))
+  if (f.country) facts.push(pick([`I live in ${f.country}`, `my home is in ${f.country}`, `I am from ${f.country}`]))
   if (facts.length) parts.push(`${facts.join(' and ')}.`)
+  if (f.homeDuration) {
+    parts.push(pick([
+      `I have been at the Children's Home for ${f.homeDuration}.`,
+      `The Children's Home has cared for me for ${f.homeDuration}.`,
+      `I have lived at the Children's Home for ${f.homeDuration}.`,
+    ]))
+  }
   const hobby = hobbySentence(f.hobby)
   if (hobby) parts.push(hobby)
-  if (f.subject) parts.push(`My favorite subject is ${f.subject}.`)
+  if (f.subject) {
+    parts.push(pick([
+      `My favorite subject is ${f.subject}.`,
+      `At school I love ${f.subject} the most.`,
+      `${f.subject} is my favorite subject.`,
+    ]))
+  }
   const career = cleanCareer(f.career)
-  if (career) parts.push(`One day I hope to become ${career}.`)
+  if (career) {
+    parts.push(pick([
+      `One day I hope to become ${career}!`,
+      `When I grow up, I want to be ${career}!`,
+      `My big dream is to be ${career} one day!`,
+    ]))
+  }
+  parts.push('Thank you and may God bless you!')
   return parts.join(' ')
 }
 
@@ -80,12 +113,14 @@ const SYSTEM_PROMPT = `You write short introductions for children living at a ch
 
 Rules:
 - Write in fluent, grammatically correct English, even if the input is in another language.
-- First person, in the child's own voice, starting with "My name is <first name>." — e.g. "My name is Awa. I am 9 years old and I live in Benin. I love drawing, and one day I hope to become an artist."
-- 2-4 short, simple sentences, phrased the way a child of that age would speak.
+- First person, in the child's own voice, starting with "My name is <first name>."
+- 4-6 short, simple sentences, phrased the way a child of that age would speak.
+- Always include the supplied age, country, and how long the child has been at the Children's Home.
+- Make it fun and personal: add playful touches that grow naturally out of the child's own hobbies, favorite subject, and dream (e.g. a soccer lover might mention scoring goals with friends). Vary your sentence rhythm and word choices so every child's letter feels unique — do not reuse the same stock phrasing.
 - Rephrase the raw details naturally; fix any grammar in the input.
-- Tone: warm, hopeful, dignified, age-appropriate.
-- The background notes are private staff context. If they describe hardship (orphaned, abandoned, single-parent home, etc.), you may allude to it briefly and gently — never in graphic, pitying, or shaming detail. It is fine to omit it entirely if it cannot be phrased with dignity.
-- Never invent facts that are not in the input.
+- Never invent concrete facts (family, events, places); playful color around the given details is fine.
+- Tone: warm, joyful, hopeful, age-appropriate.
+- End with exactly: "Thank you and may God bless you!"
 - Output ONLY the bio text: no preamble, no quotation marks, no notes.`
 
 async function modelBio(f: Fields): Promise<string | null> {
@@ -95,16 +130,17 @@ async function modelBio(f: Fields): Promise<string | null> {
   // api-inference.huggingface.co endpoint is deprecated; flan-t5 echoes input).
   const HF_MODEL = process.env.HF_MODEL || 'Qwen/Qwen2.5-7B-Instruct'
 
-  // PII minimization: the model only needs the first name.
+  // PII minimization: the model only needs the first name. Internal notes are
+  // deliberately NOT sent — they are a private staff record, never bio input.
   const lines = [
     `First name: ${f.firstName || 'not given'}`,
     `Age: ${f.age || 'not given'}`,
     `Country: ${f.country || 'not given'}`,
+    `Time at Children's Home: ${f.homeDuration || 'not given'}`,
     `Hobbies: ${f.hobby || 'not given'}`,
     `Favorite subject: ${f.subject || 'not given'}`,
     `Dream job: ${f.career || 'not given'}`,
-    f.notes ? `Background notes (private, handle with care): ${f.notes}` : '',
-  ].filter(Boolean)
+  ]
 
   try {
     const res = await fetch('https://router.huggingface.co/v1/chat/completions', {
@@ -119,8 +155,8 @@ async function modelBio(f: Fields): Promise<string | null> {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: lines.join('\n') },
         ],
-        max_tokens: 150,
-        temperature: 0.7,
+        max_tokens: 250,
+        temperature: 0.9,
       }),
     })
 
@@ -164,20 +200,18 @@ export async function POST(req: Request) {
     firstName: clean(body.first_name, 80),
     lastName: clean(body.last_name, 80),
     hobby: clean(body.hobby, 200),
-    career: clean(body.career_aspiration, 120),
+    career: normalizeCareer(clean(body.career_aspiration, 120)),
     subject: clean(body.favorite_subject, 120),
     country: clean(body.country, 80),
     age: body.birthdate ? ageFromBirthdate(String(body.birthdate)) : '',
-    notes: clean(body.quick_notes, 600),
+    homeDuration: body.date_joined ? homeDurationFromDate(String(body.date_joined)) : '',
   }
-  const usedQuickNotes = Boolean(fields.notes)
 
-  // Cache first (includes notes — a notes change must regenerate) so cached
-  // hits don't spend rate-limit budget or tokens.
-  const cacheKey = JSON.stringify(fields)
-  const cached = CACHE.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json({ bio: cached.bio, used_quick_notes: usedQuickNotes, cached: true })
+  if (!hasRequiredBioFacts(fields)) {
+    return NextResponse.json(
+      { error: 'Age, country, and date joined home are required before generating a bio.' },
+      { status: 400 },
+    )
   }
 
   // Per-client rate limit to avoid accidental large usage.
@@ -194,8 +228,6 @@ export async function POST(req: Request) {
 
   // Model when configured, template otherwise — and template again if the
   // model call fails, so the button always produces something.
-  const bio = (await modelBio(fields)) ?? templateBio(fields)
-
-  CACHE.set(cacheKey, { bio, expiresAt: Date.now() + CACHE_TTL_MS })
-  return NextResponse.json({ bio, used_quick_notes: usedQuickNotes })
+  const bio = ensureBioIncludesAgeAndCountry((await modelBio(fields)) ?? templateBio(fields), fields)
+  return NextResponse.json({ bio })
 }
