@@ -20,13 +20,12 @@ export default async function EditChildPage({
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single() as { data: { role: string; country: string[] | null } | null; error: unknown }
+    .maybeSingle() as { data: { role: string; country: string[] | null } | null; error: unknown }
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
     return redirect('/login?error=Unauthorized')
   }
 
-  // ⚡ UPDATE: Swapped out select('*') to query media asset URL strings relationally
   const { data: rawChild } = await supabase
     .from('children')
     .select(`
@@ -35,11 +34,17 @@ export default async function EditChildPage({
       profile_video:child_media!fk_children_profile_video(id, url)
     `)
     .eq('id', id)
-    .single() as { data: any | null; error: unknown }
+    .maybeSingle() as { data: any | null; error: unknown }
 
   if (!rawChild) return redirect('/dashboard/children')
 
-  // ⚡ UPDATE: Unpack and flatten nested media arrays into plain URL strings for client state previewing
+  // ⚡ COLUMN REFERENCE FIX: Changed explicit select parameter to usage_type matching your system design
+  const { data: mediaLibraryRows } = await supabase
+    .from('child_media')
+    .select('id, url, media_type, usage_type, filename')
+    .eq('child_id', id)
+    .order('created_at', { ascending: false }) as { data: Array<{ id: string; url: string; media_type: string; usage_type: string; filename: string }> | null }
+
   const child: Child = {
     ...rawChild,
     profile_photo: rawChild.profile_photo?.url ?? null,
@@ -65,6 +70,7 @@ export default async function EditChildPage({
       child={child}
       availableCountries={dropdownOptions}
       isAdmin={isSystemAdmin}
+      initialLibrary={mediaLibraryRows || []}
     />
   )
 }

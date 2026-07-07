@@ -2,20 +2,22 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { updateChildAction, checkRolfIdForEdit, getLatestIdPreviewForEdit } from "./actions"
+import { updateChildAction, checkRolfIdForEdit, getLatestIdPreviewForEdit, deleteLibraryItemAction } from "./actions"
 import type { UpdateChildInput } from "./actions"
 import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
 import { MediaPicker } from "../../components/MediaPicker"
-import { AlertTriangleIcon, CornerUpLeftIcon, UploadCloudIcon, CheckCircle2Icon, Loader2Icon } from "lucide-react"
+import { resolvePhotoSrc, resolveVideoThumbnail } from "@/lib/childMedia"
+import { AlertTriangleIcon, CornerUpLeftIcon, UploadCloudIcon, CheckCircle2Icon, Loader2Icon, FilmIcon, ImageIcon, Trash2Icon, PlayCircleIcon } from "lucide-react"
 
 interface Props {
   child: Child
   availableCountries: string[]
   isAdmin: boolean 
+  initialLibrary: Array<{ id: string; url: string; media_type: string; usage_type: string; filename: string }>
 }
 
-export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
+export function EditChildForm({ child, availableCountries, isAdmin, initialLibrary }: Props) {
   const router = useRouter()
   const libraryFileRef = useRef<HTMLInputElement>(null)
   const [mediaUploading, setMediaUploading] = useState(false)
@@ -23,10 +25,12 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Session Staged File Tracker — Stores Drive File IDs to migrate out of SYSTEM_TRASH on save
   const [stagedDriveFileIds, setStagedDriveFileIds] = useState<string[]>([])
   const [libraryUploading, setLibraryUploading] = useState(false)
   const [lastUploadedFilename, setLastUploadedFilename] = useState<string | null>(null)
+  
+  const [libraryItems, setLibraryItems] = useState(initialLibrary)
+  const [pendingDeletions, setPendingDeletions] = useState<string[]>([])
 
   const [form, setForm] = useState({
     id_rolf: child.id_rolf ?? "",
@@ -45,7 +49,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(child.profile_photo ?? null)
   const [videoUrl, setVideoUrl] = useState<string | null>(child.profile_video ?? null)
-
   const [initialGeneratedId, setInitialGeneratedId] = useState<string>(child.id_rolf ?? "")
 
   useEffect(() => {
@@ -73,7 +76,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  // Captures the updated URL from MediaPicker and extracts the new file ID to add to our save staging array
   const handleProfileMediaChange = (type: "photo" | "video", url: string | null) => {
     if (type === "photo") setPhotoUrl(url)
     if (type === "video") setVideoUrl(url)
@@ -86,7 +88,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     }
   }
 
-  // Pure API upload stream configuration matching your MediaPicker file limits
   const handleLibraryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -130,7 +131,30 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     if (result.fileId) {
       setStagedDriveFileIds(prev => [...prev, result.fileId])
     }
+
+    if (result.dbRecord) {
+      setLibraryItems(prev => [result.dbRecord, ...prev])
+    } else if (result.fileId && result.url) {
+      setLibraryItems(prev => [{
+        id: result.id || result.fileId,
+        url: result.url,
+        media_type: isPhoto ? 'photo' : 'video',
+        usage_type: 'library',
+        filename: file.name
+      }, ...prev])
+    }
+
     if (libraryFileRef.current) libraryFileRef.current.value = ""
+  }
+
+  const stageLibraryItemRemoval = (itemId: string) => {
+    const targetItem = libraryItems.find(item => item.id === itemId)
+    setPendingDeletions(prev => [...prev, itemId])
+
+    if (targetItem) {
+      if (targetItem.media_type === 'photo' && photoUrl === targetItem.url) setPhotoUrl(null)
+      if (targetItem.media_type === 'video' && videoUrl === targetItem.url) setVideoUrl(null)
+    }
   }
 
   const isFormValid = () => {
@@ -160,6 +184,12 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     setSubmitting(true)
 
     try {
+      if (pendingDeletions.length > 0) {
+        for (const deletionId of pendingDeletions) {
+          await deleteLibraryItemAction(deletionId)
+        }
+      }
+
       const { isValid, error: validationError } = await checkRolfIdForEdit(targetIdCode, form.country, child.id)
 
       if (!isValid) {
@@ -192,7 +222,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         status: form.status,
       }
 
-      // Filter array down to unique file ID values collected during the session
       const targetSessionStagedIds = Array.from(new Set(stagedDriveFileIds))
 
       const { error: actionError } = await updateChildAction(child.id, input, targetSessionStagedIds)
@@ -213,198 +242,113 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
   const presets = SUBJECTS.filter(s => s !== "Other")
   const isOther = form.favorite_subject !== "" && !presets.includes(form.favorite_subject)
 
+  const activeLibraryRows = libraryItems.filter(item => !pendingDeletions.includes(item.id))
+  const photoLibraryItems = activeLibraryRows.filter(item => item.media_type === 'photo')
+  const videoLibraryItems = activeLibraryRows.filter(item => item.media_type === 'video')
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* STICKY NAVIGATION HEADER */}
       <div className="sticky top-16 z-40 bg-white border-b border-gray-100 shadow-xs">
         <div className="px-4 py-4 flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer"
-            disabled={submitting}
-          >
+          <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm font-medium cursor-pointer" disabled={submitting}>
             <CornerUpLeftIcon className="size-4" />
             <span>Cancel</span>
           </button>
           <div className="flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Modifying Profile Records</p>
-            <h1 className="text-base font-bold text-gray-900">
-              {child.first_name} {child.last_name}
-            </h1>
+            <h1 className="text-base font-bold text-gray-900">{child.first_name} {child.last_name}</h1>
           </div>
         </div>
 
         {error && (
           <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
             <AlertTriangleIcon className="size-4 text-red-500 shrink-0 mt-0.5" />
-            <div>
-              <strong className="font-semibold block mb-0.5">Validation Stop</strong>
-              {error}
-            </div>
+            <div><strong className="font-semibold block mb-0.5">Validation Stop</strong>{error}</div>
           </div>
         )}
       </div>
 
-      {/* Main Container Workspace Viewport */}
       <div className="flex-1 px-4 py-6 space-y-5 max-w-lg mx-auto w-full pb-32">
 
         {/* Basic Info */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
           <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Basic Info</h2>
-
           <Field label="Country *" htmlFor="country">
-            <select
-              id="country"
-              value={form.country}
-              onChange={e => set("country", e.target.value)}
-              className={inputClass}
-              required
-            >
-              <option value="" disabled>Select active registration region...</option>
-              {availableCountries.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+            <select id="country" value={form.country} onChange={e => set("country", e.target.value)} className={inputClass} required>
+              <option value="" disabled>Select active region...</option>
+              {availableCountries.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
-
           <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
             {loadingPreview ? (
-              <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">
-                Syncing next chronological identifier sequence for country choice...
-              </div>
+              <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">Syncing code identifier sequence...</div>
             ) : isAdmin ? (
-              <input
-                id="id_rolf"
-                value={form.id_rolf}
-                onChange={e => set("id_rolf", e.target.value.toUpperCase())}
-                className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 font-semibold text-gray-800"}
-              />
+              <input id="id_rolf" value={form.id_rolf} onChange={e => set("id_rolf", e.target.value.toUpperCase())} className={inputClass + " font-mono tracking-wider bg-white border-blue-200 focus:border-blue-600 font-semibold text-gray-800"} />
             ) : (
-              <input
-                id="id_rolf_locked"
-                value={form.id_rolf}
-                disabled
-                className={inputClass + " bg-gray-100 border-gray-200 text-gray-500 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
-              />
+              <input id="id_rolf_locked" value={form.id_rolf} disabled className={inputClass + " bg-gray-100 border-gray-200 text-gray-500 font-mono tracking-wider select-none cursor-not-allowed font-semibold"} />
             )}
-
-            {isAdmin && form.id_rolf && form.id_rolf !== initialGeneratedId && (
-              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal animate-fade-in flex items-start gap-1.5">
-                <AlertTriangleIcon className="size-3.5 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong>Notice:</strong> You are overriding the auto-increment structure. Saving will verify formatting and look for duplicate key entries.
-                </div>
-              </div>
-            )}
-
-            <p className="text-xs text-gray-400 mt-1.5">
-              {isAdmin
-                ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
-                : "Staff accounts cannot alter unique registry codes. To shift this identifier, contact an administrator."}
-            </p>
           </Field>
-
           <Field label="First Name *" htmlFor="first_name">
-            <input id="first_name" value={form.first_name} onChange={e => set("first_name", e.target.value)}
-              placeholder="e.g. Grace" className={inputClass} />
+            <input id="first_name" value={form.first_name} onChange={e => set("first_name", e.target.value)} className={inputClass} />
           </Field>
-
           <Field label="Last Name *" htmlFor="last_name">
-            <input id="last_name" value={form.last_name} onChange={e => set("last_name", e.target.value)}
-              placeholder="e.g. Nakato" className={inputClass} />
+            <input id="last_name" value={form.last_name} onChange={e => set("last_name", e.target.value)} className={inputClass} />
           </Field>
-
           <Field label="Date of Birth *" htmlFor="birthdate">
-            <input id="birthdate" type="date" value={form.birthdate}
-              onChange={e => set("birthdate", e.target.value)}
-              max={new Date().toISOString().split("T")[0]}
-              min="2000-01-01"
-              className={inputClass} />
-            {form.birthdate && (
-              <div className="mt-2 inline-flex items-baseline gap-1.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
-                <span className="text-sm font-semibold text-blue-600">{calcAge(form.birthdate)}</span>
-                <span className="text-sm text-blue-400">years old</span>
-              </div>
-            )}
+            <input id="birthdate" type="date" value={form.birthdate} onChange={e => set("birthdate", e.target.value)} max={new Date().toISOString().split("T")[0]} className={inputClass} />
           </Field>
-
           <Field label="Date Joined Home *" htmlFor="year_joined">
-            <input id="year_joined" type="date" value={form.year_joined}
-              onChange={e => set("year_joined", e.target.value)}
-              max={new Date().toISOString().split("T")[0]}
-              min="2000-01-01"
-              className={inputClass} />
-            {form.year_joined && (
-              <div className="mt-2 inline-flex items-baseline gap-1.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
-                <span className="text-sm font-semibold text-blue-600">{calcAge(form.year_joined)}</span>
-                <span className="text-sm text-blue-400">years in home</span>
-              </div>
-            )}
+            <input id="year_joined" type="date" value={form.year_joined} onChange={e => set("year_joined", e.target.value)} max={new Date().toISOString().split("T")[0]} className={inputClass} />
           </Field>
         </section>
 
         {/* About Them */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
           <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">About Them</h2>
-
           <Field label="What do you want to be when you grow up? *" htmlFor="career">
-            <input id="career" value={form.career_aspiration}
-              onChange={e => set("career_aspiration", e.target.value)}
-              placeholder="e.g. Doctor, Teacher, Engineer..." className={inputClass} />
+            <input id="career" value={form.career_aspiration} onChange={e => set("career_aspiration", e.target.value)} className={inputClass} />
           </Field>
-
           <Field label="Favorite Subject *" htmlFor="subject">
             <div className="grid grid-cols-2 gap-2">
               {presets.map(s => (
-                <button key={s} type="button" onClick={() => set("favorite_subject", s)}
-                  className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
-                    }`}>{s}</button>
+                <button key={s} type="button" onClick={() => set("favorite_subject", s)} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"}`}>{s}</button>
               ))}
-              <button type="button" onClick={() => set("favorite_subject", " ")}
-                className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
-                  }`}>Other</button>
+              <button type="button" onClick={() => set("favorite_subject", " ")} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"}`}>Other</button>
             </div>
-            {isOther && (
-              <input autoFocus value={form.favorite_subject.trim()} onChange={e => set("favorite_subject", e.target.value)}
-                placeholder="Type custom subject details..." className={inputClass + " mt-2"} />
-            )}
+            {isOther && <input autoFocus value={form.favorite_subject.trim()} onChange={e => set("favorite_subject", e.target.value)} className={inputClass + " mt-2"} />}
           </Field>
-
           <Field label="Hobbies *" htmlFor="hobby">
-            <textarea id="hobby" value={form.hobby} onChange={e => set("hobby", e.target.value)}
-              placeholder="Hobbies description..." rows={3} className={inputClass + " resize-none"} />
+            <textarea id="hobby" value={form.hobby} onChange={e => set("hobby", e.target.value)} rows={3} className={inputClass + " resize-none"} />
           </Field>
-
           <Field label="Bio (Optional)" htmlFor="bio">
-            <textarea id="bio" value={form.bio} onChange={e => set("bio", e.target.value)}
-              placeholder="A short description about this child..." rows={4} className={inputClass + " resize-none"} />
+            <textarea id="bio" value={form.bio} onChange={e => set("bio", e.target.value)} rows={4} className={inputClass + " resize-none"} />
           </Field>
         </section>
 
-        {/* Photo & Video */}
+        {/* Photo & Video (Assignment Area) */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Photo &amp; Video</h2>
-          <p className="text-xs text-gray-400">Max file limits: 15 MB for images, 50 MB for videos.</p>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Active Profile Media</h2>
+          
           <Field label="Profile Photo" htmlFor="photo">
             <MediaPicker
               type="photo"
               value={photoUrl}
               onChange={url => handleProfileMediaChange("photo", url)}
-              existingUrl={child.profile_photo}
+              existingUrl={photoUrl}
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}
               onUploadEnd={() => setMediaUploading(false)}
               childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }}
             />
           </Field>
+          
           <Field label="Short Video (~30 sec)" htmlFor="video">
             <MediaPicker
               type="video"
               value={videoUrl}
               onChange={url => handleProfileMediaChange("video", url)}
-              existingUrl={child.profile_video}
+              existingUrl={videoUrl}
               onError={setError}
               onUploadStart={() => setMediaUploading(true)}
               onUploadEnd={() => setMediaUploading(false)}
@@ -413,9 +357,9 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
           </Field>
         </section>
 
-        {/* LIBRARY UPLOADER MODULE */}
-        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Library File Ingestion</h2>
+        {/* LIBRARY MODULE */}
+        <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-5 shadow-2xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Media Library Portfolio</h2>
           
           <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-200 bg-gray-50/50 rounded-xl transition-all hover:bg-gray-50">
             {libraryUploading ? (
@@ -424,11 +368,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
                 <p className="text-xs font-medium text-gray-600">Uploading file directly via API stream...</p>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => libraryFileRef.current?.click()}
-                className="flex flex-col items-center gap-2 w-full text-center cursor-pointer group"
-              >
+              <button type="button" onClick={() => libraryFileRef.current?.click()} className="flex flex-col items-center gap-2 w-full text-center cursor-pointer group">
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-full group-hover:bg-blue-100 transition-colors">
                   <UploadCloudIcon className="size-6" />
                 </div>
@@ -439,22 +379,124 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               </button>
             )}
 
-            <input
-              type="file"
-              ref={libraryFileRef}
-              accept="image/*,video/*"
-              onChange={handleLibraryUpload}
-              className="hidden"
-            />
+            <input type="file" ref={libraryFileRef} accept="image/*,video/*" onChange={handleLibraryUpload} className="hidden" />
           </div>
 
           {lastUploadedFilename && (
             <div className="p-3 bg-green-50 border border-green-100 rounded-xl flex items-center gap-2.5 animate-fade-in">
               <CheckCircle2Icon className="size-4 text-green-600 shrink-0" />
               <div className="text-xs text-green-800 leading-normal">
-                <span className="font-semibold block text-green-900">Upload Secured</span>
-                Stored <code className="font-mono bg-white px-1 py-0.5 border border-green-200 rounded text-[11px]">{lastUploadedFilename}</code> on Drive and logged in Supabase portfolio.
+                <span className="font-semibold block text-green-900">Upload Secured</span> Stored <code className="font-mono bg-white px-1 py-0.5 border border-green-200 rounded text-[11px]">{lastUploadedFilename}</code> on Drive.
               </div>
+            </div>
+          )}
+
+          {activeLibraryRows.length === 0 ? (
+            <div className="py-8 text-center border border-gray-100 rounded-xl bg-gray-50/40">
+              <p className="text-xs font-medium text-gray-400">No media files in library</p>
+            </div>
+          ) : (
+            <div className="space-y-6 pt-1 max-w-full overflow-hidden">
+              
+              {/* --- PHOTOS TRACK --- */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-2.5 border-b border-gray-50 pb-1">
+                  <ImageIcon className="size-3.5 text-gray-400" />
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Photos ({photoLibraryItems.length})</p>
+                </div>
+                {photoLibraryItems.length === 0 ? (
+                  <p className="text-[11px] text-gray-400 italic pl-1">No photographs loaded.</p>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto pb-3 pt-1 scrollbar-thin snap-x scroll-smooth">
+                    {photoLibraryItems.map((item) => {
+                      const isCurrentProfile = photoUrl === item.url
+                      const resolvedImageSrc = resolvePhotoSrc(item.url) || item.url
+
+                      return (
+                        <div key={item.id} className={`relative flex-none w-32 aspect-square rounded-xl border bg-gray-50 overflow-hidden group snap-start shadow-xs transition-transform ${isCurrentProfile ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-100'}`}>
+                          <img src={resolvedImageSrc} alt={item.filename} className="w-full h-full object-cover" />
+                          
+                          <div className="absolute top-0 inset-x-0 p-1.5 bg-black/60 backdrop-blur-xs flex flex-col gap-0.5">
+                            <p className="text-[9px] font-medium text-white truncate max-w-full px-0.5" title={item.filename}>{item.filename}</p>
+                            {isCurrentProfile && (
+                              <span className="text-[7px] font-black text-blue-400 tracking-wider uppercase block mt-0.5">Profile Photo</span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => stageLibraryItemRemoval(item.id)}
+                            className="absolute inset-0 bg-red-600/90 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white font-bold text-[11px] rounded-xl"
+                          >
+                            <Trash2Icon className="size-4 text-white" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* --- VIDEOS TRACK --- */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-2.5 border-b border-gray-50 pb-1">
+                  <FilmIcon className="size-3.5 text-gray-400" />
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Videos ({videoLibraryItems.length})</p>
+                </div>
+                {videoLibraryItems.length === 0 ? (
+                  <p className="text-[11px] text-gray-400 italic pl-1">No video segments loaded.</p>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto pb-3 pt-1 scrollbar-thin snap-x scroll-smooth">
+                    {videoLibraryItems.map((item) => {
+                      const isCurrentVideo = videoUrl === item.url
+                      const resolvedVideoThumb = resolveVideoThumbnail(item.url) || ''
+
+                      return (
+                        // ⚡ DIMS SYNCED FIX: Forced video elements into identical w-32 aspect-square frame dimensions
+                        <div key={item.id} className={`relative flex-none w-32 aspect-square rounded-xl border bg-slate-950 overflow-hidden group snap-start shadow-xs transition-transform ${isCurrentVideo ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-100'}`}>
+                          
+                          {resolvedVideoThumb ? (
+                            <div className="relative w-full h-full">
+                              <img src={resolvedVideoThumb} alt={item.filename} className="w-full h-full object-cover opacity-75" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                                <PlayCircleIcon className="size-7 text-white/90 drop-shadow-md" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-slate-900">
+                              <FilmIcon className="size-5 text-slate-600" />
+                            </div>
+                          )}
+                          
+                          <div className="absolute top-0 inset-x-0 p-1.5 bg-black/60 backdrop-blur-xs flex flex-col gap-0.5">
+                            <p className="text-[9px] font-medium text-white truncate max-w-full px-0.5" title={item.filename}>{item.filename}</p>
+                            {isCurrentVideo && (
+                              <span className="text-[7px] font-black text-blue-400 tracking-wider uppercase block mt-0.5">Profile Video</span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => stageLibraryItemRemoval(item.id)}
+                            className="absolute inset-0 bg-red-600/90 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white font-bold text-[11px] rounded-xl z-20"
+                          >
+                            <Trash2Icon className="size-4 text-white" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {pendingDeletions.length > 0 && (
+                <p className="text-[11px] text-red-500 font-semibold italic animate-pulse">
+                  ⚠️ {pendingDeletions.length} media asset(s) marked for permanent removal. Click "Save Changes" below to write deletions to disk.
+                </p>
+              )}
+
             </div>
           )}
         </section>
@@ -465,20 +507,9 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
           <Field label="Child Status" htmlFor="status">
             <div className="flex gap-3">
               {(['active', 'inactive'] as const).map(s => (
-                <button key={s} type="button" onClick={() => setForm(f => ({ ...f, status: s }))}
-                  className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors capitalize cursor-pointer ${form.status === s
-                    ? s === 'active' ? "bg-green-600 text-white border-green-600" : "bg-red-500 text-white border-red-500"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
-                    }`}>
-                  {s}
-                </button>
+                <button key={s} type="button" onClick={() => setForm(f => ({ ...f, status: s }))} className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors capitalize cursor-pointer ${form.status === s ? s === 'active' ? "bg-green-600 text-white border-green-600" : "bg-red-500 text-white border-red-500" : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"}`}>{s}</button>
               ))}
             </div>
-            {form.status === 'inactive' && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 leading-relaxed">
-                Please document explicitly in the Notes window below why this individual profile is moving to an inactive status.
-              </p>
-            )}
           </Field>
         </section>
 
@@ -486,21 +517,18 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
           <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Internal Notes (Optional)</h2>
           <Field label="Internal Notes" htmlFor="notes">
-            <textarea id="notes" value={form.notes} onChange={e => set("notes", e.target.value)}
-              placeholder="Staff-only internal ledger notes (special circumstances, family tracing variables...)"
-              rows={4} className={inputClass + " resize-none"} />
+            <textarea id="notes" value={form.notes} onChange={e => set("notes", e.target.value)} rows={4} className={inputClass + " resize-none"} />
           </Field>
         </section>
       </div>
 
-      {/* Spaced & Styled Action Control Footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 max-w-lg mx-auto z-40">
         <button
           onClick={handleSubmit}
           disabled={!isFormValid() || mediaUploading || submitting || loadingPreview || libraryUploading}
           className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400"
         >
-          {submitting ? "Saving..." : mediaUploading || libraryUploading ? "Processing Media..." : "Save Changes"}
+          {submitting ? "Saving Changes..." : mediaUploading || libraryUploading ? "Processing Media..." : "Save Changes"}
         </button>
       </div>
     </div>

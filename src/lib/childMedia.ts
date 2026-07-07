@@ -91,3 +91,13 @@ export function resolveVideo(url: string | null | undefined): ResolvedVideo {
 /** Shared helper text shown beside Drive link inputs. */
 export const DRIVE_SHARE_HINT =
   'Google Drive files must be shared with anyone who has the link.'
+
+/** Drive video thumbnail image preview URL, usable directly in an <img src>. */
+export function resolveVideoThumbnail(url: string | null | undefined, size = 1000): string | null {
+  if (!url) return null
+  if (isGoogleDriveUrl(url)) {
+    const fileId = extractDriveFileId(url)
+    return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}` : null
+  }
+  return null // Return null if it's a generic bucket stream without native thumbnail hooks
+}

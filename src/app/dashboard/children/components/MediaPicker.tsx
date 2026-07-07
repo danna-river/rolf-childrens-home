@@ -129,7 +129,7 @@ export function MediaPicker({
               )}
             </div>
             {isDriveValue && <p className="text-xs text-gray-400">Google Drive link</p>}
-            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove photo</button>}
+            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-orange-500">Upload new profile photo</button>}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -149,7 +149,7 @@ export function MediaPicker({
               <video src={previewSrc} controls className="w-full rounded-xl max-h-48" />
             )}
             {isDriveValue && <p className="text-xs text-gray-400">Google Drive link</p>}
-            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">Remove video</button>}
+            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-orange-500">Upload new profile video</button>}
           </div>
         )
       ) : (
