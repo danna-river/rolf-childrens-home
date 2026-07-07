@@ -147,6 +147,12 @@ export type Database = {
         Update: Partial<Omit<Profile, 'id' | 'created_at'>>
         Relationships: []
       }
+      heartbeat: {
+        Row: { id: number; beat_at: string }
+        Insert: { id?: number; beat_at?: string }
+        Update: { id?: number; beat_at?: string }
+        Relationships: []
+      }
       children: {
         Row: DatabaseRow<Child>
         Insert: Omit<Child, 'id' | 'created_at' | 'updated_at' | 'edit_log'>
