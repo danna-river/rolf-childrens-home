@@ -192,6 +192,7 @@ export default async function MatchesPage() {
 
   const supabase = createAdminClient()
 
+  // ⚡ UPDATE: Modify children projection to fetch profile_photo via child_media relationship
   let query = supabase
     .from('sponsorships')
     .select(`
@@ -200,7 +201,15 @@ export default async function MatchesPage() {
       end_date,
       amount,
       frequency,
-      child:children(id, id_rolf, display_name, first_name, last_name, country, profile_photo),
+      child:children(
+        id, 
+        id_rolf, 
+        display_name, 
+        first_name, 
+        last_name, 
+        country, 
+        profile_photo:child_media!fk_children_profile_photo(url)
+      ),
       sponsor:sponsors(id, full_name, email)
     `)
     .eq('status', 'active')
@@ -215,10 +224,11 @@ export default async function MatchesPage() {
 
   const { data, error } = await query
 
-  const rows = (data ?? []) as unknown as MatchRow[]
+  const rows = (data ?? []) as unknown as any[]
 
+  // ⚡ UPDATE: Flatten the relational url property object back to a simple text property
   const matches: Match[] = rows
-    .filter((row): row is MatchRow & { child: NonNullable<MatchRow['child']>; sponsor: NonNullable<MatchRow['sponsor']> } =>
+    .filter((row): row is any & { child: any; sponsor: any } =>
       row.child !== null && row.sponsor !== null,
     )
     .map((row) => ({
@@ -227,7 +237,10 @@ export default async function MatchesPage() {
       endDate: row.end_date,
       amount: row.amount,
       frequency: row.frequency,
-      child: row.child,
+      child: {
+        ...row.child,
+        profile_photo: row.child.profile_photo?.url ?? null, // Safely maps out image link strings
+      },
       sponsor: row.sponsor,
       country: row.child.country ?? 'Unknown',
     }))

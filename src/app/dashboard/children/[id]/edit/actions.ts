@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
-import { commitStagedFilesToCountry } from '@/lib/googleDrive'
+import { commitStagedFilesToCountry, moveFileToSystemTrash } from '@/lib/googleDrive'
 
 export type UpdateChildInput = {
   id_rolf: string
@@ -22,8 +22,8 @@ export type UpdateChildInput = {
   hobby: string
   bio?: string
   notes?: string
-  profile_photo: string | null
-  profile_video: string | null
+  profile_photo: string | null // Dynamic: handles incoming UUID strings OR staging text fallback URLs
+  profile_video: string | null 
   status: 'active' | 'inactive'
 }
 
@@ -117,46 +117,48 @@ export async function updateChildAction(
   }
 
   const supabase = await createClient()
+  const adminSupabase = await createAdminClient()
 
-  // 1. Fetch current child record to compare deltas and find existing media links
-  const { data: currentChild, error: fetchError } = await (supabase as any)
+  // 1. Fetch live original child row with relational sub-joins so we can see BOTH raw UUIDs and URLs
+  const { data: rawCurrentChild, error: fetchError } = await (supabase as any)
     .from('children')
-    .select('*')
+    .select(`
+      *,
+      profile_photo:child_media!fk_children_profile_photo(id, url),
+      profile_video:child_media!fk_children_profile_video(id, url)
+    `)
     .eq('id', id)
     .single()
 
-  if (fetchError || !currentChild) {
+  if (fetchError || !rawCurrentChild) {
     return { error: "Failed to locate the original child record for delta logging." }
   }
 
-  const { data: fullProfileData } = await (supabase as any)
-    .from('profiles')
-    .select('full_name')
-    .eq('id', actorProfile.id)
-    .single()
+  // Flatten the old values so your audit tracker handles text links instead of raw UUID keys
+  const flattenedCurrentChild = {
+    ...rawCurrentChild,
+    profile_photo: rawCurrentChild.profile_photo?.url ?? null,
+    profile_video: rawCurrentChild.profile_video?.url ?? null
+  }
 
-  const actorFullName = fullProfileData?.full_name || 'Unknown User'
+  const actorFullName = actorProfile.full_name || 'Unknown User'
 
-  // 2. Track changes for the edit audit log
+  // 2. Track changes for the edit audit log (basic fields only)
   const changes: Array<{ field: string; from: any; to: any }> = []
   const normalizeDate = (val: any) => val ? new Date(val).toISOString().split('T')[0] : null
 
   const fieldsToTrack: Array<keyof UpdateChildInput> = [
     'id_rolf', 'first_name', 'last_name', 'country',
     'career_aspiration', 'favorite_subject', 'hobby', 'bio', 'notes', 'status',
-    'date_joined', 'year_joined', 'birth_year', 'birth_month', 'birth_day',
-    'profile_photo', 'profile_video'
+    'date_joined', 'year_joined', 'birth_year', 'birth_month', 'birth_day'
   ]
 
   fieldsToTrack.forEach((field) => {
-    let currentVal = currentChild[field]
+    let currentVal = flattenedCurrentChild[field]
     let newVal = input[field]
 
     if (typeof currentVal === 'string') currentVal = currentVal.trim() || null
-    else if (currentVal === undefined) currentVal = null
-
     if (typeof newVal === 'string') newVal = newVal.trim() || null
-    else if (newVal === undefined) newVal = null
 
     if (field === 'date_joined') {
       currentVal = normalizeDate(currentVal)
@@ -172,7 +174,157 @@ export async function updateChildAction(
     }
   })
 
-  let updatedLog = currentChild.edit_log || []
+  let finalPhotoUuid = input.profile_photo
+  let finalVideoUuid = input.profile_video
+
+  // 3. Operational Media Lifecycle Rotation
+  try {
+    // --- PROFILE PHOTO PROCESSING ---
+    if (!input.profile_photo || input.profile_photo.trim() === '') {
+      const oldPhotoId = typeof rawCurrentChild.profile_photo === 'object' ? rawCurrentChild.profile_photo?.id : rawCurrentChild.profile_photo;
+      
+      if (oldPhotoId) {
+        const { data: mediaRow } = await (adminSupabase as any)
+          .from('child_media')
+          .select('gdrive_file_id')
+          .eq('id', oldPhotoId)
+          .single()
+
+        if (mediaRow?.gdrive_file_id) {
+          try {
+            await moveFileToSystemTrash(mediaRow.gdrive_file_id)
+          } catch (gDriveErr) {
+            console.warn(`External asset bypass: File link ${mediaRow.gdrive_file_id} could not be moved to system trash (external reference). Dereferencing row instead.`)
+          }
+        }
+
+        await (adminSupabase as any).from('child_media').delete().eq('id', oldPhotoId)
+      }
+      finalPhotoUuid = null;
+    } else if (input.profile_photo.startsWith("https://")) {
+      if (rawCurrentChild.profile_photo && typeof rawCurrentChild.profile_photo === 'object' && rawCurrentChild.profile_photo.url === input.profile_photo) {
+        finalPhotoUuid = rawCurrentChild.profile_photo.id;
+      } else if (rawCurrentChild.profile_photo && typeof rawCurrentChild.profile_photo === 'string') {
+        finalPhotoUuid = rawCurrentChild.profile_photo;
+      } else {
+        const extractedFileId = input.profile_photo.split('/d/')[1]?.split('/')[0] || `photo-${Date.now()}`
+        
+        const { data: photoMediaRow, error: photoDbErr } = await (adminSupabase as any)
+          .from('child_media')
+          .insert({
+            child_id: id,
+            gdrive_file_id: extractedFileId,
+            filename: `${input.id_rolf}_profile_photo`,
+            url: input.profile_photo,
+            media_type: 'photo',
+            usage_type: 'profile_picture',
+            source: 'direct_upload',
+            uploaded_by: actorProfile.id
+          })
+          .select('id')
+          .single()
+
+        if (photoDbErr) throw photoDbErr;
+        if (photoMediaRow) finalPhotoUuid = photoMediaRow.id
+      }
+    } else {
+      finalPhotoUuid = input.profile_photo;
+    }
+
+    // --- PROFILE VIDEO PROCESSING ---
+    if (!input.profile_video || input.profile_video.trim() === '') {
+      const oldVideoId = typeof rawCurrentChild.profile_video === 'object' ? rawCurrentChild.profile_video?.id : rawCurrentChild.profile_video;
+
+      if (oldVideoId) {
+        const { data: mediaRow } = await (adminSupabase as any)
+          .from('child_media')
+          .select('gdrive_file_id')
+          .eq('id', oldVideoId)
+          .single()
+
+        if (mediaRow?.gdrive_file_id) {
+          try {
+            await moveFileToSystemTrash(mediaRow.gdrive_file_id)
+          } catch (gDriveErr) {
+            console.warn(`External asset bypass: File link ${mediaRow.gdrive_file_id} could not be moved to system trash. Dereferencing instead.`)
+          }
+        }
+
+        await (adminSupabase as any).from('child_media').delete().eq('id', oldVideoId)
+      }
+      finalVideoUuid = null;
+    } else if (input.profile_video.startsWith("https://")) {
+      if (rawCurrentChild.profile_video && typeof rawCurrentChild.profile_video === 'object' && rawCurrentChild.profile_video.url === input.profile_video) {
+        finalVideoUuid = rawCurrentChild.profile_video.id;
+      } else if (rawCurrentChild.profile_video && typeof rawCurrentChild.profile_video === 'string') {
+        finalVideoUuid = rawCurrentChild.profile_video;
+      } else {
+        const extractedFileId = input.profile_video.split('/d/')[1]?.split('/')[0] || `video-${Date.now()}`
+        
+        const { data: videoMediaRow, error: videoDbErr } = await (adminSupabase as any)
+          .from('child_media')
+          .insert({
+            child_id: id,
+            gdrive_file_id: extractedFileId,
+            filename: `${input.id_rolf}_profile_video`,
+            url: input.profile_video,
+            media_type: 'video',
+            usage_type: 'profile_video',
+            source: 'direct_upload',
+            uploaded_by: actorProfile.id
+          })
+          .select('id')
+          .single()
+
+        if (videoDbErr) throw videoDbErr;
+        if (videoMediaRow) finalVideoUuid = videoMediaRow.id
+      }
+    } else {
+      finalVideoUuid = input.profile_video;
+    }
+
+    // Flip legacy indicators to history tracks if true modifications exist
+    const oldPhotoId = typeof rawCurrentChild.profile_photo === 'object' ? rawCurrentChild.profile_photo?.id : rawCurrentChild.profile_photo;
+    const oldVideoId = typeof rawCurrentChild.profile_video === 'object' ? rawCurrentChild.profile_video?.id : rawCurrentChild.profile_video;
+
+    if (oldPhotoId && finalPhotoUuid && oldPhotoId !== finalPhotoUuid) {
+      await (adminSupabase as any)
+        .from('child_media')
+        .update({ usage_type: 'past_profile_picture' })
+        .eq('child_id', id)
+        .eq('usage_type', 'profile_picture')
+        .neq('id', finalPhotoUuid)
+    }
+    if (oldVideoId && finalVideoUuid && oldVideoId !== finalVideoUuid) {
+      await (adminSupabase as any)
+        .from('child_media')
+        .update({ usage_type: 'past_profile_video' })
+        .eq('child_id', id)
+        .eq('usage_type', 'profile_video')
+        .neq('id', finalVideoUuid)
+    }
+  } catch (mediaError: any) {
+    console.error("Media registry synchronization failure:", mediaError)
+    return { error: `Media alignment error: ${mediaError.message}` }
+  }
+
+  // 4. Safely log media adjustments to changes ledger using verified database UUID identifiers
+  if (rawCurrentChild.profile_photo !== finalPhotoUuid) {
+    changes.push({
+      field: 'profile_photo',
+      from: rawCurrentChild.profile_photo ?? '—',
+      to: finalPhotoUuid ?? '—'
+    })
+  }
+  if (rawCurrentChild.profile_video !== finalVideoUuid) {
+    changes.push({
+      field: 'profile_video',
+      from: rawCurrentChild.profile_video ?? '—',
+      to: finalVideoUuid ?? '—'
+    })
+  }
+
+  let updatedLog = rawCurrentChild.edit_log || []
   if (changes.length > 0) {
     const newLogEntry = {
       timestamp: new Date().toISOString(),
@@ -188,96 +340,13 @@ export async function updateChildAction(
   }
 
   const display_name = `${input.first_name} ${input.last_name}`.trim()
-  const adminSupabase = await createAdminClient()
 
-  // 3. Operational Media Lifecycle Rotation (Preserving Historical Context Labels)
-  try {
-    // A. Track Profile Photo Changes
-    if (currentChild.profile_photo !== input.profile_photo) {
-      await (adminSupabase as any)
-        .from('child_media')
-        .update({ usage_type: 'past_profile_picture' })
-        .eq('child_id', id)
-        .eq('usage_type', 'profile_picture')
-
-      if (input.profile_photo) {
-        const { data: existingMedia } = await (adminSupabase as any)
-          .from('child_media')
-          .select('id')
-          .eq('url', input.profile_photo)
-          .maybeSingle()
-
-        if (existingMedia) {
-          await (adminSupabase as any)
-            .from('child_media')
-            .update({ usage_type: 'profile_picture' })
-            .eq('id', existingMedia.id)
-        } else {
-          const extractedId = input.profile_photo.split('/d/')[1]?.split('/')[0] || `manual-${Date.now()}`
-          await (adminSupabase as any)
-            .from('child_media')
-            .insert({
-              child_id: id,
-              gdrive_file_id: extractedId,
-              filename: `${input.id_rolf || 'CHILD'}_pasted_photo_${Date.now()}`,
-              url: input.profile_photo,
-              media_type: 'photo',
-              usage_type: 'profile_picture',
-              source: 'direct_upload',
-              uploaded_by: actorProfile.id
-            })
-        }
-      }
-    }
-
-    // B. Track Profile Video Changes
-    if (currentChild.profile_video !== input.profile_video) {
-      await (adminSupabase as any)
-        .from('child_media')
-        .update({ usage_type: 'past_profile_video' })
-        .eq('child_id', id)
-        .eq('usage_type', 'profile_video')
-
-      if (input.profile_video) {
-        const { data: existingVideo } = await (adminSupabase as any)
-          .from('child_media')
-          .select('id')
-          .eq('url', input.profile_video)
-          .maybeSingle()
-
-        if (existingVideo) {
-          await (adminSupabase as any)
-            .from('child_media')
-            .update({ usage_type: 'profile_video' })
-            .eq('id', existingVideo.id)
-        } else {
-          const extractedId = input.profile_video.split('/d/')[1]?.split('/')[0] || `manual-${Date.now()}`
-          await (adminSupabase as any)
-            .from('child_media')
-            .insert({
-              child_id: id,
-              gdrive_file_id: extractedId,
-              filename: `${input.id_rolf || 'CHILD'}_pasted_video_${Date.now()}`,
-              url: input.profile_video,
-              media_type: 'video',
-              usage_type: 'profile_video',
-              source: 'direct_upload',
-              uploaded_by: actorProfile.id
-            })
-        }
-      }
-    }
-  } catch (mediaError: any) {
-    console.error("Media registry synchronization failure:", mediaError)
-    return { error: `Media alignment error: ${mediaError.message}` }
-  }
-
-  // 4. ATOMIC DRIVE MIGRATE: Pull confirmed files out of SYSTEM_TRASH staging
+  // 5. ATOMIC DRIVE MIGRATE: Pull confirmed new files out of SYSTEM_TRASH staging
   if (stagedFileIds && stagedFileIds.length > 0) {
     await commitStagedFilesToCountry(input.country, stagedFileIds)
   }
 
-  // 5. Update core child profile table attributes
+  // 6. Update core child profile table attributes
   const { error } = await (adminSupabase as any)
     .from('children')
     .update({
@@ -296,8 +365,8 @@ export async function updateChildAction(
       hobby: input.hobby,
       bio: input.bio ?? null,
       notes: input.notes ?? null,
-      profile_photo: input.profile_photo, 
-      profile_video: input.profile_video, 
+      profile_photo: finalPhotoUuid, 
+      profile_video: finalVideoUuid, 
       status: input.status,
       edit_log: updatedLog, 
     })

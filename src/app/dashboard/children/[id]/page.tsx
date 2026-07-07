@@ -224,12 +224,24 @@ export default async function ChildProfilePage({
   if (profile.role === 'donor') {
     const donorChildResult = await supabase
       .from('children')
-      .select('*')
+      .select(`
+        *,
+        profile_photo:child_media!fk_children_profile_photo(id, url),
+        profile_video:child_media!fk_children_profile_video(id, url)
+      `)
       .eq('id', id)
       .single()
-    const donorChild = donorChildResult.data as Child | null
+    const rawDonorChild = donorChildResult.data as any
 
-    if (!donorChild) return notFound()
+    if (!rawDonorChild) return notFound()
+
+    // ⚡ FIXED: Mapping uses rawDonorChild fields to completely bypass the outer block scoping crash
+    const donorChild: Child = {
+      ...rawDonorChild,
+      profile_photo: rawDonorChild.profile_photo?.url ?? null,
+      profile_video: rawDonorChild.profile_video?.url ?? null
+    }
+
     return <DonorChildDetail child={donorChild} />
   }
 
@@ -237,6 +249,8 @@ export default async function ChildProfilePage({
     .from('children')
     .select(`
       *,
+      profile_photo:child_media!fk_children_profile_photo(id, url),
+      profile_video:child_media!fk_children_profile_video(id, url),
       creator:created_by (
         full_name,
         role
@@ -244,16 +258,26 @@ export default async function ChildProfilePage({
     `)
     .eq('id', id)
     .single()
-  const child = childResult.data as ChildWithCreator | null
+  const rawChild = childResult.data as any
 
-  if (!child) return notFound()
+  if (!rawChild) return notFound()
 
-  const { eligibleForms, latestCompleted } = await getEligibleIntakeForms(
+  const child: ChildWithCreator & { profile_photo_id?: string | null; profile_video_id?: string | null } = {
+    ...rawChild,
+    profile_photo: rawChild.profile_photo?.url ?? null,
+    profile_video: rawChild.profile_video?.url ?? null,
+    profile_photo_id: rawChild.profile_photo?.id ?? null,
+    profile_video_id: rawChild.profile_video?.id ?? null
+  }
+
+  const eligibleFormsResult = await getEligibleIntakeForms(
     child.id,
     child.country ?? '',
     child.date_joined,
     child.year_joined
   )
+  const eligibleForms = eligibleFormsResult.eligibleForms
+  const latestCompleted = eligibleFormsResult.latestCompleted
 
   const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
   const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Unnamed'
@@ -295,7 +319,6 @@ export default async function ChildProfilePage({
             <h1 className="text-2xl font-bold tracking-tight text-navy">{name}</h1>
             <p className={`text-xs font-mono mt-0.5 ${child.id_rolf ? 'text-teal font-semibold' : 'text-navy/30'}`}>{child.id_rolf || 'ROLF ID Unknown'}</p>
             
-            {/* Standard ROLF Status Badge */}
             <span className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
               isActive ? "border-teal/50 bg-teal/10 text-teal" : "border-stone bg-ice text-navy/55"
             }`}>
@@ -322,7 +345,6 @@ export default async function ChildProfilePage({
           </div>
         </div>
 
-        {/* Mapped custom intake worksheet orchestrator */}
         <IntakeSection 
           childId={id} 
           eligibleForms={eligibleForms} 
@@ -357,7 +379,6 @@ export default async function ChildProfilePage({
           <DetailRow label="Bio" value={child.bio} />
         </div>
 
-        {/* Internal Notes Segment */}
         <div className="bg-amber-50/60 border border-amber-200/80 rounded-md px-5 py-4 shadow-2xs space-y-1.5">
           <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-amber-900">Internal Notes</p>
           {child.notes?.trim() ? (

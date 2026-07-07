@@ -1,10 +1,11 @@
-// Hybrid child-media helpers. The `profile_photo` and `profile_video` fields can
-// hold either an uploaded storage URL or a Google Drive share link. These pure
-// functions detect Drive links and turn them into renderable URLs:
+// Hybrid child-media helpers. The `profile_photo` and `profile_video` fields in the
+// children table now hold strict UUID foreign key references to rows in 'child_media'.
+// Once your server data layers pull and flatten those relational entries into raw text 
+// URL strings, these pure functions detect Drive links and turn them into renderable URLs:
 //   - photos  → a thumbnail image URL usable in <img>
 //   - videos  → an iframe preview URL (Drive video links cannot play in <video>)
-// Anything that isn't a Drive link is returned untouched so existing uploads keep
-// working exactly as before.
+// Anything that isn't a Drive link is returned untouched so direct storage bucket links 
+// keep working exactly as before.
 
 const DRIVE_HOSTS = ['drive.google.com', 'drive.usercontent.google.com']
 

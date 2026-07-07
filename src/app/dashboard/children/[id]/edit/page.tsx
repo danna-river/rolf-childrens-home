@@ -26,19 +26,30 @@ export default async function EditChildPage({
     return redirect('/login?error=Unauthorized')
   }
 
-  const { data: child } = await supabase
+  // ⚡ UPDATE: Swapped out select('*') to query media asset URL strings relationally
+  const { data: rawChild } = await supabase
     .from('children')
-    .select('*')
+    .select(`
+      *,
+      profile_photo:child_media!fk_children_profile_photo(id, url),
+      profile_video:child_media!fk_children_profile_video(id, url)
+    `)
     .eq('id', id)
-    .single() as { data: Child | null; error: unknown }
+    .single() as { data: any | null; error: unknown }
 
-  if (!child) return redirect('/dashboard/children')
+  if (!rawChild) return redirect('/dashboard/children')
+
+  // ⚡ UPDATE: Unpack and flatten nested media arrays into plain URL strings for client state previewing
+  const child: Child = {
+    ...rawChild,
+    profile_photo: rawChild.profile_photo?.url ?? null,
+    profile_video: rawChild.profile_video?.url ?? null,
+  }
 
   let dropdownOptions: string[] = []
   const isSystemAdmin = isAdminRole(profile.role)
 
   if (isSystemAdmin) {
-    // Admins fetch options live from the master database parameters countries table
     const { data: countryRows } = await supabase
       .from('countries')
       .select('name')
@@ -46,7 +57,6 @@ export default async function EditChildPage({
       
     dropdownOptions = (countryRows || []).map((row: any) => row.name)
   } else {
-    // Localized staff inherit their assigned tracking matrix bounds array
     dropdownOptions = profile.country || []
   }
 

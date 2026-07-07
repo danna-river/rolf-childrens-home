@@ -124,7 +124,12 @@ export async function getChildrenProfiles(
 ): Promise<{ profiles: ChildProfile[]; error: string | null; total: number }> {
   const supabase = useSessionClient ? await createClient() : createAdminClient()
 
-  let query = supabase.from('children').select('*', { count: 'exact' })
+  // ⚡ UPDATE: Switch from select('*') to sub-join across child_media references
+  let query = supabase.from('children').select(`
+    *,
+    profile_photo:child_media!fk_children_profile_photo(url),
+    profile_video:child_media!fk_children_profile_video(url)
+  `, { count: 'exact' })
 
   if (countries && countries.length > 0) {
     query = query.in('country', countries)
@@ -175,7 +180,8 @@ export async function getChildrenProfiles(
     return { profiles: [], error: error.message, total: 0 }
   }
 
-  const formattedProfiles: ChildProfile[] = ((data ?? []) as DBChildRow[]).map((row) => ({
+  // ⚡ UPDATE: Unpack and flatten the nested object response back into a clean string URL
+  const formattedProfiles: ChildProfile[] = ((data ?? []) as any[]).map((row) => ({
     id: row.id,
     id_rolf: row.id_rolf || null,
     firstName: row.first_name || '',
@@ -189,7 +195,7 @@ export async function getChildrenProfiles(
     updatedAt: row.updated_at || null,
     year_joined: row.year_joined || 0,
     date_joined: row.date_joined || null,
-    profilePictureURL: row.profile_photo || '',
+    profilePictureURL: row.profile_photo?.url || '', // 👈 Pulls the nested url path cleanly!
     status: row.status || 'active',
   }))
 
