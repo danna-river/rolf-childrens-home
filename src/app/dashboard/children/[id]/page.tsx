@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { PhotoViewer } from './components/PhotoViewer'
 import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
+import { PenPalSection } from './components/PenPalSection'
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
@@ -208,6 +209,8 @@ function DonorChildDetail({ child }: { child: Child }) {
                 </div>
               </section>
             )}
+
+            <PenPalSection childId={child.id} childName={firstName} />
           </div>
         </article>
       </main>
