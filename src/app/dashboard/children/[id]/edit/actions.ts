@@ -308,18 +308,28 @@ export async function updateChildAction(
     return { error: `Media alignment error: ${mediaError.message}` }
   }
 
-  // 4. Safely log media adjustments to changes ledger using verified database UUID identifiers
-  if (rawCurrentChild.profile_photo !== finalPhotoUuid) {
+  // 4. Safely log media adjustments to changes ledger using actual structural UUID identifiers 
+  const originalPhotoId = typeof rawCurrentChild.profile_photo === 'object' 
+    ? rawCurrentChild.profile_photo?.id 
+    : rawCurrentChild.profile_photo;
+
+  const originalVideoId = typeof rawCurrentChild.profile_video === 'object' 
+    ? rawCurrentChild.profile_video?.id 
+    : rawCurrentChild.profile_video;
+
+  // Compare clean string tokens directly to avoid [object Object] mismatches
+  if ((originalPhotoId ?? null) !== (finalPhotoUuid ?? null)) {
     changes.push({
       field: 'profile_photo',
-      from: rawCurrentChild.profile_photo ?? '—',
+      from: originalPhotoId ?? '—',
       to: finalPhotoUuid ?? '—'
     })
   }
-  if (rawCurrentChild.profile_video !== finalVideoUuid) {
+
+  if ((originalVideoId ?? null) !== (finalVideoUuid ?? null)) {
     changes.push({
       field: 'profile_video',
-      from: rawCurrentChild.profile_video ?? '—',
+      from: originalVideoId ?? '—',
       to: finalVideoUuid ?? '—'
     })
   }
