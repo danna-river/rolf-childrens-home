@@ -2,6 +2,7 @@
 // Keep in sync with supabase/schema.sql.
 
 import type { UserRole } from '@/lib/profiles'
+import type { Locale } from '@/i18n/config'
 
 type DatabaseRow<T> = { [Key in keyof T]: T[Key] }
 
@@ -41,6 +42,7 @@ export interface Profile {
   full_name: string | null
   role: Role
   country: string[] | null   // staff only; null for admins and donors
+  ui_locale?: Locale
   created_at: string
 }
 

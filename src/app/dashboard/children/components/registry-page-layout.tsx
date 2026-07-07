@@ -82,12 +82,33 @@ export function RegistryHeader({
 }
 
 export function RegistryStats({ stats }: { stats: ChildrenRegistryStats }) {
+  const labels = {
+    totalChildren: 'Total children',
+    active: 'Active',
+    inactive: 'Inactive',
+    countries: 'Countries',
+  }
+  return <RegistryStatsWithLabels stats={stats} labels={labels} />
+}
+
+export function RegistryStatsWithLabels({
+  stats,
+  labels,
+}: {
+  stats: ChildrenRegistryStats
+  labels: {
+    totalChildren: string
+    active: string
+    inactive: string
+    countries: string
+  }
+}) {
   return (
     <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-      <MetricCard icon={UsersIcon} label="Total children" value={stats.total} />
-      <MetricCard icon={UserCheckIcon} label="Active" value={stats.active} tone="teal" />
-      <MetricCard icon={UserMinusIcon} label="Inactive" value={stats.inactive} />
-      <MetricCard icon={Globe2Icon} label="Countries" value={stats.countries} />
+      <MetricCard icon={UsersIcon} label={labels.totalChildren} value={stats.total} />
+      <MetricCard icon={UserCheckIcon} label={labels.active} value={stats.active} tone="teal" />
+      <MetricCard icon={UserMinusIcon} label={labels.inactive} value={stats.inactive} />
+      <MetricCard icon={Globe2Icon} label={labels.countries} value={stats.countries} />
     </section>
   )
 }
@@ -103,15 +124,27 @@ export function RegistryToolbar({ children }: { children: ReactNode }) {
 export function ResultsSummary({
   total,
   hasFilters,
+  labels = {
+    showing: 'Showing',
+    showingAll: 'Showing all',
+    childSingular: 'child',
+    childPlural: 'children',
+  },
 }: {
   total: number
   hasFilters: boolean
+  labels?: {
+    showing: string
+    showingAll: string
+    childSingular: string
+    childPlural: string
+  }
 }) {
   return (
     <p className="text-sm font-semibold text-navy/70">
-      {hasFilters ? 'Showing' : 'Showing all'}{' '}
+      {hasFilters ? labels.showing : labels.showingAll}{' '}
       <span className="font-bold text-navy">{total.toLocaleString()}</span>{' '}
-      child{total === 1 ? '' : 'ren'}
+      {total === 1 ? labels.childSingular : labels.childPlural}
     </p>
   )
 }

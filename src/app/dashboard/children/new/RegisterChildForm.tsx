@@ -5,8 +5,15 @@ import { useRouter } from "next/navigation"
 import { registerChildAction, getLatestIdPreview, checkRolfIdForRegistration } from "./actions"
 import { calcAge, SUBJECTS, Field } from "../components/form-utils"
 import { MediaPicker } from "../components/MediaPicker"
+import { useLocale, useTranslations } from "@/i18n/client"
+import type { MessageKey } from "@/i18n/locales/en"
 
-const STEPS = ["Basic Info", "About Them", "Photo & Video", "Review"]
+const STEP_KEYS = [
+  "children.register.steps.basic",
+  "children.register.steps.about",
+  "children.register.steps.media",
+  "children.register.steps.review",
+] as const
 
 // Brand-styled input (register flow only) — matches the dashboard palette.
 const inputClass = "w-full px-4 py-3 rounded-xl border border-stone text-sm text-navy bg-white placeholder:text-navy/30 focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
@@ -25,8 +32,8 @@ type FormData = {
   notes: string
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+function formatDate(dateStr: string, locale: string): string {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 interface Props {
@@ -36,6 +43,8 @@ interface Props {
 
 export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const router = useRouter()
+  const t = useTranslations()
+  const locale = useLocale()
   const [step, setStep] = useState(0)
 
   const [form, setForm] = useState<FormData>({
@@ -189,7 +198,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: null }))
-        throw new Error(error || 'Bio generation failed. Please try again.')
+        throw new Error(error || t('children.register.error.bioGeneration'))
       }
 
       const data = await res.json()
@@ -197,14 +206,29 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
         set('bio', data.bio)
         setBioGenerated(true)
       } else {
-        throw new Error('No bio returned')
+        throw new Error(t('children.register.error.noBio'))
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
-      setError(typeof err === 'string' ? err : err?.message || 'Failed to generate bio')
+      setError(err instanceof Error ? err.message : typeof err === 'string' ? err : t('children.register.error.failedBio'))
     } finally {
       setGeneratingBio(false)
     }
+  }
+
+  const subjectLabel = (subject: string): string => {
+    const labels: Record<string, MessageKey> = {
+      Math: 'children.subject.math',
+      Language: 'children.subject.language',
+      Science: 'children.subject.science',
+      'Social Studies': 'children.subject.socialStudies',
+      'Gym / PE': 'children.subject.gym',
+      Music: 'children.subject.music',
+      Art: 'children.subject.art',
+      History: 'children.subject.history',
+      Other: 'children.subject.other',
+    }
+    return labels[subject] ? t(labels[subject]) : subject
   }
 
   return (
@@ -218,25 +242,27 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             disabled={submitting || validatingStepZero}
             className="text-navy/60 hover:text-navy text-sm font-medium cursor-pointer"
           >
-            ← Back
+            ← {t('children.register.back')}
           </button>
           <div className="flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-navy/45">
-              Step {step + 1} of {STEPS.length}
+              {t('children.register.step')
+                .replace('{current}', String(step + 1))
+                .replace('{total}', String(STEP_KEYS.length))}
             </p>
-            <h1 className="text-base font-bold text-navy">{STEPS[step]}</h1>
+            <h1 className="text-base font-bold text-navy">{t(STEP_KEYS[step])}</h1>
           </div>
         </div>
 
         <div className="h-1 bg-stone">
-          <div className="h-1 bg-teal transition-all duration-300" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+          <div className="h-1 bg-teal transition-all duration-300" style={{ width: `${((step + 1) / STEP_KEYS.length) * 100}%` }} />
         </div>
 
         {error && (
           <div className="m-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
             <span className="shrink-0">⚠️</span>
             <div>
-              <strong className="font-semibold block mb-0.5">Validation Stop</strong>
+              <strong className="font-semibold block mb-0.5">{t('children.register.validationStop')}</strong>
               {error}
             </div>
           </div>
@@ -248,38 +274,38 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
         {step === 0 && (
           <>
-            <Field label="First Name *" htmlFor="first_name">
+            <Field label={t('children.register.firstName')} htmlFor="first_name">
               <input id="first_name" value={form.first_name} onChange={e => set("first_name", e.target.value)} placeholder="e.g. Grace" className={inputClass} autoFocus />
             </Field>
-            <Field label="Last Name *" htmlFor="last_name">
+            <Field label={t('children.register.lastName')} htmlFor="last_name">
               <input id="last_name" value={form.last_name} onChange={e => set("last_name", e.target.value)} placeholder="e.g. Nakato" className={inputClass} />
             </Field>
-            <Field label="Date of Birth *" htmlFor="birthdate">
+            <Field label={t('children.register.dateOfBirth')} htmlFor="birthdate">
               <input id="birthdate" type="date" value={form.birthdate} onChange={e => set("birthdate", e.target.value)} max={new Date().toISOString().split("T")[0]} min="2000-01-01" className={inputClass} />
               {form.birthdate && (
                 <div className="mt-2 inline-flex items-baseline gap-1.5 bg-sky/50 border border-sky rounded-xl px-4 py-2">
                   <span className="text-sm font-semibold text-navy">{calcAge(form.birthdate)}</span>
-                  <span className="text-sm text-navy/50">years old</span>
+                  <span className="text-sm text-navy/50">{t('children.register.yearsOld')}</span>
                 </div>
               )}
             </Field>
-            <Field label="Date Joined Home *" htmlFor="year_joined">
+            <Field label={t('children.register.dateJoinedHome')} htmlFor="year_joined">
               <input id="year_joined" type="date" value={form.year_joined} onChange={e => set("year_joined", e.target.value)} max={new Date().toISOString().split("T")[0]} min="2000-01-01" className={inputClass} />
             </Field>
 
-            <Field label="Country *" htmlFor="country">
+            <Field label={t('children.register.country')} htmlFor="country">
               <select id="country" value={form.country} onChange={e => set("country", e.target.value)} className={inputClass} required>
-                <option value="" disabled>Select active country...</option>
+                <option value="" disabled>{t('children.register.selectCountry')}</option>
                 {assignedCountries.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </Field>
 
-            <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
+            <Field label={isAdmin ? t('children.register.rolfIdRequired') : t('children.register.rolfId')} htmlFor="id_rolf">
               {loadingPreview ? (
                 <div className="py-3 px-4 bg-ice text-xs text-navy/40 font-medium italic border border-stone rounded-xl">
-                  Syncing next chronological identifier sequence...
+                  {t('children.register.syncingId')}
                 </div>
               ) : isAdmin ? (
                 <input
@@ -287,13 +313,13 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                   value={form.id_rolf}
                   disabled={!form.country}
                   onChange={e => set("id_rolf", e.target.value.toUpperCase())}
-                  placeholder={form.country ? "e.g. BEN-0010" : "Select Country First..."}
+                  placeholder={form.country ? "e.g. BEN-0010" : t('children.register.selectCountryFirst')}
                   className={inputClass + " font-mono tracking-wider bg-white border-teal/40 focus:border-teal disabled:bg-ice disabled:text-navy/40 disabled:cursor-not-allowed font-semibold text-navy"}
                 />
               ) : (
                 <input
                   id="id_rolf_locked"
-                  value={form.country ? form.id_rolf : "Select Country First..."}
+                  value={form.country ? form.id_rolf : t('children.register.selectCountryFirst')}
                   disabled
                   className={inputClass + " bg-ice border-stone text-navy/70 font-mono tracking-wider select-none cursor-not-allowed font-semibold"}
                 />
@@ -302,14 +328,14 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
               {/* 🌟 Dynamic Inline Notification Banner — Only triggers for Admins when value shifts from default setup pattern */}
               {isAdmin && form.id_rolf && form.id_rolf !== initialGeneratedId && (
                 <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal">
-                  <strong>Notice:</strong> You are changing the auto-generated code sequence. Moving forward will verify uniqueness and formatting constraints.
+                  <strong>{t('children.register.idNoticeLabel')}</strong> {t('children.register.idNotice')}
                 </div>
               )}
 
               <p className="text-xs text-navy/45 mt-1.5">
                 {isAdmin
-                  ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
-                  : "Automatically calculated based on the highest tracking index parameter currently inside the dataset for this home."}
+                  ? t('children.register.idHelpAdmin')
+                  : t('children.register.idHelpStaff')}
               </p>
             </Field>
           </>
@@ -317,10 +343,10 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
         {step === 1 && (
           <>
-            <Field label="What do you want to be when you grow up? *" htmlFor="career">
-              <input id="career" value={form.career_aspiration} onChange={e => set("career_aspiration", e.target.value)} placeholder="e.g. Doctor, Teacher, Engineer..." className={inputClass} autoFocus />
+            <Field label={t('children.register.careerQuestion')} htmlFor="career">
+              <input id="career" value={form.career_aspiration} onChange={e => set("career_aspiration", e.target.value)} placeholder={t('children.register.careerPlaceholder')} className={inputClass} autoFocus />
             </Field>
-            <Field label="Favorite Subject *" htmlFor="subject">
+            <Field label={t('children.register.favoriteSubject')} htmlFor="subject">
               {(() => {
                 const presets = SUBJECTS.filter(s => s !== "Other")
                 const isOther = form.favorite_subject !== "" && !presets.includes(form.favorite_subject)
@@ -328,29 +354,29 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       {presets.map(s => (
-                        <button key={s} type="button" onClick={() => set("favorite_subject", s)} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s ? "bg-navy text-white border-navy" : "bg-white text-navy/70 border-stone hover:border-teal"}`}>{s}</button>
+                        <button key={s} type="button" onClick={() => set("favorite_subject", s)} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s ? "bg-navy text-white border-navy" : "bg-white text-navy/70 border-stone hover:border-teal"}`}>{subjectLabel(s)}</button>
                       ))}
-                      <button type="button" onClick={() => set("favorite_subject", " ")} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-navy text-white border-navy" : "bg-white text-navy/70 border-stone hover:border-teal"}`}>Other</button>
+                      <button type="button" onClick={() => set("favorite_subject", " ")} className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-navy text-white border-navy" : "bg-white text-navy/70 border-stone hover:border-teal"}`}>{t('children.subject.other')}</button>
                     </div>
-                    {isOther && <input autoFocus value={form.favorite_subject.trim()} onChange={e => set("favorite_subject", e.target.value)} placeholder="Type custom subject details..." className={inputClass + " mt-2"} />}
+                    {isOther && <input autoFocus value={form.favorite_subject.trim()} onChange={e => set("favorite_subject", e.target.value)} placeholder={t('children.register.customSubjectPlaceholder')} className={inputClass + " mt-2"} />}
                   </>
                 )
               })()}
             </Field>
-            <Field label="Hobbies *" htmlFor="hobby">
-              <textarea id="hobby" value={form.hobby} onChange={e => set("hobby", e.target.value)} placeholder="Hobbies description..." rows={3} className={inputClass + " resize-none"} />
+            <Field label={t('children.register.hobbies')} htmlFor="hobby">
+              <textarea id="hobby" value={form.hobby} onChange={e => set("hobby", e.target.value)} placeholder={t('children.register.hobbiesPlaceholder')} rows={3} className={inputClass + " resize-none"} />
             </Field>
-            <Field label="Internal Notes (Optional)" htmlFor="notes">
+            <Field label={t('children.register.internalNotes')} htmlFor="notes">
               <textarea id="notes" value={form.notes} onChange={e => set("notes", e.target.value)}
-                placeholder="Staff-only internal notes, e.g. found without family; lives in a single-mother household. Never shown to donors or used in the bio."
+                placeholder={t('children.register.notesPlaceholder')}
                 rows={3} className={inputClass + " resize-none"} />
             </Field>
 
-            <Field label="Short Bio (Optional)" htmlFor={bioGenerated ? "bio" : "generate-bio"}>
+            <Field label={t('children.register.shortBio')} htmlFor={bioGenerated ? "bio" : "generate-bio"}>
               {!bioGenerated ? (
                 <div className="rounded-xl border border-sky bg-sky/40 p-4">
                   <p className="text-xs font-medium leading-relaxed text-navy/80">
-                    You will only have one try to generate this bio. Make sure all prior information is filled out before generating.
+                    {t('children.register.bioOneTry')}
                   </p>
                   <button
                     id="generate-bio"
@@ -359,7 +385,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                     disabled={generatingBio || !canGenerateBio()}
                     className="mt-3 w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-navy/90 disabled:bg-stone disabled:text-navy/35 disabled:cursor-not-allowed"
                   >
-                    {generatingBio ? 'Generating...' : 'Generate bio'}
+                    {generatingBio ? t('children.register.generating') : t('children.register.generateBio')}
                   </button>
                 </div>
               ) : (
@@ -368,12 +394,12 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                     id="bio"
                     value={form.bio}
                     onChange={e => set("bio", e.target.value)}
-                    placeholder="Review and edit the generated bio..."
+                    placeholder={t('children.register.bioPlaceholder')}
                     rows={5}
                     className={inputClass + " resize-none"}
                   />
                   <p className="mt-2 text-xs font-medium leading-relaxed text-amber-700">
-                    Please review the generated biography carefully and confirm it is accurate and appropriate before continuing.
+                    {t('children.register.bioReviewNote')}
                   </p>
                 </>
               )}
@@ -383,11 +409,11 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
         {step === 2 && (
           <div className="space-y-6">
-            <p className="text-xs text-navy/45">Max file size: 15 MB for photos, 50 MB for videos.</p>
-            <Field label="Profile Photo" htmlFor="photo">
+            <p className="text-xs text-navy/45">{t('children.register.mediaLimit')}</p>
+            <Field label={t('children.register.profilePhoto')} htmlFor="photo">
               <MediaPicker type="photo" value={photoUrl} onChange={setPhotoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }} />
             </Field>
-            <Field label="Short Video (~30 sec)" htmlFor="video">
+            <Field label={t('children.register.shortVideo')} htmlFor="video">
               <MediaPicker type="video" value={videoUrl} onChange={setVideoUrl} onError={setError} onUploadStart={() => setMediaUploading(true)} onUploadEnd={() => setMediaUploading(false)} allowDriveLink={false} childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }} />
             </Field>
           </div>
@@ -396,18 +422,18 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
         {step === 3 && (
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-stone divide-y divide-stone/60 shadow-2xs">
-              <ReviewRow label="Full Name" value={`${form.first_name} ${form.last_name}`} />
-              <ReviewRow label="Date of Birth" value={form.birthdate ? formatDate(form.birthdate) : "—"} />
-              <ReviewRow label="Calculated Age" value={calcAge(form.birthdate)?.toString() ?? "—"} />
-              {form.year_joined && <ReviewRow label="Date Joined Home" value={formatDate(form.year_joined)} />}
-              <ReviewRow label="Country" value={form.country} />
-              <ReviewRow label="ROLF ID" value={form.id_rolf.toUpperCase() || "—"} />
-              <ReviewRow label="Career Goal" value={form.career_aspiration} />
-              <ReviewRow label="Favorite Subject" value={form.favorite_subject.trim() || "Other"} />
-              <ReviewRow label="Hobbies Summary" value={form.hobby} />
-              {form.bio.trim() && <ReviewRow label="Bio Text" value={form.bio} />}
-              <ReviewRow label="Profile Photo" value={photoUrl ? "✓ File Uploaded" : "None"} />
-              <ReviewRow label="Videos" value={videoUrl ? "✓ File Uploaded" : "None"} />
+              <ReviewRow label={t('children.register.review.fullName')} value={`${form.first_name} ${form.last_name}`} />
+              <ReviewRow label={t('children.register.review.dateOfBirth')} value={form.birthdate ? formatDate(form.birthdate, locale) : "—"} />
+              <ReviewRow label={t('children.register.review.calculatedAge')} value={calcAge(form.birthdate)?.toString() ?? "—"} />
+              {form.year_joined && <ReviewRow label={t('children.register.review.dateJoinedHome')} value={formatDate(form.year_joined, locale)} />}
+              <ReviewRow label={t('children.register.review.country')} value={form.country} />
+              <ReviewRow label={t('children.register.review.rolfId')} value={form.id_rolf.toUpperCase() || "—"} />
+              <ReviewRow label={t('children.register.review.careerGoal')} value={form.career_aspiration} />
+              <ReviewRow label={t('children.register.review.favoriteSubject')} value={form.favorite_subject.trim() || t('children.register.review.other')} />
+              <ReviewRow label={t('children.register.review.hobbiesSummary')} value={form.hobby} />
+              {form.bio.trim() && <ReviewRow label={t('children.register.review.bioText')} value={form.bio} />}
+              <ReviewRow label={t('children.register.review.profilePhoto')} value={photoUrl ? t('children.register.review.fileUploaded') : t('children.register.review.none')} />
+              <ReviewRow label={t('children.register.review.videos')} value={videoUrl ? t('children.register.review.fileUploaded') : t('children.register.review.none')} />
             </div>
           </div>
         )}
@@ -416,14 +442,14 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
       {/* Sticky Bottom Context Footer */}
       <div className="sticky bottom-0 bg-white border-t border-stone px-4 py-4 mt-auto z-40">
-        {step < STEPS.length - 1 ? (
+        {step < STEP_KEYS.length - 1 ? (
           <button
             type="button"
             onClick={handleStepProgression}
             disabled={!isCurrentStepValid() || mediaUploading || loadingPreview || validatingStepZero}
             className="w-full py-3.5 rounded-xl bg-navy text-white font-semibold text-sm transition-colors duration-150 cursor-pointer hover:bg-navy/90 disabled:bg-stone disabled:text-navy/35 disabled:cursor-not-allowed"
           >
-            {validatingStepZero ? "Verifying..." : mediaUploading ? "Processing Media..." : "Continue"}
+            {validatingStepZero ? t('children.register.verifying') : mediaUploading ? t('children.register.processingMedia') : t('children.register.continue')}
           </button>
         ) : (
           <button
@@ -432,7 +458,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             disabled={submitting}
             className="w-full py-3.5 rounded-xl bg-teal text-white font-semibold text-sm transition-colors duration-150 cursor-pointer hover:bg-teal/90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {submitting ? "Saving..." : "Register Child"}
+            {submitting ? t('children.register.saving') : t('children.register.button')}
           </button>
         )}
       </div>

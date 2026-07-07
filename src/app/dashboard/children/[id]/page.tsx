@@ -11,6 +11,9 @@ import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
 import { ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 import type { Child } from '@/lib/types'
+import { getMessages, getUserLocale } from '@/i18n/server'
+import type { Locale } from '@/i18n/config'
+import type { MessageKey, Messages } from '@/i18n/locales/en'
 
 type ChildWithCreator = Child & {
   creator?: {
@@ -19,13 +22,33 @@ type ChildWithCreator = Child & {
   } | null
 }
 
-function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+function DetailRow({
+  label,
+  value,
+  emptyLabel,
+}: {
+  label: string
+  value: string | null | undefined
+  emptyLabel: string
+}) {
   return (
     <div className="py-3 border-b border-stone last:border-0 flex flex-col gap-1">
       <span className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">{label}</span>
-      <span className={`text-xs font-semibold ${value ? 'text-navy' : 'text-navy/40 italic'}`}>{value || 'Not recorded'}</span>
+      <span className={`text-xs font-semibold ${value ? 'text-navy' : 'text-navy/40 italic'}`}>{value || emptyLabel}</span>
     </div>
   )
+}
+
+function t(messages: Messages, key: MessageKey): string {
+  return messages[key]
+}
+
+function dateLocale(locale: Locale) {
+  return locale === 'fr' ? 'fr-FR' : 'en-GB'
+}
+
+function longDate(value: Date, locale: Locale): string {
+  return value.toLocaleDateString(dateLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 const donorDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -228,6 +251,8 @@ export default async function ChildProfilePage({
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return redirect('/login?error=SessionExpired')
+  const locale = await getUserLocale(user.id)
+  const messages = getMessages(locale)
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -274,9 +299,11 @@ export default async function ChildProfilePage({
   )
 
   const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
-  const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Unnamed'
+  const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || t(messages, 'children.card.unnamed')
   const isActive = child.status === 'active'
   const video = resolveVideo(child.profile_video)
+  const statusLabel = isActive ? t(messages, 'children.registry.active') : t(messages, 'children.registry.inactive')
+  const notRecorded = t(messages, 'children.card.notRecorded')
   const detailBio = child.bio?.trim()
     ? ensureBioIncludesAgeAndCountry(child.bio, {
         age: child.birth_year ? dynamicAge : null,
@@ -286,11 +313,11 @@ export default async function ChildProfilePage({
     : null
   
   const birthdate = child.birth_year && child.birth_month && child.birth_day
-    ? new Date(child.birth_year, child.birth_month - 1, child.birth_day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? longDate(new Date(child.birth_year, child.birth_month - 1, child.birth_day), locale)
     : null
 
   const dateJoined = child.date_joined
-    ? new Date(child.date_joined).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? longDate(new Date(child.date_joined), locale)
     : child.year_joined ? `${child.year_joined}` : null
 
   return (
@@ -298,14 +325,14 @@ export default async function ChildProfilePage({
       <div className="sticky top-0 z-10 bg-white border-b border-stone px-4 py-3.5 flex items-center gap-3 shadow-2xs">
         <Link href="/dashboard/children" className="inline-flex items-center gap-1.5 text-navy/60 hover:text-navy text-xs font-bold uppercase tracking-wider transition-colors">
           <ArrowLeftIcon className="size-3.5" />
-          <span>Back to Registry</span>
+          <span>{t(messages, 'children.detail.backRegistry')}</span>
         </Link>
         <div className="flex-1" />
         <Link
           href={`/dashboard/children/${id}/edit`}
           className="text-xs font-bold text-white bg-teal hover:bg-teal/90 rounded-md px-3.5 py-1.5 transition-all shadow-2xs"
         >
-          Edit Profile
+          {t(messages, 'children.detail.editProfile')}
         </Link>
       </div>
 
@@ -318,14 +345,14 @@ export default async function ChildProfilePage({
           />
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight text-navy">{name}</h1>
-            <p className={`text-xs font-mono mt-0.5 ${child.id_rolf ? 'text-teal font-semibold' : 'text-navy/30'}`}>{child.id_rolf || 'ROLF ID Unknown'}</p>
+            <p className={`text-xs font-mono mt-0.5 ${child.id_rolf ? 'text-teal font-semibold' : 'text-navy/30'}`}>{child.id_rolf || t(messages, 'children.card.rolfIdUnknown')}</p>
             
             {/* Standard ROLF Status Badge */}
             <span className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
               isActive ? "border-teal/50 bg-teal/10 text-teal" : "border-stone bg-ice text-navy/55"
             }`}>
               <span className={`size-1.5 rounded-full ${isActive ? "bg-teal" : "bg-navy/35"}`} aria-hidden="true" />
-              {child.status}
+              {statusLabel}
             </span>
           </div>
         </div>
@@ -333,17 +360,17 @@ export default async function ChildProfilePage({
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-md border border-stone p-3.5 flex flex-col items-center justify-center text-center shadow-2xs">
             <p className="text-lg font-bold text-navy">{dynamicAge}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">Years Old</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">{t(messages, 'children.detail.yearsOld')}</p>
           </div>
           <div className="bg-white rounded-md border border-stone p-3.5 flex flex-col items-center justify-center text-center shadow-2xs">
             <p className={`text-xs font-bold truncate w-full ${child.country ? 'text-navy' : 'text-navy/30'}`}>{child.country || '—'}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">Country</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">{t(messages, 'children.card.country')}</p>
           </div>
           <div className="bg-white rounded-md border border-stone p-3.5 flex flex-col items-center justify-center text-center shadow-2xs">
             <p className={`text-lg font-bold ${child.date_joined || child.year_joined ? 'text-navy font-mono' : 'text-navy/30'}`}>
               {child.date_joined ? new Date(child.date_joined).getFullYear() : child.year_joined || '—'}
             </p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">Joined</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">{t(messages, 'children.card.joined')}</p>
           </div>
         </div>
 
@@ -363,32 +390,32 @@ export default async function ChildProfilePage({
               allow="autoplay"
               allowFullScreen
               className="w-full aspect-video border-0"
-              title={`${name} video`}
+              title={t(messages, 'children.detail.videoTitle').replace('{name}', name)}
             />
           ) : (
             <div className="aspect-video bg-ice flex flex-col items-center justify-center gap-2 p-4 text-center">
               <VideoIcon className="size-8 text-navy/25" aria-hidden="true" />
-              <p className="text-xs font-semibold text-navy/45">No profile video uploaded yet</p>
+              <p className="text-xs font-semibold text-navy/45">{t(messages, 'children.detail.noVideo')}</p>
             </div>
           )}
         </div>
 
         <div className="bg-white rounded-md border border-stone px-5 shadow-2xs">
-          <DetailRow label="Date of Birth" value={birthdate} />
-          <DetailRow label="Date Joined" value={dateJoined} />
-          <DetailRow label="Career Aspiration" value={child.career_aspiration} />
-          <DetailRow label="Favorite Subject" value={child.favorite_subject} />
-          <DetailRow label="Hobbies" value={child.hobby} />
-          <DetailRow label="Bio" value={detailBio} />
+          <DetailRow label={t(messages, 'children.detail.dateOfBirth')} value={birthdate} emptyLabel={notRecorded} />
+          <DetailRow label={t(messages, 'children.detail.dateJoined')} value={dateJoined} emptyLabel={notRecorded} />
+          <DetailRow label={t(messages, 'children.detail.careerAspiration')} value={child.career_aspiration} emptyLabel={notRecorded} />
+          <DetailRow label={t(messages, 'children.detail.favoriteSubject')} value={child.favorite_subject} emptyLabel={notRecorded} />
+          <DetailRow label={t(messages, 'children.detail.hobbies')} value={child.hobby} emptyLabel={notRecorded} />
+          <DetailRow label={t(messages, 'children.detail.bio')} value={detailBio} emptyLabel={notRecorded} />
         </div>
 
         {/* Internal Notes Segment */}
         <div className="bg-amber-50/60 border border-amber-200/80 rounded-md px-5 py-4 shadow-2xs space-y-1.5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-amber-900">Internal Notes</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-amber-900">{t(messages, 'children.detail.internalNotes')}</p>
           {child.notes?.trim() ? (
             <p className="text-xs text-amber-950 font-medium whitespace-pre-wrap leading-relaxed">{child.notes}</p>
           ) : (
-            <p className="text-xs text-amber-900/50 italic font-medium">No internal confidential notes populated.</p>
+            <p className="text-xs text-amber-900/50 italic font-medium">{t(messages, 'children.detail.noInternalNotes')}</p>
           )}
         </div>
 

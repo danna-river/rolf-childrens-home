@@ -8,6 +8,8 @@ import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
 import { MediaPicker } from "../../components/MediaPicker"
 import { AlertTriangleIcon, CornerUpLeftIcon } from "lucide-react"
+import { useTranslations } from "@/i18n/client"
+import type { MessageKey } from "@/i18n/locales/en"
 
 interface Props {
   child: Child
@@ -16,6 +18,7 @@ interface Props {
 }
 
 export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
+  const t = useTranslations()
   const router = useRouter()
   const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -44,8 +47,6 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
   useEffect(() => {
     if (form.country === child.country) {
-      setForm(f => ({ ...f, id_rolf: child.id_rolf ?? "" }))
-      setInitialGeneratedId(child.id_rolf ?? "")
       return
     }
 
@@ -67,6 +68,16 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
+  const handleCountryChange = (value: string) => {
+    setError(null)
+    if (value === child.country) {
+      setInitialGeneratedId(child.id_rolf ?? "")
+      setForm(f => ({ ...f, country: value, id_rolf: child.id_rolf ?? "" }))
+      return
+    }
+    setForm(f => ({ ...f, country: value }))
+  }
+
   const isFormValid = () => {
     return !!(
       form.first_name.trim() &&
@@ -86,7 +97,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
     const targetIdCode = form.id_rolf.trim().toUpperCase()
 
     if (!isFormValid()) {
-      setError("All fields marked with * are strictly mandatory fields before updates can be committed.")
+      setError(t('children.edit.requiredError'))
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -136,14 +147,28 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
       }
 
       router.push("/dashboard/children")
-    } catch (err) {
-      setError("An unexpected network fault occurred while attempting to write updates to the child record.")
+    } catch {
+      setError(t('children.edit.networkError'))
       setSubmitting(false)
     }
   }
 
   const presets = SUBJECTS.filter(s => s !== "Other")
   const isOther = form.favorite_subject !== "" && !presets.includes(form.favorite_subject)
+  const subjectLabel = (subject: string): string => {
+    const labels: Record<string, MessageKey> = {
+      Math: 'children.subject.math',
+      Language: 'children.subject.language',
+      Science: 'children.subject.science',
+      'Social Studies': 'children.subject.socialStudies',
+      'Gym / PE': 'children.subject.gym',
+      Music: 'children.subject.music',
+      Art: 'children.subject.art',
+      History: 'children.subject.history',
+      Other: 'children.subject.other',
+    }
+    return labels[subject] ? t(labels[subject]) : subject
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -156,10 +181,10 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
             disabled={submitting}
           >
             <CornerUpLeftIcon className="size-4" />
-            <span>Cancel</span>
+            <span>{t('children.edit.cancel')}</span>
           </button>
           <div className="flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Modifying Profile Records</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{t('children.edit.header')}</p>
             <h1 className="text-base font-bold text-gray-900">
               {child.first_name} {child.last_name}
             </h1>
@@ -170,7 +195,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
           <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-100 text-xs text-red-600 rounded-xl leading-relaxed animate-fade-in flex items-start gap-2 shadow-xs">
             <AlertTriangleIcon className="size-4 text-red-500 shrink-0 mt-0.5" />
             <div>
-              <strong className="font-semibold block mb-0.5">Validation Stop</strong>
+              <strong className="font-semibold block mb-0.5">{t('children.register.validationStop')}</strong>
               {error}
             </div>
           </div>
@@ -182,27 +207,27 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* Basic Info */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Basic Info</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">{t('children.edit.basicInfo')}</h2>
 
-          <Field label="Country *" htmlFor="country">
+          <Field label={t('children.register.country')} htmlFor="country">
             <select
               id="country"
               value={form.country}
-              onChange={e => set("country", e.target.value)}
+              onChange={e => handleCountryChange(e.target.value)}
               className={inputClass}
               required
             >
-              <option value="" disabled>Select active registration region...</option>
+              <option value="" disabled>{t('children.edit.selectRegion')}</option>
               {availableCountries.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </Field>
 
-          <Field label={isAdmin ? "ROLF ID *" : "ROLF ID"} htmlFor="id_rolf">
+          <Field label={isAdmin ? t('children.register.rolfIdRequired') : t('children.register.rolfId')} htmlFor="id_rolf">
             {loadingPreview ? (
               <div className="py-3 px-4 bg-gray-50 text-xs text-gray-400 font-medium italic border border-gray-100 rounded-xl">
-                Syncing next chronological identifier sequence for country choice...
+                {t('children.edit.syncingId')}
               </div>
             ) : isAdmin ? (
               <input
@@ -224,29 +249,29 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal animate-fade-in flex items-start gap-1.5">
                 <AlertTriangleIcon className="size-3.5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong>Notice:</strong> You are overriding the auto-increment structure. Saving will verify formatting and look for duplicate key entries.
+                  <strong>{t('children.register.idNoticeLabel')}</strong> {t('children.edit.idNotice')}
                 </div>
               </div>
             )}
 
             <p className="text-xs text-gray-400 mt-1.5">
               {isAdmin
-                ? "Field auto-fills on region change. Administrators can modify values; progression is blocked if an ID collision is discovered."
-                : "Staff accounts cannot alter unique registry codes. To shift this identifier, contact an administrator."}
+                ? t('children.register.idHelpAdmin')
+                : t('children.edit.idHelpStaff')}
             </p>
           </Field>
 
-          <Field label="First Name *" htmlFor="first_name">
+          <Field label={t('children.register.firstName')} htmlFor="first_name">
             <input id="first_name" value={form.first_name} onChange={e => set("first_name", e.target.value)}
               placeholder="e.g. Grace" className={inputClass} />
           </Field>
 
-          <Field label="Last Name *" htmlFor="last_name">
+          <Field label={t('children.register.lastName')} htmlFor="last_name">
             <input id="last_name" value={form.last_name} onChange={e => set("last_name", e.target.value)}
               placeholder="e.g. Nakato" className={inputClass} />
           </Field>
 
-          <Field label="Date of Birth *" htmlFor="birthdate">
+          <Field label={t('children.register.dateOfBirth')} htmlFor="birthdate">
             <input id="birthdate" type="date" value={form.birthdate}
               onChange={e => set("birthdate", e.target.value)}
               max={new Date().toISOString().split("T")[0]}
@@ -255,12 +280,12 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
             {form.birthdate && (
               <div className="mt-2 inline-flex items-baseline gap-1.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
                 <span className="text-sm font-semibold text-blue-600">{calcAge(form.birthdate)}</span>
-                <span className="text-sm text-blue-400">years old</span>
+                <span className="text-sm text-blue-400">{t('children.register.yearsOld')}</span>
               </div>
             )}
           </Field>
 
-          <Field label="Date Joined Home *" htmlFor="year_joined">
+          <Field label={t('children.register.dateJoinedHome')} htmlFor="year_joined">
             <input id="year_joined" type="date" value={form.year_joined}
               onChange={e => set("year_joined", e.target.value)}
               max={new Date().toISOString().split("T")[0]}
@@ -269,7 +294,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
             {form.year_joined && (
               <div className="mt-2 inline-flex items-baseline gap-1.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
                 <span className="text-sm font-semibold text-blue-600">{calcAge(form.year_joined)}</span>
-                <span className="text-sm text-blue-400">years in home</span>
+                <span className="text-sm text-blue-400">{t('children.edit.yearsInHome')}</span>
               </div>
             )}
           </Field>
@@ -277,49 +302,52 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* About Them */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">About Them</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">{t('children.edit.aboutThem')}</h2>
+          <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-700">
+            {t('children.edit.englishOnlyHelp')}
+          </p>
 
-          <Field label="What do you want to be when you grow up? *" htmlFor="career">
+          <Field label={t('children.register.careerQuestion')} htmlFor="career">
             <input id="career" value={form.career_aspiration}
               onChange={e => set("career_aspiration", e.target.value)}
-              placeholder="e.g. Doctor, Teacher, Engineer..." className={inputClass} />
+              placeholder={t('children.edit.careerPlaceholder')} className={inputClass} />
           </Field>
 
-          <Field label="Favorite Subject *" htmlFor="subject">
+          <Field label={t('children.register.favoriteSubject')} htmlFor="subject">
             <div className="grid grid-cols-2 gap-2">
               {presets.map(s => (
                 <button key={s} type="button" onClick={() => set("favorite_subject", s)}
                   className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${form.favorite_subject === s
                     ? "bg-blue-600 text-white border-blue-600"
                     : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
-                    }`}>{s}</button>
+                    }`}>{subjectLabel(s)}</button>
               ))}
               <button type="button" onClick={() => set("favorite_subject", " ")}
                 className={`py-3 px-3 rounded-xl text-sm font-medium border transition-colors text-left cursor-pointer ${isOther ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
-                  }`}>Other</button>
+                  }`}>{t('children.subject.other')}</button>
             </div>
             {isOther && (
               <input autoFocus value={form.favorite_subject.trim()} onChange={e => set("favorite_subject", e.target.value)}
-                placeholder="Type custom subject details..." className={inputClass + " mt-2"} />
+                placeholder={t('children.edit.customSubjectPlaceholder')} className={inputClass + " mt-2"} />
             )}
           </Field>
 
-          <Field label="Hobbies *" htmlFor="hobby">
+          <Field label={t('children.register.hobbies')} htmlFor="hobby">
             <textarea id="hobby" value={form.hobby} onChange={e => set("hobby", e.target.value)}
-              placeholder="Hobbies description..." rows={3} className={inputClass + " resize-none"} />
+              placeholder={t('children.edit.hobbiesPlaceholder')} rows={3} className={inputClass + " resize-none"} />
           </Field>
 
-          <Field label="Bio (Optional)" htmlFor="bio">
+          <Field label={t('children.edit.bioOptional')} htmlFor="bio">
             <textarea id="bio" value={form.bio} onChange={e => set("bio", e.target.value)}
-              placeholder="A short description about this child..." rows={4} className={inputClass + " resize-none"} />
+              placeholder={t('children.edit.bioPlaceholder')} rows={4} className={inputClass + " resize-none"} />
           </Field>
         </section>
 
         {/* Photo & Video */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Photo &amp; Video</h2>
-          <p className="text-xs text-gray-400">Max file limits: 15 MB for images, 50 MB for videos.</p>
-          <Field label="Profile Photo" htmlFor="photo">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">{t('children.edit.photoVideo')}</h2>
+          <p className="text-xs text-gray-400">{t('children.register.mediaLimit')}</p>
+          <Field label={t('children.register.profilePhoto')} htmlFor="photo">
             <MediaPicker
               type="photo"
               value={photoUrl}
@@ -331,7 +359,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
               childMeta={{ idRolf: form.id_rolf, firstName: form.first_name, lastName: form.last_name, country: form.country }}
             />
           </Field>
-          <Field label="Short Video (~30 sec)" htmlFor="video">
+          <Field label={t('children.register.shortVideo')} htmlFor="video">
             <MediaPicker
               type="video"
               value={videoUrl}
@@ -347,8 +375,8 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* Status */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Status</h2>
-          <Field label="Child Status" htmlFor="status">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">{t('children.edit.status')}</h2>
+          <Field label={t('children.edit.childStatus')} htmlFor="status">
             <div className="flex gap-3">
               {(['active', 'inactive'] as const).map(s => (
                 <button key={s} type="button" onClick={() => setForm(f => ({ ...f, status: s }))}
@@ -356,13 +384,13 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
                     ? s === 'active' ? "bg-green-600 text-white border-green-600" : "bg-red-500 text-white border-red-500"
                     : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
                     }`}>
-                  {s}
+                  {s === 'active' ? t('children.registry.active') : t('children.registry.inactive')}
                 </button>
               ))}
             </div>
             {form.status === 'inactive' && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 leading-relaxed">
-                Please document explicitly in the Notes window below why this individual profile is moving to an inactive status.
+                {t('children.edit.inactiveHelp')}
               </p>
             )}
           </Field>
@@ -370,10 +398,10 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
 
         {/* Notes */}
         <section className="bg-white p-5 rounded-xl border border-gray-100 space-y-4 shadow-2xs">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">Internal Notes (Optional)</h2>
-          <Field label="Internal Notes" htmlFor="notes">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50 pb-2">{t('children.edit.internalNotesTitle')}</h2>
+          <Field label={t('children.detail.internalNotes')} htmlFor="notes">
             <textarea id="notes" value={form.notes} onChange={e => set("notes", e.target.value)}
-              placeholder="Staff-only internal ledger notes (special circumstances, family tracing variables...)"
+              placeholder={t('children.edit.notesPlaceholder')}
               rows={4} className={inputClass + " resize-none"} />
           </Field>
         </section>
@@ -386,7 +414,7 @@ export function EditChildForm({ child, availableCountries, isAdmin }: Props) {
           disabled={!isFormValid() || mediaUploading || submitting || loadingPreview}
           className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition-colors duration-150 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
         >
-          {submitting ? "Saving..." : mediaUploading ? "Processing Media..." : "Save Changes"}
+          {submitting ? t('children.register.saving') : mediaUploading ? t('children.register.processingMedia') : t('children.edit.saveChanges')}
         </button>
       </div>
     </div>

@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 
 import { PAGE_SIZE } from "@/lib/pagination"
+import { useLocale, useTranslations } from "@/i18n/client"
 
 /** Inclusive integer range [start, end]. */
 function range(start: number, end: number): number[] {
@@ -54,6 +55,8 @@ export function Pagination({
   total: number
   currentPage: number
 }) {
+  const t = useTranslations()
+  const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -87,10 +90,15 @@ export function Pagination({
   const end = Math.min(page * PAGE_SIZE, total)
   const items = pageItems(page, totalPages)
   const showJump = totalPages > 7
+  const numberLocale = locale === "fr" ? "fr-FR" : "en-US"
+  const formatNumber = (value: number) => value.toLocaleString(numberLocale)
+  const pageOf = t("pagination.pageOf")
+    .replace("{page}", formatNumber(page))
+    .replace("{totalPages}", formatNumber(totalPages))
 
   return (
     <nav
-      aria-label="Pagination"
+      aria-label={t("pagination.label")}
       aria-busy={isPending}
       className={`flex flex-col gap-4 border-t border-stone pt-6 motion-safe:transition-opacity motion-safe:duration-200 sm:flex-row sm:items-center sm:justify-between ${
         isPending ? "opacity-60" : ""
@@ -99,17 +107,23 @@ export function Pagination({
       <div className="order-2 min-w-0 text-center sm:order-1 sm:text-left">
         <p className="text-base font-semibold text-navy/65">
           <span className="hidden sm:inline">
-            Page {page.toLocaleString()} of {totalPages.toLocaleString()} · {total.toLocaleString()} records
+            {t("pagination.pageOfRecords")
+              .replace("{page}", formatNumber(page))
+              .replace("{totalPages}", formatNumber(totalPages))
+              .replace("{records}", formatNumber(total))}
           </span>
           <span className="sm:hidden">
-            Showing {start.toLocaleString()}-{end.toLocaleString()} of {total.toLocaleString()} children
+            {t("pagination.showingChildren")
+              .replace("{start}", formatNumber(start))
+              .replace("{end}", formatNumber(end))
+              .replace("{total}", formatNumber(total))}
           </span>
         </p>
 
         {showJump && (
           <form onSubmit={handleJump} className="mt-2 flex items-center justify-center gap-2 sm:justify-start">
             <label htmlFor="page-jump" className="text-xs text-navy/55">
-              Go to page
+              {t("pagination.goToPage")}
             </label>
             <input
               key={page}
@@ -120,14 +134,14 @@ export function Pagination({
               max={totalPages}
               inputMode="numeric"
               defaultValue={page}
-              aria-label={`Page number, 1 to ${totalPages}`}
+              aria-label={t("pagination.pageNumberLabel").replace("{totalPages}", formatNumber(totalPages))}
               className="h-8 w-16 rounded-md border border-stone bg-white px-2 text-sm text-navy outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             />
             <button
               type="submit"
               className="h-8 rounded-md border border-stone bg-white px-3 text-xs font-semibold text-navy motion-safe:transition-colors hover:bg-ice focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             >
-              Go
+              {t("pagination.go")}
             </button>
           </form>
         )}
@@ -138,7 +152,7 @@ export function Pagination({
           type="button"
           onClick={() => goTo(page - 1)}
           disabled={page <= 1}
-          aria-label="Previous page"
+          aria-label={t("pagination.previousPage")}
           className={`${buttonBase} ${buttonIdle}`}
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
@@ -159,7 +173,7 @@ export function Pagination({
                 key={item}
                 type="button"
                 onClick={() => goTo(item)}
-                aria-label={`Page ${item}`}
+                aria-label={t("pagination.pageOf").replace("{page}", formatNumber(item)).replace("{totalPages}", formatNumber(totalPages))}
                 aria-current={item === page ? "page" : undefined}
                 className={`${buttonBase} ${item === page ? buttonActive : buttonIdle}`}
               >
@@ -170,14 +184,14 @@ export function Pagination({
         </div>
 
         <span className="px-3 text-sm font-bold text-navy/70 sm:hidden">
-          Page {page.toLocaleString()} of {totalPages.toLocaleString()}
+          {pageOf}
         </span>
 
         <button
           type="button"
           onClick={() => goTo(page + 1)}
           disabled={page >= totalPages}
-          aria-label="Next page"
+          aria-label={t("pagination.nextPage")}
           className={`${buttonBase} ${buttonIdle}`}
         >
           <ChevronRight className="size-4" aria-hidden="true" />

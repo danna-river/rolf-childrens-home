@@ -724,11 +724,9 @@ async function DonorChildren() {
               label="Countries"
               value={countries.length.toLocaleString()}
               helper={
-                countries.length === 1
-                  ? countries[0]
-                  : countries.length > 1
-                    ? `${countries.slice(0, 2).join(', ')}${countries.length > 2 ? ' +' : ''}`
-                    : 'Location details pending'
+                countries.length > 0
+                  ? countries.join(', ')
+                  : 'Location details pending'
               }
             />
             <StatCard

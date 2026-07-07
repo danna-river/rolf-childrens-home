@@ -4,6 +4,7 @@ import { AdminView } from '@/app/dashboard/children/components/admin-view'
 import { StaffView } from '@/app/dashboard/children/components/staff-view'
 import { DonorView } from '@/app/dashboard/children/components/donor-view'
 import { isAdminRole, isDonorRole, isStaffRole} from '@/lib/profiles'
+import { getMessages, getUserLocale } from '@/i18n/server'
 
 type ChildrenSearchParams = {
   search?: string
@@ -17,15 +18,17 @@ export default async function UnifiedChildrenPage({
 }: {
   searchParams: Promise<ChildrenSearchParams>
 }) {
-  const { profile } = await requireAuth()
+  const { user, profile } = await requireAuth()
+  const locale = await getUserLocale(user.id)
+  const messages = getMessages(locale)
 
   if (isAdminRole(profile.role)) {
-    return <AdminView searchParams={searchParams} />
+    return <AdminView searchParams={searchParams} messages={messages} locale={locale} />
   }
 
   if (isStaffRole(profile.role)) {
     const checkedCountries = Array.isArray(profile.country) ? profile.country : []
-    return <StaffView assignedCountries={checkedCountries} searchParams={searchParams} />
+    return <StaffView assignedCountries={checkedCountries} searchParams={searchParams} messages={messages} locale={locale} />
   }
 
   if (isDonorRole(profile.role)) {

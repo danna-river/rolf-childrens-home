@@ -1,13 +1,9 @@
 "use client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
-
-const OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-]
+import { useTranslations } from "@/i18n/client"
 
 export function StatusFilter() {
+  const t = useTranslations()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -21,11 +17,17 @@ export function StatusFilter() {
     router.replace(`${pathname}?${params.toString()}`)
   }
 
+  const options = [
+    { value: "all", label: t("children.filters.all") },
+    { value: "active", label: t("children.registry.active") },
+    { value: "inactive", label: t("children.registry.inactive") },
+  ]
+
   return (
     <div>
-      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">Status</p>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">{t("children.filters.status")}</p>
       <div className="flex flex-wrap gap-1.5">
-        {OPTIONS.map((opt) => (
+        {options.map((opt) => (
           <button
             key={opt.value}
             type="button"

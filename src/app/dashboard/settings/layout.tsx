@@ -2,13 +2,18 @@
 import { requireAuth } from '@/lib/auth'
 import { TabsNav } from '@/app/dashboard/settings/components/tabs-nav'
 import Link from 'next/link'
+import { getMessages, getUserLocale } from '@/i18n/server'
+import type { MessageKey } from '@/i18n/locales/en'
 
 export default async function SettingsModuleLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { profile } = await requireAuth({ allowUnapproved: true })
+  const { user, profile } = await requireAuth({ allowUnapproved: true })
+  const locale = await getUserLocale(user.id)
+  const messages = getMessages(locale)
+  const t = (key: MessageKey) => messages[key]
 
   return (
     <div className="google-sans-registry min-h-[calc(100svh_-_4rem)] bg-ice/30 flex flex-col">
@@ -20,15 +25,15 @@ export default async function SettingsModuleLayout({
               href="/dashboard" 
               className="inline-flex min-h-8 items-center rounded-md border border-teal/40 bg-teal/15 px-3 text-xs font-bold uppercase tracking-widest text-teal hover:bg-teal/25 transition-colors"
             >
-              ← Return to Main Dashboard
+              ← {t('settings.header.returnDashboard')}
             </Link>
           </div>
           <div>
             <h1 className="google-sans-registry-title text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Settings
+              {t('settings.header.title')}
             </h1>
             <p className="mt-2 text-base font-semibold text-white/55 sm:text-lg">
-              Manage your profile settings, account authorizations, and global configurations.
+              {t('settings.header.subtitle')}
             </p>
           </div>
         </div>
@@ -41,7 +46,7 @@ export default async function SettingsModuleLayout({
           {/* Navigation Sidebar Panel */}
           <div className="md:col-span-1 md:sticky md:top-6 space-y-2">
             <span className="hidden md:block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45 px-3">
-              Settings Directory
+              {t('settings.directory')}
             </span>
             <TabsNav userRole={profile.role} />
           </div>

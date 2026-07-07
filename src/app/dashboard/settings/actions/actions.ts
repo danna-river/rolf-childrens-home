@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendPasswordChangedEmail } from '@/lib/email'
+import { isLocale, type Locale } from '@/i18n/config'
 
 export async function updateProfileName(fullName: string) {
   const supabase = await createClient()
@@ -27,6 +28,32 @@ export async function updateProfileName(fullName: string) {
     return { success: false, error: error.message }
   }
 
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
+
+export async function updateUiLocale(locale: Locale) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: 'Session expired or unauthorized.' }
+  }
+
+  if (!isLocale(locale)) {
+    return { success: false, error: 'Unsupported language.' }
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ui_locale: locale })
+    .eq('id', user.id)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath('/dashboard')
   revalidatePath('/dashboard/settings')
   return { success: true }
 }

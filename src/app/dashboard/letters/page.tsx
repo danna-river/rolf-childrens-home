@@ -21,14 +21,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { resolvePhotoSrc } from '@/lib/childMedia'
 import { RegistryHeader } from '@/app/dashboard/children/components/registry-page-layout'
 import type { PenPalDirection, PenPalMessageStatus } from '@/lib/types'
+import { getMessages, getUserLocale } from '@/i18n/server'
+import type { Locale } from '@/i18n/config'
+import type { MessageKey, Messages } from '@/i18n/locales/en'
 
 type TabKey = 'needs_action' | 'all_open' | 'sent' | 'rejected'
 
-const TABS: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
-  { key: 'needs_action', label: 'Needs Action', icon: InboxIcon },
-  { key: 'all_open', label: 'All Open Chats', icon: MailOpenIcon },
-  { key: 'sent', label: 'Sent', icon: CheckCircle2Icon },
-  { key: 'rejected', label: 'Rejected / Closed', icon: XCircleIcon },
+const TABS: Array<{ key: TabKey; labelKey: MessageKey; icon: LucideIcon }> = [
+  { key: 'needs_action', labelKey: 'messages.tabs.needsAction', icon: InboxIcon },
+  { key: 'all_open', labelKey: 'messages.tabs.allOpen', icon: MailOpenIcon },
+  { key: 'sent', labelKey: 'messages.tabs.sent', icon: CheckCircle2Icon },
+  { key: 'rejected', labelKey: 'messages.tabs.rejected', icon: XCircleIcon },
 ] as const
 
 type MessageRow = {
@@ -91,7 +94,11 @@ function conversationMatchesTab(conversation: ThreadSummary, tab: TabKey): boole
   return conversation.thread.status !== 'active' || latest.status === 'rejected'
 }
 
-function nextStepFor(message: MessageRow, threadStatus: string): {
+function translate(messages: Messages, key: MessageKey): string {
+  return messages[key]
+}
+
+function nextStepFor(message: MessageRow, threadStatus: string, messages: Messages): {
   label: string
   detail: string
   icon: LucideIcon
@@ -99,8 +106,8 @@ function nextStepFor(message: MessageRow, threadStatus: string): {
 } {
   if (threadStatus !== 'active') {
     return {
-      label: 'Thread closed',
-      detail: 'No further messages can be sent in this conversation.',
+      label: translate(messages, 'messages.next.threadClosed'),
+      detail: translate(messages, 'messages.next.threadClosedDetail'),
       icon: XCircleIcon,
       className: 'border-stone bg-stone/70 text-navy/55',
     }
@@ -108,8 +115,8 @@ function nextStepFor(message: MessageRow, threadStatus: string): {
 
   if (message.direction === 'child_to_donor') {
     return {
-      label: 'Sent to donor',
-      detail: 'The latest child reply is published for the donor.',
+      label: translate(messages, 'messages.next.sentToDonor'),
+      detail: translate(messages, 'messages.next.sentToDonorDetail'),
       icon: MessageSquareReplyIcon,
       className: 'border-teal/25 bg-teal/5 text-teal',
     }
@@ -117,8 +124,8 @@ function nextStepFor(message: MessageRow, threadStatus: string): {
 
   if (message.status === 'submitted' || message.status === 'under_review') {
     return {
-      label: 'Review letter',
-      detail: 'Open the chat to edit, approve, or reject the donor letter.',
+      label: translate(messages, 'messages.next.reviewLetter'),
+      detail: translate(messages, 'messages.next.reviewLetterDetail'),
       icon: InboxIcon,
       className: 'border-amber-200 bg-amber-50 text-amber-700',
     }
@@ -126,8 +133,8 @@ function nextStepFor(message: MessageRow, threadStatus: string): {
 
   if (message.status === 'approved') {
     return {
-      label: 'Deliver to child',
-      detail: 'The letter is approved and ready to be marked delivered.',
+      label: translate(messages, 'messages.next.deliverToChild'),
+      detail: translate(messages, 'messages.next.deliverToChildDetail'),
       icon: CheckCircle2Icon,
       className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     }
@@ -135,16 +142,16 @@ function nextStepFor(message: MessageRow, threadStatus: string): {
 
   if (message.status === 'delivered') {
     return {
-      label: 'Write child reply',
-      detail: 'Open the chat to publish the child reply in English.',
+      label: translate(messages, 'messages.next.writeChildReply'),
+      detail: translate(messages, 'messages.next.writeChildReplyDetail'),
       icon: MailCheckIcon,
       className: 'border-teal/25 bg-teal/5 text-teal',
     }
   }
 
   return {
-    label: 'Not shared',
-    detail: 'This letter was rejected and was not delivered to the child.',
+    label: translate(messages, 'messages.next.notShared'),
+    detail: translate(messages, 'messages.next.notSharedDetail'),
     icon: XCircleIcon,
     className: 'border-red-100 bg-red-50 text-red-700',
   }
@@ -178,11 +185,8 @@ function matchesChildSearch(conversation: ThreadSummary, searchQuery: string): b
   return searchable.includes(searchQuery)
 }
 
-function statusLabel(status: PenPalMessageStatus): string {
-  return status
-    .split('_')
-    .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
-    .join(' ')
+function statusLabel(status: PenPalMessageStatus, messages: Messages): string {
+  return translate(messages, `messages.status.${status}` as MessageKey)
 }
 
 function timeValue(iso: string | null | undefined): number {
@@ -191,11 +195,11 @@ function timeValue(iso: string | null | undefined): number {
   return Number.isFinite(value) ? value : 0
 }
 
-function shortDate(iso: string | null | undefined): string {
+function shortDate(iso: string | null | undefined, locale: Locale, messages: Messages): string {
   const value = timeValue(iso)
-  if (!value) return 'Unknown date'
+  if (!value) return translate(messages, 'messages.card.unknownDate')
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -218,11 +222,14 @@ export default async function PenPalReviewPage({
 }: {
   searchParams: Promise<{ tab?: string; search?: string }>
 }) {
-  const { profile } = await requireAuth()
+  const { user, profile } = await requireAuth()
   if (!isAdminRole(profile.role) && !isStaffRole(profile.role)) {
     redirect('/dashboard')
   }
   const isAdmin = isAdminRole(profile.role)
+  const locale = await getUserLocale(user.id)
+  const i18nMessages = getMessages(locale)
+  const t = (key: MessageKey) => translate(i18nMessages, key)
 
   const { tab: rawTab, search: rawSearch } = await searchParams
   const activeTab: TabKey = TABS.some((t) => t.key === rawTab) ? (rawTab as TabKey) : 'needs_action'
@@ -289,8 +296,8 @@ export default async function PenPalReviewPage({
     const child = childById.get(group.thread.child_id)
     const sponsor = sponsorById.get(group.thread.sponsor_id)
     const childName = child
-      ? [child.first_name, child.last_name].filter(Boolean).join(' ') || child.display_name
-      : 'Unknown child'
+        ? [child.first_name, child.last_name].filter(Boolean).join(' ') || child.display_name
+        : t('messages.card.unknownChild')
 
     conversations.push({
       ...group,
@@ -317,17 +324,17 @@ export default async function PenPalReviewPage({
   return (
     <main className="google-sans-registry min-h-[calc(100svh-4rem)] bg-ice pb-12">
       <RegistryHeader
-        badge={isAdmin ? 'Admin Portal' : 'Staff Portal'}
-        eyebrow={isAdmin ? 'All regions' : (profile.country?.join(', ') ?? 'Your region')}
-        title="Pen Pal Messages"
-        subtitle="Open each conversation to review donor letters, mark delivery, and publish child replies through staff."
+        badge={isAdmin ? t('messages.header.adminBadge') : t('messages.header.staffBadge')}
+        eyebrow={isAdmin ? t('messages.header.allRegions') : (profile.country?.join(', ') ?? '')}
+        title={t('messages.header.title')}
+        subtitle={t('messages.header.subtitle')}
       />
 
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <section className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-stone bg-white px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-navy/50">Conversations</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-navy/50">{t('messages.stats.conversations')}</p>
               <span className="flex size-9 items-center justify-center rounded-xl bg-stone/60 text-navy/65">
                 <MailOpenIcon className="size-4" aria-hidden="true" />
               </span>
@@ -336,7 +343,7 @@ export default async function PenPalReviewPage({
           </div>
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Needs action</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-amber-700">{t('messages.stats.needsAction')}</p>
               <span className="flex size-9 items-center justify-center rounded-xl bg-white/70 text-amber-700">
                 <Clock3Icon className="size-4" aria-hidden="true" />
               </span>
@@ -345,7 +352,7 @@ export default async function PenPalReviewPage({
           </div>
           <div className="rounded-2xl border border-teal/25 bg-teal/5 px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-teal">Open chats</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-teal">{t('messages.stats.openChats')}</p>
               <span className="flex size-9 items-center justify-center rounded-xl bg-white/75 text-teal">
                 <MessageSquareReplyIcon className="size-4" aria-hidden="true" />
               </span>
@@ -358,13 +365,13 @@ export default async function PenPalReviewPage({
           <input type="hidden" name="tab" value={activeTab} />
           <div className="flex flex-col gap-3 sm:flex-row">
             <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Search by child name or ROLF ID</span>
+              <span className="sr-only">{t('messages.search.label')}</span>
               <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-navy/35" aria-hidden="true" />
               <input
                 type="search"
                 name="search"
                 defaultValue={searchValue}
-                placeholder="Search child name or ROLF ID"
+                placeholder={t('messages.search.placeholder')}
                 className="min-h-12 w-full rounded-xl border border-stone bg-ice pl-11 pr-4 text-sm font-semibold text-navy outline-none transition-colors placeholder:text-navy/35 focus:border-teal focus:bg-white focus:ring-2 focus:ring-teal/15"
               />
             </label>
@@ -373,20 +380,20 @@ export default async function PenPalReviewPage({
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-navy px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             >
               <SearchIcon className="size-4" aria-hidden="true" />
-              Search
+              {t('messages.search.submit')}
             </button>
             {searchQuery && (
               <Link
                 href={`/dashboard/letters?tab=${activeTab}`}
                 className="inline-flex min-h-12 items-center justify-center rounded-xl border border-stone px-4 text-sm font-bold text-navy/60 transition-colors hover:border-teal/30 hover:text-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
               >
-                Clear
+                {t('messages.search.clear')}
               </Link>
             )}
           </div>
         </form>
 
-        <nav className="rounded-2xl border border-stone bg-white p-2 shadow-sm" aria-label="Message queues">
+        <nav className="rounded-2xl border border-stone bg-white p-2 shadow-sm" aria-label={t('messages.nav.label')}>
           <div className="grid gap-2 sm:grid-cols-4">
             {TABS.map((tab) => (
               <Link
@@ -401,7 +408,7 @@ export default async function PenPalReviewPage({
                 }`}
               >
                 <tab.icon className="size-4 shrink-0" aria-hidden="true" />
-                {tab.label}
+                {t(tab.labelKey)}
                 <span className={`rounded-full px-2 py-0.5 text-[11px] ${activeTab === tab.key ? 'bg-white/20' : 'bg-stone/70'}`}>
                   {counts.get(tab.key) ?? 0}
                 </span>
@@ -423,20 +430,22 @@ export default async function PenPalReviewPage({
               <MailOpenIcon className="size-7" aria-hidden="true" />
             </div>
             <p className="text-lg font-bold text-navy">
-              {searchQuery ? 'No conversations match that child search.' : 'No conversations in this queue right now.'}
+              {searchQuery ? t('messages.empty.search') : t('messages.empty.queue')}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {visible.map((conversation) => {
               const latest = conversation.latest
-              const donorName = conversation.sponsor?.full_name ?? 'Unknown donor'
+              const donorName = conversation.sponsor?.full_name ?? t('messages.card.unknownDonor')
               const DirectionIcon = latest.direction === 'donor_to_child' ? SendIcon : MessageSquareReplyIcon
-              const directionLabel = latest.direction === 'donor_to_child' ? 'Donor letter' : 'Child reply'
+              const directionLabel = latest.direction === 'donor_to_child'
+                ? t('messages.card.donorLetter')
+                : t('messages.card.childReply')
               const routeLabel = latest.direction === 'donor_to_child'
                 ? `${donorName} -> ${conversation.childName}`
                 : `${conversation.childName} -> ${donorName}`
-              const nextStep = nextStepFor(latest, conversation.thread.status)
+              const nextStep = nextStepFor(latest, conversation.thread.status, i18nMessages)
               const StepIcon = nextStep.icon
               const bubbleClass = latest.direction === 'donor_to_child'
                 ? 'border-amber-200 bg-amber-50/80'
@@ -467,7 +476,7 @@ export default async function PenPalReviewPage({
                           </h2>
                           <span className="inline-flex items-center gap-1 rounded-full border border-sky/70 bg-sky/25 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-navy/55">
                             <ShieldCheckIcon className="size-3" aria-hidden="true" />
-                            Staff mediated
+                            {t('messages.card.staffMediated')}
                           </span>
                         </div>
                         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-navy/55">
@@ -480,8 +489,13 @@ export default async function PenPalReviewPage({
                               {conversation.child.country}
                             </span>
                           )}
-                          <span>{conversation.messages.length.toLocaleString()} message{conversation.messages.length === 1 ? '' : 's'}</span>
-                          <span>Latest {shortDate(latest.created_at)}</span>
+                          <span>
+                            {conversation.messages.length.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}{' '}
+                            {conversation.messages.length === 1
+                              ? t('messages.card.messageSingular')
+                              : t('messages.card.messagePlural')}
+                          </span>
+                          <span>{t('messages.card.latest')} {shortDate(latest.created_at, locale, i18nMessages)}</span>
                         </p>
 
                         <div className={`mt-3 rounded-2xl border px-3 py-3 ${bubbleClass}`}>
@@ -490,7 +504,7 @@ export default async function PenPalReviewPage({
                               <DirectionIcon className="size-3.5" aria-hidden="true" />
                               {directionLabel}
                             </span>
-                            <span>{statusLabel(latest.status)}</span>
+                            <span>{statusLabel(latest.status, i18nMessages)}</span>
                           </div>
                           <p className="mt-2 text-sm font-semibold leading-6 text-navy/75">{previewFor(latest)}</p>
                         </div>
@@ -507,7 +521,7 @@ export default async function PenPalReviewPage({
                         href={`/dashboard/letters/${conversation.thread.id}`}
                         className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-navy px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal lg:w-auto"
                       >
-                        Open Chat
+                        {t('messages.card.openChat')}
                         <ExternalLinkIcon className="size-4" aria-hidden="true" />
                       </Link>
                     </div>

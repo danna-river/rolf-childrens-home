@@ -2,8 +2,10 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { SearchIcon } from "lucide-react";
+import { useTranslations } from "@/i18n/client";
 
 export function SearchBar() {
+    const t = useTranslations();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -33,7 +35,7 @@ export function SearchBar() {
             value={inputValue}
             onChange={handleSearchChange}
             maxLength={100}
-            placeholder="Search by name or ROLF ID..."
+            placeholder={t("children.filters.searchPlaceholder")}
             className="min-h-14 w-full rounded-md border border-stone bg-ice pl-12 pr-4 text-base font-semibold text-navy outline-none motion-safe:transition-colors placeholder:text-navy/55 focus:border-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
           />
       </div>

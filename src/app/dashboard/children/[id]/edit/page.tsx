@@ -5,6 +5,10 @@ import { EditChildForm } from './EditChildForm'
 import { isAdminRole } from '@/lib/profiles'
 import type { Child } from '@/lib/types'
 
+type CountryRow = {
+  name: string
+}
+
 export default async function EditChildPage({
   params,
 }: {
@@ -44,7 +48,7 @@ export default async function EditChildPage({
       .select('name')
       .order('name', { ascending: true })
       
-    dropdownOptions = (countryRows || []).map((row: any) => row.name)
+    dropdownOptions = ((countryRows || []) as CountryRow[]).map((row) => row.name)
   } else {
     // Localized staff inherit their assigned tracking matrix bounds array
     dropdownOptions = profile.country || []

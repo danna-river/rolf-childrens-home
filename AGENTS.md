@@ -39,3 +39,13 @@ Admins are **not** emailed per signup (avoids spam on bulk-registration days). I
 ## Required env vars (Vercel Production)
 
 `RESEND_API_KEY` (sensitive), `NEXT_PUBLIC_APP_URL`, `CRON_SECRET` (sensitive), plus the existing Supabase/Google keys.
+
+# UI translations (src/i18n)
+
+Staff-facing UI strings go through the i18n system in `src/i18n/` (`en.ts` is the source of truth, `fr.ts` must cover every key — compiler-checked). Components read strings via `useTranslations()` (`t('some.key')`), never hardcoded literals. **Stored content — bios, letters, working notes — stays English and is never run through this system**; only chrome/labels/UI copy is translated.
+
+**Whenever a change adds, edits, or removes user-facing UI text (new component, new label, new button, new error/success message, etc.), stop and think about translation before finishing the task:**
+
+- Does this string need a key in `src/i18n/locales/en.ts`, with a matching entry in `src/i18n/locales/fr.ts`?
+- If you're unsure whether new text belongs in the i18n system (e.g. admin-only debug text, or something that's arguably stored content, not UI chrome) or unsure of the correct French translation, **ask the developer** rather than guessing — don't silently hardcode a string or invent a French translation that ships to real users.
+- Don't add a key to `en.ts` without a matching `fr.ts` entry (the type will fail to compile, but check anyway before calling it done).
