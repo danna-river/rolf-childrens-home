@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { PhotoViewer } from './components/PhotoViewer'
 import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
+import { LibraryViewer } from './components/LibraryViewer' // ⚡ IMPORT LINKED
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
@@ -80,7 +81,8 @@ function DonorProfileFact({ label, value }: { label: string; value: string }) {
   )
 }
 
-function DonorChildDetail({ child }: { child: Child }) {
+// ⚡ INJECT PORTFOLIO PROPS DOWNSTREAM
+function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems: any[] }) {
   const name = donorChildName(child)
   const firstName = child.first_name || child.display_name || name
   const age = calculateAge(child.birth_year, child.birth_month, child.birth_day)
@@ -115,7 +117,6 @@ function DonorChildDetail({ child }: { child: Child }) {
               <div className="mx-auto w-full max-w-[18rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-[#eadfd0] bg-[#f6f1e8] shadow-[0_18px_45px_rgba(21,44,75,0.10)] md:mx-0 md:w-72 lg:w-80">
                 <div className="flex aspect-[3/4] w-full items-center justify-center">
                   {photoSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- donor media can be S3 or Google Drive URLs resolved at runtime.
                     <img
                       src={photoSrc}
                       alt={`${name} profile photo`}
@@ -162,6 +163,13 @@ function DonorChildDetail({ child }: { child: Child }) {
                 <p>Thank you for sponsoring me and loving me. I pray that God will bless you too!</p>
               </div>
             </section>
+
+            {/* ⚡ INTEGRATE SEAMLESS DONOR VIEW COMPONENT CONTAINER FRAME */}
+            {libraryItems.length > 0 && (
+              <section className="pt-2">
+                <LibraryViewer mediaLibrary={libraryItems} />
+              </section>
+            )}
 
             {video.kind !== 'none' && (
               <section className="overflow-hidden rounded-3xl border border-teal/10 bg-sky/65">
@@ -215,11 +223,20 @@ export default async function ChildProfilePage({
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single() as { data: { role: string; country: string | string[] | null } | null; error: unknown }
+    .maybeSingle() as { data: { role: string; country: string | string[] | null } | null; error: unknown }
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'staff' && profile.role !== 'donor')) {
     return redirect('/login?error=Unauthorized')
   }
+
+  // ⚡ COMPREHENSIVE BATCH GATHER TRACK: Fetches portfolio rows for the child
+  const { data: mediaLibraryRows } = await supabase
+    .from('child_media')
+    .select('id, url, media_type, filename')
+    .eq('child_id', id)
+    .order('created_at', { ascending: false }) as { data: any[] | null }
+
+  const libraryItems = mediaLibraryRows || []
 
   if (profile.role === 'donor') {
     const donorChildResult = await supabase
@@ -235,14 +252,13 @@ export default async function ChildProfilePage({
 
     if (!rawDonorChild) return notFound()
 
-    // ⚡ FIXED: Mapping uses rawDonorChild fields to completely bypass the outer block scoping crash
     const donorChild: Child = {
       ...rawDonorChild,
       profile_photo: rawDonorChild.profile_photo?.url ?? null,
       profile_video: rawDonorChild.profile_video?.url ?? null
     }
 
-    return <DonorChildDetail child={donorChild} />
+    return <DonorChildDetail child={donorChild} libraryItems={libraryItems} />
   }
 
   const childResult = await supabase
@@ -350,6 +366,13 @@ export default async function ChildProfilePage({
           eligibleForms={eligibleForms} 
           latestCompleted={latestCompleted} 
         />
+
+        {/* ⚡ INTEGRATE SEAMLESS STAFF REGISTRY VIEW COMPONENT GRID */}
+        {libraryItems.length > 0 && (
+          <div className="bg-white rounded-md border border-stone p-5 shadow-2xs">
+            <LibraryViewer mediaLibrary={libraryItems} />
+          </div>
+        )}
 
         <div className="bg-white rounded-md border border-stone overflow-hidden shadow-2xs">
           {video.kind === "file" ? (
