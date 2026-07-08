@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
+import type { Role } from '@/lib/types'
 import { sendAccountApprovedEmail, sendAccountDeniedEmail } from '@/lib/email'
 
 // Security Guard to ensure only true administrators hit these endpoints
@@ -21,18 +22,18 @@ export async function approveAccountAction(userId: string, role: string, countri
   const adminSupabase = await createAdminClient()
 
   // Fetch profile before update so we have email + name for the notification
-  const { data: profile } = await (adminSupabase as any)
+  const { data: profile } = await adminSupabase
     .from('profiles')
     .select('email, full_name')
     .eq('id', userId)
     .single()
 
   // 🌟 FIX: Use empty array '{}' instead of null to match your native text[] column migration bounds
-  const { error } = await (adminSupabase as any)
+  const { error } = await adminSupabase
     .from('profiles')
     .update({
-      role: role,
-      country: countries.length > 0 ? countries : '{}'
+      role: role as Role,
+      country: countries.length > 0 ? countries : ('{}' as unknown as string[])
     })
     .eq('id', userId)
 
@@ -57,7 +58,7 @@ export async function denyAccountAction(userId: string) {
   const adminSupabase = await createAdminClient()
 
   // Fetch before delete so we can email the denied user
-  const { data: profile } = await (adminSupabase as any)
+  const { data: profile } = await adminSupabase
     .from('profiles')
     .select('email, full_name')
     .eq('id', userId)
@@ -92,7 +93,7 @@ export async function deleteAccountAction(userId: string) {
     return { error: 'Action denied: You cannot delete your own account.' }
   }
 
-  const { data: target } = await (adminSupabase as any)
+  const { data: target } = await adminSupabase
     .from('profiles')
     .select('role')
     .eq('id', userId)
@@ -110,6 +111,7 @@ export async function deleteAccountAction(userId: string) {
     }
   }
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dot-path filter into a joined relation isn't representable in the generated query types
   const { count: sponsorCount } = await (adminSupabase as any)
     .from('sponsorships')
     .select('id, sponsors!inner(profile_id)', { count: 'exact', head: true })
@@ -184,7 +186,7 @@ export async function appendNewCountryAction(input: { name: string; isoCode: str
   }
 
   // 5. Proceed with insertion since all validation checks passed safely
-  const { error } = await (adminSupabase as any)
+  const { error } = await adminSupabase
     .from('countries')
     .insert({
       name: cleanName,

@@ -1,13 +1,13 @@
-// middleware.ts
+// proxy.ts
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
 
-  // 1. Initialize the Supabase Client within the Middleware lifecycle
+  // 1. Initialize the Supabase Client within the Proxy lifecycle
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
 
   // 2. IMPORTANT: This refreshes the session token if it's expired.
   // It syncs the browser auth cookie directly with Next.js header streams.
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   // Diagnostic logging to see if middleware is picking up the user session
   if (user) {

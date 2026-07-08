@@ -28,7 +28,7 @@ export default async function NewChildPage() {
       .select('name')
       .order('name', { ascending: true })
       
-    dropdownOptions = (countryRows || []).map((row: any) => row.name)
+    dropdownOptions = (countryRows || []).map((row) => row.name)
   } else {
     // Standard staff rows inherit their localized account allocation scopes array
     dropdownOptions = profile.country || []

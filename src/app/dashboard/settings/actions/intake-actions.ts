@@ -4,6 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { QuestionInput, IntakeTemplate } from '../components/intake-types'
 
+// intake_templates / template_questions aren't in the generated Database schema,
+// so these queries need an escape hatch from the typed client.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export async function getIntakeTemplates(): Promise<{ data: IntakeTemplate[] | null; error: string | null }> {
     const supabase = createAdminClient()
 
@@ -112,14 +116,14 @@ export async function deleteTemplate(id: string) {
 
 export async function getIntakeCountries(): Promise<string[]> {
     const supabase = createAdminClient()
-    const { data, error } = await (supabase
-        .from('countries' as any)
+    const { data, error } = await supabase
+        .from('countries')
         .select('name')
-        .order('name', { ascending: true }) as any)
+        .order('name', { ascending: true })
 
     if (error || !data) {
         console.error('❌ INTAKE COUNTRIES ACTION:', error?.message)
         return []
     }
-    return (data as any[]).map((row) => row.name)
+    return data.map((row) => row.name)
 }

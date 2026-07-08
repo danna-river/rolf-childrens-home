@@ -65,7 +65,7 @@ export function GlobalConfigsView({ currentCountries }: GlobalConfigsViewProps) 
     subActionArea = (
       <div className="bg-amber-50/50 border border-amber-200 rounded-md p-3.5 flex items-center justify-between gap-4 animate-fade-in">
         <p className="text-xs text-navy/85 font-semibold">
-          Add <span className="font-bold text-navy">"{inputVal.trim()}"</span> with code <span className="font-mono font-bold text-[11px] text-teal bg-teal/10 px-1.5 py-0.5 rounded-sm">{isoCodeVal.trim().toUpperCase()}</span> to system registry configurations?
+          Add <span className="font-bold text-navy">&quot;{inputVal.trim()}&quot;</span> with code <span className="font-mono font-bold text-[11px] text-teal bg-teal/10 px-1.5 py-0.5 rounded-sm">{isoCodeVal.trim().toUpperCase()}</span> to system registry configurations?
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <button type="button" onClick={handleExecuteAppend} className="bg-teal hover:bg-teal/90 text-white font-bold text-xs px-3 py-1.5 rounded-md cursor-pointer transition-all">
@@ -81,7 +81,7 @@ export function GlobalConfigsView({ currentCountries }: GlobalConfigsViewProps) 
     subActionArea = (
       <div className="bg-rose-50/40 border border-rose-200 rounded-md p-3.5 flex items-center justify-between gap-4 animate-fade-in">
         <p className="text-xs text-rose-950 font-semibold">
-          Are you sure you want to remove <span className="font-bold">"{pendingDeleteCountry}"</span>? You should check to see that no children or staff have this country assigned to them.
+          Are you sure you want to remove <span className="font-bold">&quot;{pendingDeleteCountry}&quot;</span>? You should check to see that no children or staff have this country assigned to them.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <button type="button" onClick={() => handleExecuteDelete(pendingDeleteCountry)} className="bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs px-3 py-1.5 rounded-md cursor-pointer transition-all">

@@ -1,25 +1,10 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-
-interface Change {
-  field: string
-  from: any
-  to: any
-}
-
-interface LogEntry {
-  timestamp: string
-  profile?: {
-    full_name?: string
-    role?: string
-    country?: string | string[] | null
-  }
-  changes?: Change[]
-}
+import { useState } from 'react'
+import type { EditLogEntry } from '@/lib/types'
 
 interface AuditLogSectionProps {
-  editLog: any
+  editLog: EditLogEntry[]
   createdAt?: string | null
   creatorName?: string | null
   creatorRole?: string | null
@@ -31,7 +16,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
   const [inputPage, setInputPage] = useState('1')
   const [activeModalIdx, setActiveModalIdx] = useState<number | null>(null)
 
-  const rawLogArray = Array.isArray(editLog) ? (editLog as LogEntry[]) : []
+  const rawLogArray = Array.isArray(editLog) ? editLog : []
 
   // Force Chronological sorting (Newest timestamp always first)
   const sortedLogs = [...rawLogArray].sort((a, b) => {
@@ -62,10 +47,11 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
   const endIndex = startIndex + itemsPerPage
   const paginatedLogs = sortedLogs.slice(startIndex, endIndex)
 
-  // Keep the input field in sync when changing pages via Prev/Next buttons
-  useEffect(() => {
-    setInputPage(currentPage.toString())
-  }, [currentPage])
+  // Move to a page, keeping the input field in sync with the source state
+  const goToPage = (page: number) => {
+    setCurrentPage(page)
+    setInputPage(page.toString())
+  }
 
   // Handle direct numeric input submission
   const handlePageSubmit = (e: React.FormEvent) => {
@@ -73,7 +59,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
     const parsedPage = parseInt(inputPage, 10)
 
     if (!isNaN(parsedPage) && parsedPage >= 1 && parsedPage <= totalPages) {
-      setCurrentPage(parsedPage)
+      goToPage(parsedPage)
     } else {
       setInputPage(currentPage.toString())
     }
@@ -222,7 +208,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
         <div className="flex items-center justify-between pt-3 border-t border-stone text-[11px]">
           <button
             disabled={currentPage === 1}
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            onClick={() => goToPage(Math.max(currentPage - 1, 1))}
             className="px-2.5 py-1.5 rounded-md border border-stone text-navy/65 bg-white hover:bg-ice disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold tracking-wide transition-colors cursor-pointer shrink-0 shadow-3xs"
           >
             ← Prev
@@ -245,7 +231,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
 
           <button
             disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            onClick={() => goToPage(Math.min(currentPage + 1, totalPages))}
             className="px-2.5 py-1.5 rounded-md border border-stone text-navy/65 bg-white hover:bg-ice disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold tracking-wide transition-colors cursor-pointer shrink-0 shadow-3xs"
           >
             Next →

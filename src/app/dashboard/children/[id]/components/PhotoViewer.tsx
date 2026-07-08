@@ -19,6 +19,7 @@ export function PhotoViewer({ src, alt, fallbackInitial }: Props) {
     <>
       <button type="button" onClick={() => setOpen(true)} className="focus:outline-none">
         {thumbSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime.
           <img src={thumbSrc} alt={alt} referrerPolicy="no-referrer" className="h-36 w-36 rounded-full object-cover border-4 border-white shadow cursor-pointer hover:opacity-90 transition-opacity" />
         ) : (
           <div className="h-36 w-36 rounded-full bg-gray-200 flex items-center justify-center shadow">
@@ -32,6 +33,7 @@ export function PhotoViewer({ src, alt, fallbackInitial }: Props) {
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setOpen(false)}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime. */}
           <img
             src={fullSrc}
             alt={alt}

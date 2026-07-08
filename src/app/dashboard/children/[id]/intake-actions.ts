@@ -2,7 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { EditLogChange } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
+
+// intake_templates / progress_reports / report_answers / template_questions aren't in the
+// generated Database schema, so these queries (and the data flowing out of them) need an
+// escape hatch from the typed client.
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function getEligibleIntakeForms(childId: string, childCountry: string, dateJoinedStr: string | null, yearJoinedNum: number | null) {
   const supabase = await createClient()
@@ -39,7 +45,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
   const submissionMap: Record<string, Record<string, string>> = {}
   existingReports?.forEach((report: any) => {
     const answersObj: Record<string, string> = {}
-    
+
     report.report_answers?.forEach((ans: any) => {
       answersObj[ans.question_id] = ans.answer_value
     })
@@ -75,7 +81,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
       isCompleted: isFinished,
       isLatest: false
     }
-  }).filter(Boolean) as any[]
+  }).filter(Boolean)
 
   if (eligibleForms.length > 0) {
     eligibleForms[0].isLatest = true
@@ -99,11 +105,11 @@ export async function saveIntakeFormAction(
 
   const [profileRes, childRes] = await Promise.all([
     supabase.from('profiles').select('full_name, role, country').eq('id', user.id).single(),
-    (supabase as any).from('children').select('*').eq('id', childId).single()
+    supabase.from('children').select('*').eq('id', childId).single()
   ])
 
   if (childRes.error || !childRes.data) return { error: "Child record targeted could not be found." }
-  
+
   const actorProfile = profileRes.data
   const childData = childRes.data
 
@@ -114,7 +120,7 @@ export async function saveIntakeFormAction(
 
   if (!dbQuestions) return { error: "Failed to resolve blueprint master questions setup." }
 
-  let { data: existingReport } = await (supabase as any)
+  const { data: existingReport } = await (supabase as any)
     .from('progress_reports')
     .select('id')
     .eq('child_id', childId)
@@ -149,8 +155,8 @@ export async function saveIntakeFormAction(
     priorAnswersMap[ans.question_id] = ans.answer_value
   })
 
-  const changes: Array<{ field: string; from: any; to: any }> = []
-  const answersUpsertPayload: any[] = []
+  const changes: EditLogChange[] = []
+  const answersUpsertPayload: Array<{ report_id: string; question_id: string; answer_value: string }> = []
 
   dbQuestions.forEach((q: any) => {
     const clientValue = newAnswers[q.question_text] || ""
@@ -192,7 +198,7 @@ export async function saveIntakeFormAction(
     updatedLog = [newLogEntry, ...updatedLog]
 
     const adminSupabase = await createAdminClient()
-    const { error: logUpdateError } = await (adminSupabase as any)
+    const { error: logUpdateError } = await adminSupabase
       .from('children')
       .update({ edit_log: updatedLog })
       .eq('id', childId)
