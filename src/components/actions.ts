@@ -21,6 +21,12 @@ interface DBChildRow {
   status: string
 }
 
+/** Registry query shape: the media columns arrive as embedded child_media refs. */
+type RegistryQueryRow = Omit<DBChildRow, 'profile_photo' | 'profile_video'> & {
+  profile_photo: { url: string } | null
+  profile_video: { url: string } | null
+}
+
 export type RegisterChildInput = {
   id_rolf?: string
   first_name: string
@@ -181,7 +187,7 @@ export async function getChildrenProfiles(
   }
 
   // ⚡ UPDATE: Unpack and flatten the nested object response back into a clean string URL
-  const formattedProfiles: ChildProfile[] = ((data ?? []) as any[]).map((row) => ({
+  const formattedProfiles: ChildProfile[] = ((data ?? []) as unknown as RegistryQueryRow[]).map((row) => ({
     id: row.id,
     id_rolf: row.id_rolf || null,
     firstName: row.first_name || '',

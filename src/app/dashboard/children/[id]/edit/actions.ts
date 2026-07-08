@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { ageFromBirthParts, ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole } from '@/lib/profiles'
+import type { Child, ChildWithMediaRefs, EditLogChange } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 import { commitStagedFilesToCountry, moveFileToSystemTrash } from '@/lib/googleDrive'
 
@@ -58,7 +59,7 @@ function buildActionFilename(
 export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ previewId: string | null }> {
   const supabase = await createClient()
 
-  const { data: countryRecord } = await (supabase as any)
+  const { data: countryRecord } = await supabase
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -67,7 +68,7 @@ export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ 
   if (!countryRecord) return { previewId: null }
   const prefix = countryRecord.iso_code
 
-  const { data: siblingRecords } = await (supabase as any)
+  const { data: siblingRecords } = await supabase
     .from('children')
     .select('id_rolf')
     .like('id_rolf', `${prefix}-%`)
@@ -92,7 +93,7 @@ export async function checkRolfIdForEdit(
 ): Promise<{ isValid: boolean; error: string | null; expectedPrefix: string | null }> {
   const supabase = await createClient()
 
-  const { data: countryData } = await (supabase as any)
+  const { data: countryData } = await supabase
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -147,7 +148,7 @@ export async function updateChildAction(
   const supabase = await createClient()
   const adminSupabase = await createAdminClient()
 
-  const { data: rawCurrentChild, error: fetchError } = await (supabase as any)
+  const { data: rawCurrentChild, error: fetchError } = await supabase
     .from('children')
     .select(`
       *,
@@ -155,13 +156,13 @@ export async function updateChildAction(
       profile_video:child_media!fk_children_profile_video(id, url)
     `)
     .eq('id', id)
-    .single()
+    .single() as { data: ChildWithMediaRefs | null; error: unknown }
 
   if (fetchError || !rawCurrentChild) {
     return { error: "Failed to locate the original child record for delta logging." }
   }
 
-  const flattenedCurrentChild = {
+  const flattenedCurrentChild: Child = {
     ...rawCurrentChild,
     profile_photo: rawCurrentChild.profile_photo?.url ?? null,
     profile_video: rawCurrentChild.profile_video?.url ?? null
@@ -179,8 +180,8 @@ export async function updateChildAction(
       : undefined,
   }
 
-  const changes: Array<{ field: string; from: any; to: any }> = []
-  const normalizeDate = (val: any) => val ? new Date(val).toISOString().split('T')[0] : null
+  const changes: EditLogChange[] = []
+  const normalizeDate = (val: unknown) => val ? new Date(val as string | number | Date).toISOString().split('T')[0] : null
 
   const fieldsToTrack: Array<keyof UpdateChildInput> = [
     'id_rolf', 'first_name', 'last_name', 'country',
@@ -218,7 +219,7 @@ export async function updateChildAction(
       const oldPhotoId = typeof rawCurrentChild.profile_photo === 'object' ? rawCurrentChild.profile_photo?.id : rawCurrentChild.profile_photo;
       
       if (oldPhotoId) {
-        const { data: mediaRow } = await (adminSupabase as any)
+        const { data: mediaRow } = await adminSupabase
           .from('child_media')
           .select('gdrive_file_id')
           .eq('id', oldPhotoId)
@@ -228,11 +229,11 @@ export async function updateChildAction(
           if (mediaRow.gdrive_file_id) {
             try {
               await moveFileToSystemTrash(mediaRow.gdrive_file_id)
-            } catch (gDriveErr) {
+            } catch {
               console.warn(`External asset bypass: File link ${mediaRow.gdrive_file_id} could not be moved to system trash (external reference).`)
             }
           }
-          await (adminSupabase as any).from('child_media').delete().eq('id', oldPhotoId)
+          await adminSupabase.from('child_media').delete().eq('id', oldPhotoId)
         }
       }
       finalPhotoUuid = null;
@@ -247,7 +248,7 @@ export async function updateChildAction(
         // ⚡ DYNAMIC STRUCTURE UPDATED: Generates file system matching descriptors for insert actions
         const generatedFilename = buildActionFilename(input, "photo", "jpg")
 
-        const { data: photoMediaRow, error: photoDbErr } = await (adminSupabase as any)
+        const { data: photoMediaRow, error: photoDbErr } = await adminSupabase
           .from('child_media')
           .insert({
             child_id: id,
@@ -274,7 +275,7 @@ export async function updateChildAction(
       const oldVideoId = typeof rawCurrentChild.profile_video === 'object' ? rawCurrentChild.profile_video?.id : rawCurrentChild.profile_video;
 
       if (oldVideoId) {
-        const { data: mediaRow } = await (adminSupabase as any)
+        const { data: mediaRow } = await adminSupabase
           .from('child_media')
           .select('gdrive_file_id')
           .eq('id', oldVideoId)
@@ -284,11 +285,11 @@ export async function updateChildAction(
           if (mediaRow.gdrive_file_id) {
             try {
               await moveFileToSystemTrash(mediaRow.gdrive_file_id)
-            } catch (gDriveErr) {
+            } catch {
               console.warn(`External asset bypass: File link ${mediaRow.gdrive_file_id} could not be moved to system trash.`)
             }
           }
-          await (adminSupabase as any).from('child_media').delete().eq('id', oldVideoId)
+          await adminSupabase.from('child_media').delete().eq('id', oldVideoId)
         }
       }
       finalVideoUuid = null;
@@ -303,7 +304,7 @@ export async function updateChildAction(
         // ⚡ DYNAMIC STRUCTURE UPDATED: Generates file system matching descriptors for insert actions
         const generatedFilename = buildActionFilename(input, "video", "mp4")
 
-        const { data: videoMediaRow, error: videoDbErr } = await (adminSupabase as any)
+        const { data: videoMediaRow, error: videoDbErr } = await adminSupabase
           .from('child_media')
           .insert({
             child_id: id,
@@ -329,7 +330,7 @@ export async function updateChildAction(
     const oldVideoId = typeof rawCurrentChild.profile_video === 'object' ? rawCurrentChild.profile_video?.id : rawCurrentChild.profile_video;
 
     if (oldPhotoId && finalPhotoUuid && oldPhotoId !== finalPhotoUuid) {
-      await (adminSupabase as any)
+      await adminSupabase
         .from('child_media')
         .update({ usage_type: 'library' })
         .eq('child_id', id)
@@ -337,16 +338,16 @@ export async function updateChildAction(
         .neq('id', finalPhotoUuid)
     }
     if (oldVideoId && finalVideoUuid && oldVideoId !== finalVideoUuid) {
-      await (adminSupabase as any)
+      await adminSupabase
         .from('child_media')
         .update({ usage_type: 'library' })
         .eq('child_id', id)
         .eq('usage_type', 'profile_video')
         .neq('id', finalVideoUuid)
     }
-  } catch (mediaError: any) {
+  } catch (mediaError) {
     console.error("Media registry synchronization failure:", mediaError)
-    return { error: `Media alignment error: ${mediaError.message}` }
+    return { error: `Media alignment error: ${mediaError instanceof Error ? mediaError.message : String(mediaError)}` }
   }
 
   const originalPhotoId = typeof rawCurrentChild.profile_photo === 'object' ? rawCurrentChild.profile_photo?.id : rawCurrentChild.profile_photo;
@@ -375,7 +376,7 @@ export async function updateChildAction(
     await commitStagedFilesToCountry(input.country, stagedFileIds)
   }
 
-  const { error } = await (adminSupabase as any)
+  const { error } = await adminSupabase
     .from('children')
     .update({
       id_rolf: normalizedInput.id_rolf.trim().toUpperCase(),
@@ -410,10 +411,10 @@ export async function updateChildAction(
 
 export async function deleteLibraryItemAction(mediaId: string): Promise<{ error: string | null }> {
   try {
-    const { profile: actorProfile } = await requireAuth()
+    await requireAuth()
     const adminSupabase = await createAdminClient()
 
-    const { data: mediaRow } = await (adminSupabase as any)
+    const { data: mediaRow } = await adminSupabase
       .from('child_media')
       .select('gdrive_file_id, child_id')
       .eq('id', mediaId)
@@ -424,16 +425,16 @@ export async function deleteLibraryItemAction(mediaId: string): Promise<{ error:
     if (mediaRow.gdrive_file_id) {
       try {
         await moveFileToSystemTrash(mediaRow.gdrive_file_id)
-      } catch (gDriveErr) {
+      } catch {
         console.warn(`External reference bypass: File ${mediaRow.gdrive_file_id} skipped trash folder allocation.`)
       }
     }
 
-    await (adminSupabase as any).from('child_media').delete().eq('id', mediaId)
+    await adminSupabase.from('child_media').delete().eq('id', mediaId)
     revalidatePath(`/dashboard/children/${mediaRow.child_id}`)
 
     return { error: null }
-  } catch (err: any) {
-    return { error: err.message || "An unexpected error occurred." }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "An unexpected error occurred." }
   }
 }

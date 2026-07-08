@@ -104,7 +104,6 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
     if (!file) return
 
     const isPhoto = file.type.startsWith("image/")
-    const isVideo = file.type.startsWith("video/")
     const maxBytes = (isPhoto ? 15 : 50) * 1024 * 1024
 
     if (file.size > maxBytes) {
@@ -513,6 +512,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
 
                       return (
                         <div key={item.id} className={`relative flex-none w-32 aspect-square rounded-xl border bg-gray-50 overflow-hidden group snap-start shadow-xs transition-transform ${isCurrentProfile ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-100'}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime. */}
                           <img src={resolvedImageSrc} alt={item.filename} className="w-full h-full object-cover" />
                           
                           <div className="absolute top-0 inset-x-0 p-1.5 bg-black/60 backdrop-blur-xs flex flex-col gap-0.5">
@@ -557,6 +557,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
                           
                           {resolvedVideoThumb ? (
                             <div className="relative w-full h-full">
+                              {/* eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime. */}
                               <img src={resolvedVideoThumb} alt={item.filename} className="w-full h-full object-cover opacity-75" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                                 <PlayCircleIcon className="size-7 text-white/90 drop-shadow-md" />
@@ -592,7 +593,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
 
               {pendingDeletions.length > 0 && (
                 <p className="text-[11px] text-red-500 font-semibold italic animate-pulse">
-                  ⚠️ {pendingDeletions.length} media asset(s) marked for permanent removal. Click "Save Changes" below to write deletions to disk.
+                  ⚠️ {pendingDeletions.length} media asset(s) marked for permanent removal. Click &quot;Save Changes&quot; below to write deletions to disk.
                 </p>
               )}
 

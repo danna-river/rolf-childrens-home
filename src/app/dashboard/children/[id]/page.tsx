@@ -5,13 +5,13 @@ import { PhotoViewer } from './components/PhotoViewer'
 import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
 import { PenPalSection } from './components/PenPalSection'
-import { LibraryViewer } from './components/LibraryViewer' // ⚡ IMPORT LINKED
+import { LibraryViewer, type MediaItem } from './components/LibraryViewer' // ⚡ IMPORT LINKED
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
 import { ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
-import type { Child } from '@/lib/types'
+import type { Child, ChildWithMediaRefs } from '@/lib/types'
 import { getMessages, getUserLocale } from '@/i18n/server'
 import type { Locale } from '@/i18n/config'
 import type { MessageKey, Messages } from '@/i18n/locales/en'
@@ -107,7 +107,7 @@ function DonorProfileFact({ label, value }: { label: string; value: string }) {
 }
 
 // ⚡ INJECT PORTFOLIO PROPS DOWNSTREAM
-function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems: any[] }) {
+function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems: MediaItem[] }) {
   const name = donorChildName(child)
   const firstName = child.first_name || child.display_name || name
   const age = calculateAge(child.birth_year, child.birth_month, child.birth_day)
@@ -154,6 +154,7 @@ function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems:
               <div className="mx-auto w-full max-w-[18rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-[#eadfd0] bg-[#f6f1e8] shadow-[0_18px_45px_rgba(21,44,75,0.10)] md:mx-0 md:w-72 lg:w-80">
                 <div className="flex aspect-[3/4] w-full items-center justify-center">
                   {photoSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime.
                     <img
                       src={photoSrc}
                       alt={`${name} profile photo`}
@@ -277,7 +278,7 @@ export default async function ChildProfilePage({
     .from('child_media')
     .select('id, url, media_type, filename')
     .eq('child_id', id)
-    .order('created_at', { ascending: false }) as { data: any[] | null }
+    .order('created_at', { ascending: false }) as { data: MediaItem[] | null }
 
   const libraryItems = mediaLibraryRows || []
 
@@ -291,7 +292,7 @@ export default async function ChildProfilePage({
       `)
       .eq('id', id)
       .single()
-    const rawDonorChild = donorChildResult.data as any
+    const rawDonorChild = donorChildResult.data as ChildWithMediaRefs | null
 
     if (!rawDonorChild) return notFound()
 
@@ -317,7 +318,7 @@ export default async function ChildProfilePage({
     `)
     .eq('id', id)
     .single()
-  const rawChild = childResult.data as any
+  const rawChild = childResult.data as (ChildWithMediaRefs & { creator?: { full_name: string | null; role: string | null } | null }) | null
 
   if (!rawChild) return notFound()
 

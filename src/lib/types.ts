@@ -37,6 +37,26 @@ export type ReceiptPreference = 'unknown' | 'requested' | 'not_needed'
 // ⚡ UPDATE: Matches your live schema's naming configurations
 export type MediaType = 'photo' | 'video'
 
+export interface EditLogChange {
+  field: string
+  from: unknown
+  to: unknown
+}
+
+export interface EditLogEntry {
+  timestamp: string
+  profile?: {
+    id?: string
+    full_name?: string
+    role?: string
+    country?: string | string[] | null
+  }
+  changes?: EditLogChange[]
+  /** Legacy fields present on some historical entries. */
+  edited_by?: string
+  edited_at?: string
+}
+
 export interface Profile {
   id: string
   email: string
@@ -70,7 +90,21 @@ export interface Child {
   created_by: string | null
   created_at: string
   updated_at: string
-  edit_log: Array<{ edited_by: string; edited_at: string }>
+  edit_log: EditLogEntry[]
+}
+
+/** Embedded ref returned when a children row is selected with the child_media FK joins
+ *  (`profile_photo:child_media!fk_children_profile_photo(id, url)`). */
+export interface ChildMediaRef {
+  id: string
+  url: string
+}
+
+/** `children` row as returned by those joined selects — the media columns come back
+ *  as embedded refs (or null) instead of the flattened URL strings on `Child`. */
+export type ChildWithMediaRefs = Omit<Child, 'profile_photo' | 'profile_video'> & {
+  profile_photo: ChildMediaRef | null
+  profile_video: ChildMediaRef | null
 }
 
 export interface Sponsorship {
@@ -209,8 +243,8 @@ export type Database = {
       }
       children: {
         Row: DatabaseRow<Child>
-        Insert: Omit<Child, 'id' | 'created_at' | 'updated_at' | 'edit_log'>
-        Update: Partial<Omit<Child, 'id' | 'created_at' | 'edit_log'>>
+        Insert: Omit<Child, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Child, 'id' | 'created_at'>>
         Relationships: []
       }
       sponsors: {

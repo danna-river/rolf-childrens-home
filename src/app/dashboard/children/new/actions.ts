@@ -29,7 +29,7 @@ export type RegisterChildInput = {
 export async function getLatestIdPreview(countryName: string): Promise<{ previewId: string | null; error: string | null }> {
   const supabase = await createClient()
 
-  const { data: countryRecord } = await (supabase as any)
+  const { data: countryRecord } = await supabase
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -38,7 +38,7 @@ export async function getLatestIdPreview(countryName: string): Promise<{ preview
   if (!countryRecord) return { previewId: null, error: "Country not configured." }
   const prefix = countryRecord.iso_code
 
-  const { data: siblingRecords } = await (supabase as any)
+  const { data: siblingRecords } = await supabase
     .from('children')
     .select('id_rolf')
     .like('id_rolf', `${prefix}-%`)
@@ -67,7 +67,7 @@ export async function checkRolfIdForRegistration(
   const supabase = await createClient()
   const adminSupabase = await createAdminClient()
 
-  const { data: countryData } = await (supabase as any)
+  const { data: countryData } = await supabase
     .from('countries')
     .select('iso_code')
     .eq('name', countryName.trim())
@@ -119,7 +119,7 @@ export async function registerChildAction(
   const supabase = await createClient()
   const adminSupabase = await createAdminClient()
 
-  const { data: countryRecord, error: countryError } = await (supabase as any)
+  const { data: countryRecord, error: countryError } = await supabase
     .from('countries')
     .select('iso_code')
     .eq('name', input.country.trim())
@@ -157,7 +157,7 @@ export async function registerChildAction(
     : null
 
   // ⚡ 1. INSERT BASE CHILD PROFILE FIRST (Set media links to null temporarily to bypass FK constraints)
-  const { data: insertedChild, error: insertError } = await (supabase as any)
+  const { data: insertedChild, error: insertError } = await supabase
     .from('children')
     .insert({
       id_rolf: targetRolfId,
@@ -195,7 +195,7 @@ export async function registerChildAction(
     if (input.profile_photo && input.profile_photo.startsWith("https://")) {
       const extractedFileId = input.profile_photo.split('/d/')[1]?.split('/')[0] || `photo-${Date.now()}`
       
-      const { data: photoMediaRow } = await (adminSupabase as any)
+      const { data: photoMediaRow } = await adminSupabase
         .from('child_media')
         .insert({
           child_id: childId,
@@ -216,7 +216,7 @@ export async function registerChildAction(
     if (input.profile_video && input.profile_video.startsWith("https://")) {
       const extractedFileId = input.profile_video.split('/d/')[1]?.split('/')[0] || `video-${Date.now()}`
       
-      const { data: videoMediaRow } = await (adminSupabase as any)
+      const { data: videoMediaRow } = await adminSupabase
         .from('child_media')
         .insert({
           child_id: childId,
@@ -236,7 +236,7 @@ export async function registerChildAction(
 
     // ⚡ 3. BACKFILL THE NEWLY PRODUCED UUID CODES STRAIGHT INTO THE CHILD ROW
     if (finalPhotoUuid || finalVideoUuid) {
-      await (adminSupabase as any)
+      await adminSupabase
         .from('children')
         .update({
           profile_photo: finalPhotoUuid,
@@ -244,7 +244,7 @@ export async function registerChildAction(
         })
         .eq('id', childId)
     }
-  } catch (mediaError: any) {
+  } catch (mediaError) {
     console.error("Failed to commit secondary registration media dependencies:", mediaError)
   }
 

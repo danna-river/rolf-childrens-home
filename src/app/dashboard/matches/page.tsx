@@ -42,6 +42,11 @@ type Match = {
   country: string
 }
 
+/** Raw query shape: profile_photo arrives as an embedded child_media ref, not a flat URL. */
+type MatchQueryRow = Omit<MatchRow, 'child'> & {
+  child: (Omit<NonNullable<MatchRow['child']>, 'profile_photo'> & { profile_photo: { url: string } | null }) | null
+}
+
 const FREQUENCY_SHORT: Record<string, string> = {
   one_time: 'one-time',
   weekly: '/wk',
@@ -233,11 +238,11 @@ export default async function MatchesPage() {
 
   const { data, error } = await query
 
-  const rows = (data ?? []) as unknown as any[]
+  const rows = (data ?? []) as unknown as MatchQueryRow[]
 
   // ⚡ UPDATE: Flatten the relational url property object back to a simple text property
   const matches: Match[] = rows
-    .filter((row): row is any & { child: any; sponsor: any } =>
+    .filter((row): row is MatchQueryRow & { child: NonNullable<MatchQueryRow['child']>; sponsor: NonNullable<MatchQueryRow['sponsor']> } =>
       row.child !== null && row.sponsor !== null,
     )
     .map((row) => ({

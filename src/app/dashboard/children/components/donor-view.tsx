@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import type { Child, ChildUpdate, Sponsorship } from '@/lib/types'
+import type { Child, ChildUpdate, ChildWithMediaRefs, Sponsorship } from '@/lib/types'
 import { calculateAge } from '@/components/actions'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 
@@ -22,6 +22,11 @@ type DonorSponsorshipRow = Pick<
   'id' | 'child_id' | 'status' | 'start_date' | 'end_date' | 'amount' | 'frequency'
 > & {
   child: Child | Child[] | null
+}
+
+/** Raw query shape: the embedded child arrives with child_media refs instead of flat URLs. */
+type DonorSponsorshipQueryRow = Omit<DonorSponsorshipRow, 'child'> & {
+  child: ChildWithMediaRefs | ChildWithMediaRefs[] | null
 }
 
 type DonorChildProfile = {
@@ -640,7 +645,7 @@ async function DonorChildren() {
   const supabase = await createClient()
 
   // ⚡ UPDATE: Update the sub-select query to pull media URLs from child_media
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('sponsorships')
     .select(`
       id,
@@ -658,11 +663,11 @@ async function DonorChildren() {
     `)
     .eq('status', 'active')
     .not('child_id', 'is', null)
-    .order('start_date', { ascending: true })
+    .order('start_date', { ascending: true }) as { data: DonorSponsorshipQueryRow[] | null; error: unknown }
 
-  // ⚡ UPDATE: Map and flatten the sub-joined media arrays back into simple URL strings 
-  const processedRows = ((data ?? []) as any[]).map((row) => {
-    if (!row.child || Array.isArray(row.child)) return row;
+  // ⚡ UPDATE: Map and flatten the sub-joined media arrays back into simple URL strings
+  const processedRows: DonorSponsorshipRow[] = (data ?? []).map((row) => {
+    if (!row.child || Array.isArray(row.child)) return row as unknown as DonorSponsorshipRow;
     return {
       ...row,
       child: {
@@ -673,7 +678,7 @@ async function DonorChildren() {
     };
   });
 
-  const profiles = donorProfilesFromRows(processedRows as DonorSponsorshipRow[])
+  const profiles = donorProfilesFromRows(processedRows)
   const children = profiles.map((profile) => profile.child)
   const count = profiles.length
   const countries = Array.from(
@@ -696,8 +701,7 @@ async function DonorChildren() {
   let updatesByChildId = new Map<string, DonorChildUpdate>()
 
   if (children.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updatesResult = await (supabase as any)
+    const updatesResult = await supabase
       .from('child_updates')
       .select('child_id, title, body, created_at')
       .eq('visible_to_donor', true)

@@ -127,6 +127,7 @@ export function MediaPicker({
         isPhoto ? (
           <div className="flex flex-col items-center gap-2">
             <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime. */}
               <img src={resolvePhotoSrc(previewSrc) ?? previewSrc} alt="preview" referrerPolicy="no-referrer" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
               {uploading && (
                 <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">

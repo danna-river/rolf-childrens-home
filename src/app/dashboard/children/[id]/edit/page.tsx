@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { EditChildForm } from './EditChildForm'
 import { isAdminRole } from '@/lib/profiles'
-import type { Child } from '@/lib/types'
+import type { Child, ChildWithMediaRefs } from '@/lib/types'
 
 type CountryRow = {
   name: string
@@ -38,7 +38,7 @@ export default async function EditChildPage({
       profile_video:child_media!fk_children_profile_video(id, url)
     `)
     .eq('id', id)
-    .maybeSingle() as { data: any | null; error: unknown }
+    .maybeSingle() as { data: ChildWithMediaRefs | null; error: unknown }
 
   if (!rawChild) return redirect('/dashboard/children')
 
