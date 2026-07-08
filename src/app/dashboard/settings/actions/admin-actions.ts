@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
+import { sendAccountApprovedEmail, sendAccountDeniedEmail } from '@/lib/email'
 
 // Security Guard to ensure only true administrators hit these endpoints
 async function verifyAdminGate() {
@@ -16,8 +17,15 @@ async function verifyAdminGate() {
 
 export async function approveAccountAction(userId: string, role: string, countries: string[]) {
   await verifyAdminGate()
-  
+
   const adminSupabase = await createAdminClient()
+
+  // Fetch profile before update so we have email + name for the notification
+  const { data: profile } = await (adminSupabase as any)
+    .from('profiles')
+    .select('email, full_name')
+    .eq('id', userId)
+    .single()
 
   // 🌟 FIX: Use empty array '{}' instead of null to match your native text[] column migration bounds
   const { error } = await (adminSupabase as any)
@@ -30,14 +38,30 @@ export async function approveAccountAction(userId: string, role: string, countri
 
   if (error) return { error: error.message }
 
+  if (profile?.email) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    try {
+      await sendAccountApprovedEmail(profile.email, profile.full_name ?? 'there', role, appUrl)
+    } catch (err) {
+      console.error('[approveAccount] email error:', err)
+    }
+  }
+
   revalidatePath('/dashboard/settings')
   return { success: true }
 }
 
 export async function denyAccountAction(userId: string) {
   await verifyAdminGate()
-  
+
   const adminSupabase = await createAdminClient()
+
+  // Fetch before delete so we can email the denied user
+  const { data: profile } = await (adminSupabase as any)
+    .from('profiles')
+    .select('email, full_name')
+    .eq('id', userId)
+    .single()
 
   const { error: dbError } = await adminSupabase
     .from('profiles')
@@ -47,6 +71,14 @@ export async function denyAccountAction(userId: string) {
 
   const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
   if (authError) return { error: authError.message }
+
+  if (profile?.email) {
+    try {
+      await sendAccountDeniedEmail(profile.email, profile.full_name ?? 'there')
+    } catch (err) {
+      console.error('[denyAccount] email error:', err)
+    }
+  }
 
   revalidatePath('/dashboard/settings')
   return { success: true }

@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { sendPasswordChangedEmail } from '@/lib/email'
+import { isLocale, type Locale } from '@/i18n/config'
 
 export async function updateProfileName(fullName: string) {
   const supabase = await createClient()
@@ -30,6 +32,32 @@ export async function updateProfileName(fullName: string) {
   return { success: true }
 }
 
+export async function updateUiLocale(locale: Locale) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: 'Session expired or unauthorized.' }
+  }
+
+  if (!isLocale(locale)) {
+    return { success: false, error: 'Unsupported language.' }
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ui_locale: locale })
+    .eq('id', user.id)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
+
 export async function updateAccountPassword(password: string) {
   const supabase = await createClient()
 
@@ -50,6 +78,19 @@ export async function updateAccountPassword(password: string) {
 
   if (error) {
     return { success: false, error: error.message }
+  }
+
+  // Fetch name for the email — user.email is already available from getUser above
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  try {
+    await sendPasswordChangedEmail(user.email!, profile?.full_name ?? 'there')
+  } catch (err) {
+    console.error('[updatePassword] email error:', err)
   }
 
   return { success: true }

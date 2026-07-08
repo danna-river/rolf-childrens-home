@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/pending-accounts-digest",
+      "schedule": "30 16 * * 1-5"
+    },
+    {
+      "path": "/api/cron/heartbeat",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

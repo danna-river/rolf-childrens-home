@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { sendRegistrationReceivedEmail } from '@/lib/email'
 
 export async function loginAction(formData: FormData) {
   const email = formData.get('email') as string
@@ -35,7 +36,7 @@ export async function signUpAction(formData: FormData) {
 
   const supabase = await createClient()
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -50,71 +51,44 @@ export async function signUpAction(formData: FormData) {
     return { error: error.message }
   }
 
-  // Non-OTP Version (Remove block once OTP added)
+  // Email confirmation is enabled in Supabase, so signUp emails a 6-digit code
+  // (delivered via the Supabase SMTP → Resend integration) and does NOT create
+  // a session. The profiles row is created by the on_auth_user_created trigger.
+  // The user verifies the code next via verifyOtpAction — don't redirect or send
+  // our own email here, since the address isn't confirmed yet.
+  return { success: true, email }
+}
+
+export async function verifyOtpAction(email: string, token: string) {
+  const supabase = await createClient()
+
+  if (!email || !token || token.trim().length !== 6) {
+    return { error: 'A valid 6-digit verification code is required.' }
+  }
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'signup',
+  })
+  if (error) {
+    return { error: error.message }
+  }
+
+  // Email is now confirmed and a session exists. The profiles row already exists
+  // (on_auth_user_created trigger) — do NOT insert it. Send the "received,
+  // pending approval" confirmation now that the address is verified.
   if (data?.user) {
-    const fullName = data.user.user_metadata?.full_name
-
-    const { error } = await supabase
-    .from('profiles')
-    .insert({
-      id: data.user.id,
-      email: email,
-      full_name: fullName,
-      role: 'unapproved',
-      country: null
-    } as any)
-
-    if (error) {
-      return { error: error.message }
+    const fullName = data.user.user_metadata?.full_name ?? ''
+    try {
+      await sendRegistrationReceivedEmail(email, fullName)
+    } catch (err) {
+      console.error('[verifyOtp] registration email error:', err)
     }
   }
 
   redirect('/dashboard')
-
-  /*
-  return { success: true, email }
-  */
 }
-
-// Non-OTP Version (Remove block once OTP added)
-/*
-export async function verifyOtpAction(email: string, token: string) {
-    const supabase = await createClient()
-
-    if (!email || !token || token.trim().length !== 6) {
-      return { error: 'A valid 6-digit verification code is required.' }
-    }
-    
-    const {data, error} = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'signup'
-    })
-    if (error) {
-      return { error: error.message }
-    }
-
-    if (data?.user) {
-      const fullName = data.user.user_metadata?.full_name
-
-      const { error } = await supabase
-      .from('profiles')
-      .insert({
-        id: data.user.id,
-        email: email,
-        full_name: fullName,
-        role: 'unapproved',
-        country: null
-      } as any)
-
-      if (error) {
-        return { error: error.message }
-      }
-    }
-
-    redirect('/dashboard')
-}
-*/
 
 export async function signOutAction() {
   const supabase = await createClient()

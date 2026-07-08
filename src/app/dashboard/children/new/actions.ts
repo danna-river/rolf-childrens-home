@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
+import { ageFromBirthParts, ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
 
@@ -20,7 +21,8 @@ export type RegisterChildInput = {
   favorite_subject: string
   hobby: string
   bio?: string
-  profile_photo?: string | null // Accepts UUID strings OR temporary direct upload text links
+  notes?: string
+  profile_photo?: string | null
   profile_video?: string | null
 }
 
@@ -146,6 +148,14 @@ export async function registerChildAction(
 
   const display_name = `${input.first_name} ${input.last_name}`.trim()
 
+  const normalizedBio = input.bio
+    ? ensureBioIncludesAgeAndCountry(input.bio, {
+        age: ageFromBirthParts(input.birth_year, input.birth_month, input.birth_day),
+        country: input.country,
+        homeDuration: homeDurationFromDate(input.date_joined ?? (input.year_joined ? `${input.year_joined}-01-01` : null)),
+      })
+    : null
+
   // ⚡ 1. INSERT BASE CHILD PROFILE FIRST (Set media links to null temporarily to bypass FK constraints)
   const { data: insertedChild, error: insertError } = await (supabase as any)
     .from('children')
@@ -163,7 +173,8 @@ export async function registerChildAction(
       career_aspiration: input.career_aspiration,
       favorite_subject: input.favorite_subject,
       hobby: input.hobby,
-      bio: input.bio ?? null,
+      bio: normalizedBio,
+      notes: input.notes ?? null,
       profile_photo: null,  // 👈 Nullified initial link fields
       profile_video: null,  // 👈 Nullified initial link fields
       status: 'active',

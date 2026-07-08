@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /Users/dannaduarte/ROLF/rolf-childrens-home *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"tsc exit: $?\")"
+    ],
+    "additionalDirectories": [
+      "/Users/dannaduarte/ROLF/rolf-childrens-home/src/app/dashboard/children/[id]/components"
+    ]
+  }
+}

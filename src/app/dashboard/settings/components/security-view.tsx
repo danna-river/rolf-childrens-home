@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { updateAccountPassword } from '../actions/actions'
+import { useTranslations } from '@/i18n/client'
 
 export function SecurityView() {
+  const t = useTranslations()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -14,7 +16,7 @@ export function SecurityView() {
     setMessage(null)
 
     if (password !== confirmPassword) {
-      return setMessage({ type: 'error', text: 'Passwords do not match.' })
+      return setMessage({ type: 'error', text: t('settings.security.passwordsMismatch') })
     }
 
     setLoading(true)
@@ -22,41 +24,41 @@ export function SecurityView() {
     setLoading(false)
 
     if (result.success) {
-      setMessage({ type: 'success', text: 'Password reset completed successfully.' })
+      setMessage({ type: 'success', text: t('settings.security.passwordUpdated') })
       setPassword('')
       setConfirmPassword('')
     } else {
-      setMessage({ type: 'error', text: result.error || 'Failed to update password.' })
+      setMessage({ type: 'error', text: result.error || t('settings.security.passwordError') })
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="google-sans-registry p-5 sm:p-6 bg-white rounded-md border border-stone space-y-4 max-w-md shadow-sm">
       <div className="border-b border-stone pb-3">
-        <h3 className="text-base font-bold tracking-tight text-navy sm:text-lg">Security Credentials</h3>
-        <p className="text-xs font-medium text-navy/55 mt-0.5">Change or refresh your system authentication passwords.</p>
+        <h3 className="text-base font-bold tracking-tight text-navy sm:text-lg">{t('settings.security.title')}</h3>
+        <p className="text-xs font-medium text-navy/55 mt-0.5">{t('settings.security.description')}</p>
       </div>
 
       <div className="space-y-1.5">
-        <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">New Password</label>
+        <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">{t('settings.security.newPassword')}</label>
         <input 
           type="password" 
           value={password} 
           onChange={(e) => setPassword(e.target.value)} 
           className="font-semibold w-full text-xs px-3 py-2 bg-white border border-stone rounded-md text-navy placeholder:text-navy/30 placeholder:font-normal focus:border-teal focus:outline-none transition-colors"
-          placeholder="At least 6 characters"
+          placeholder={t('settings.security.newPasswordPlaceholder')}
           required
         />
       </div>
 
       <div className="space-y-1.5">
-        <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">Confirm New Password</label>
+        <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">{t('settings.security.confirmPassword')}</label>
         <input 
           type="password" 
           value={confirmPassword} 
           onChange={(e) => setConfirmPassword(e.target.value)} 
           className="font-semibold w-full text-xs px-3 py-2 bg-white border border-stone rounded-md text-navy placeholder:text-navy/30 placeholder:font-normal focus:border-teal focus:outline-none transition-colors"
-          placeholder="Repeat password"
+          placeholder={t('settings.security.confirmPasswordPlaceholder')}
           required
         />
       </div>
@@ -72,7 +74,7 @@ export function SecurityView() {
         disabled={loading || !password || !confirmPassword}
         className="w-full py-2.5 bg-teal hover:bg-teal/90 text-white font-bold rounded-md text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
       >
-        {loading ? 'Updating Credentials...' : 'Change Password'}
+        {loading ? t('settings.security.updating') : t('settings.security.changePassword')}
       </button>
     </form>
   )

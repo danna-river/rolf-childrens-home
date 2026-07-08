@@ -1,12 +1,12 @@
 "use client"
 import { useRef, useState } from "react"
 import {
-  DRIVE_SHARE_HINT,
   extractDriveFileId,
   getDriveVideoPreview,
   isGoogleDriveUrl,
   resolvePhotoSrc,
 } from "@/lib/childMedia"
+import { useTranslations } from "@/i18n/client"
 
 const MAX_MB = { photo: 15, video: 50 }
 const ACCEPT = { photo: "image/*", video: "video/*" }
@@ -35,6 +35,7 @@ export function MediaPicker({
   type, value, onChange, existingUrl, onError, onUploadStart, onUploadEnd,
   allowDriveLink = true, childMeta,
 }: MediaPickerProps) {
+  const t = useTranslations()
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -50,7 +51,12 @@ export function MediaPicker({
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > MAX_MB[type] * 1024 * 1024) {
-      onError?.(`${isPhoto ? "Photo" : "Video"} must be under ${MAX_MB[type]} MB.`)
+      onError?.(
+        t(isPhoto ? "children.media.photoTooLarge" : "children.media.videoTooLarge").replace(
+          "{size}",
+          String(MAX_MB[type]),
+        ),
+      )
       e.target.value = ""
       return
     }
@@ -70,8 +76,8 @@ export function MediaPicker({
     const res = await fetch("/api/upload", { method: "POST", body })
 
     if (!res.ok) {
-      const { error } = await res.json().catch(() => ({ error: "Upload failed." }))
-      onError?.(error ?? "Upload failed. Please try again.")
+      const { error } = await res.json().catch(() => ({ error: t("children.media.uploadFailed") }))
+      onError?.(error ?? t("children.media.uploadFailedRetry"))
       setLocalPreview(null)
       setUploading(false)
       onUploadEnd?.()
@@ -91,7 +97,7 @@ export function MediaPicker({
   const handleDriveApply = () => {
     const link = driveInput.trim()
     if (!extractDriveFileId(link) || !isGoogleDriveUrl(link)) {
-      onError?.("Enter a valid Google Drive share link.")
+      onError?.(t("children.media.invalidDriveLink"))
       return
     }
     onError?.(null)
@@ -124,39 +130,43 @@ export function MediaPicker({
               <img src={resolvePhotoSrc(previewSrc) ?? previewSrc} alt="preview" referrerPolicy="no-referrer" className="h-36 w-36 rounded-full object-cover border-4 border-blue-100" />
               {uploading && (
                 <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
-                  <span className="text-xs text-white font-medium">Uploading…</span>
+                  <span className="text-xs text-white font-medium">{t("children.media.uploadingPhoto")}</span>
                 </div>
               )}
             </div>
-            {isDriveValue && <p className="text-xs text-gray-400">Google Drive link</p>}
-            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-orange-500">Upload new profile photo</button>}
+            {isDriveValue && <p className="text-xs text-gray-400">{t("children.media.driveLink")}</p>}
+            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">{t("children.media.removePhoto")}</button>}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {uploading ? (
               <div className="w-full aspect-video bg-gray-100 rounded-xl flex items-center justify-center">
-                <p className="text-xs text-blue-500 font-medium">Uploading video…</p>
+                <p className="text-xs text-blue-500 font-medium">{t("children.media.uploadingVideo")}</p>
               </div>
             ) : isDriveValue ? (
               <iframe
                 src={getDriveVideoPreview(extractDriveFileId(value) as string)}
                 allow="autoplay"
                 allowFullScreen
-                title="video preview"
+                title={t("children.media.videoPreviewTitle")}
                 className="w-full aspect-video rounded-xl"
               />
             ) : (
               <video src={previewSrc} controls className="w-full rounded-xl max-h-48" />
             )}
-            {isDriveValue && <p className="text-xs text-gray-400">Google Drive link</p>}
-            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-orange-500">Upload new profile video</button>}
+            {isDriveValue && (
+              <p className="text-xs text-gray-400">
+                {t("children.media.driveVideoProcessing")}
+              </p>
+            )}
+            {!uploading && <button type="button" onClick={handleRemove} className="text-xs text-red-500">{t("children.media.removeVideo")}</button>}
           </div>
         )
       ) : (
         <div className="space-y-2">
           {isPhoto && existingUrl && (
             <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-              Existing photo on file — select below to replace it.
+              {t("children.media.existingPhoto")}
             </p>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -164,14 +174,14 @@ export function MediaPicker({
               className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
               <span className="text-2xl">{isPhoto ? "📷" : "🎥"}</span>
               <span className="text-xs font-medium text-gray-600">
-                {isPhoto ? (existingUrl ? "Retake Photo" : "Take Photo") : "Record Video"}
+                {isPhoto ? (existingUrl ? t("children.media.retakePhoto") : t("children.media.takePhoto")) : t("children.media.recordVideo")}
               </span>
             </button>
             <button type="button" onClick={() => uploadRef.current?.click()}
               className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
               <span className="text-2xl">{isPhoto ? "🖼️" : "📁"}</span>
               <span className="text-xs font-medium text-gray-600">
-                {isPhoto ? (existingUrl ? "Replace File" : "Upload File") : "Upload File"}
+                {isPhoto ? (existingUrl ? t("children.media.replaceFile") : t("children.media.uploadFile")) : t("children.media.uploadFile")}
               </span>
             </button>
           </div>
@@ -187,15 +197,15 @@ export function MediaPicker({
                   placeholder="https://drive.google.com/file/d/…"
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
                 />
-                <p className="text-xs text-gray-400">{DRIVE_SHARE_HINT}</p>
+                <p className="text-xs text-gray-400">{t("children.media.driveHint")}</p>
                 <div className="flex gap-2">
                   <button type="button" onClick={handleDriveApply}
                     className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
-                    Use link
+                    {t("children.media.useLink")}
                   </button>
                   <button type="button" onClick={() => { setShowDrive(false); setDriveInput(""); onError?.(null) }}
                     className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700">
-                    Cancel
+                    {t("children.media.cancel")}
                   </button>
                 </div>
               </div>
@@ -203,13 +213,13 @@ export function MediaPicker({
               <button type="button" onClick={() => setShowDrive(true)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-white py-3 hover:border-blue-300 transition-colors">
                 <span className="text-base">🔗</span>
-                <span className="text-xs font-medium text-gray-600">Use Google Drive link</span>
+                <span className="text-xs font-medium text-gray-600">{t("children.media.useDriveLink")}</span>
               </button>
             )
           )}
 
           {!isPhoto && !showDrive && (
-            <p className="text-xs text-gray-400 text-center">Child states their name, then does an activity</p>
+            <p className="text-xs text-gray-400 text-center">{t("children.media.videoInstruction")}</p>
           )}
         </div>
       )}

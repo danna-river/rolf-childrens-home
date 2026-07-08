@@ -1,7 +1,7 @@
 import { requireAuth } from '@/lib/auth'
 import { AuthorizedView } from '@/app/dashboard/components/authorized-view'
 import { UnapprovedView } from '@/app/dashboard/components/unapproved-view'
-import { isAdminRole, isStaffRole, isUnapprovedRole, type UserProfile } from '@/lib/profiles'
+import { isAdminRole, isStaffRole, isUnapprovedRole } from '@/lib/profiles'
 
 export default async function DashboardOrchestratorPage() {
   const { user, profile } = await requireAuth({allowUnapproved: true})
@@ -10,14 +10,14 @@ export default async function DashboardOrchestratorPage() {
     return <UnapprovedView email={user.email || ''} />
   }
 
-  let identityTitle = 'Donor Portal'
-  if (isAdminRole(profile.role)) identityTitle = 'Administrator Portal'
-  if (isStaffRole(profile.role)) identityTitle = 'Regional Staff Portal'
+  let portalType: 'admin' | 'staff' | 'donor' = 'donor'
+  if (isAdminRole(profile.role)) portalType = 'admin'
+  if (isStaffRole(profile.role)) portalType = 'staff'
 
   return (
     <AuthorizedView 
       email={user.email || ''} 
-      identityTitle={identityTitle} 
+      portalType={portalType}
     />
   )
 }

@@ -1,16 +1,9 @@
 "use client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
-
-const OPTIONS = [
-  { value: "name_asc", label: "Name A–Z" },
-  { value: "name_desc", label: "Name Z–A" },
-  { value: "age_asc", label: "Youngest" },
-  { value: "age_desc", label: "Oldest" },
-  { value: "rolf_id_asc", label: "ID ↑" },
-  { value: "rolf_id_desc", label: "ID ↓" },
-]
+import { useTranslations } from "@/i18n/client"
 
 export function SortFilter() {
+  const t = useTranslations()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -23,11 +16,20 @@ export function SortFilter() {
     router.replace(`${pathname}?${params.toString()}`)
   }
 
+  const options = [
+    { value: "name_asc", label: t("children.filters.nameAsc") },
+    { value: "name_desc", label: t("children.filters.nameDesc") },
+    { value: "age_asc", label: t("children.filters.youngest") },
+    { value: "age_desc", label: t("children.filters.oldest") },
+    { value: "rolf_id_asc", label: t("children.filters.idAsc") },
+    { value: "rolf_id_desc", label: t("children.filters.idDesc") },
+  ]
+
   return (
     <div>
-      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">Sort</p>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">{t("children.filters.sort")}</p>
       <div className="flex flex-wrap gap-1.5">
-        {OPTIONS.map((opt) => (
+        {options.map((opt) => (
           <button
             key={opt.value}
             type="button"

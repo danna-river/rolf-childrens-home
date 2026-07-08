@@ -5,6 +5,9 @@ import { isAdminRole, isStaffRole } from '@/lib/profiles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolvePhotoSrc } from '@/lib/childMedia'
 import { RegistryHeader } from '@/app/dashboard/children/components/registry-page-layout'
+import { getMessages, getUserLocale } from '@/i18n/server'
+import type { Locale } from '@/i18n/config'
+import type { MessageKey, Messages } from '@/i18n/locales/en'
 
 type MatchRow = {
   id: string
@@ -49,11 +52,15 @@ const FREQUENCY_SHORT: Record<string, string> = {
   annual: '/yr',
 }
 
-function childDisplayName(child: NonNullable<MatchRow['child']>): string {
+function t(messages: Messages, key: MessageKey): string {
+  return messages[key]
+}
+
+function childDisplayName(child: NonNullable<MatchRow['child']>, messages: Messages): string {
   return (
     [child.first_name, child.last_name].filter(Boolean).join(' ') ||
     child.display_name ||
-    'Unnamed'
+    t(messages, 'matches.card.unnamedChild')
   )
 }
 
@@ -75,14 +82,14 @@ function formatContribution(amount: number | null, frequency: string | null): st
 }
 
 
-function shortDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
+function shortDate(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
     new Date(`${iso}T12:00:00`),
   )
 }
 
-function MatchCard({ match }: { match: Match }) {
-  const name = childDisplayName(match.child)
+function MatchCard({ match, locale, messages }: { match: Match; locale: Locale; messages: Messages }) {
+  const name = childDisplayName(match.child, messages)
   const photoSrc = resolvePhotoSrc(match.child.profile_photo, 200)
   const contribution = formatContribution(match.amount, match.frequency)
 
@@ -141,7 +148,7 @@ function MatchCard({ match }: { match: Match }) {
               </span>
             )}
             <span className="inline-flex items-center rounded-md bg-stone/70 px-2 py-0.5 text-[11px] font-medium text-navy/60">
-              {shortDate(match.startDate)} — {match.endDate ? shortDate(match.endDate) : 'Ongoing'}
+              {shortDate(match.startDate, locale)} — {match.endDate ? shortDate(match.endDate, locale) : t(messages, 'matches.card.ongoing')}
             </span>
           </div>
         </div>
@@ -150,7 +157,7 @@ function MatchCard({ match }: { match: Match }) {
   )
 }
 
-function CountrySection({ country, matches }: { country: string; matches: Match[] }) {
+function CountrySection({ country, matches, locale, messages }: { country: string; matches: Match[]; locale: Locale; messages: Messages }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
@@ -165,7 +172,7 @@ function CountrySection({ country, matches }: { country: string; matches: Match[
       </div>
       <div className="grid gap-2 sm:gap-3">
         {matches.map((match) => (
-          <MatchCard key={match.id} match={match} />
+          <MatchCard key={match.id} match={match} locale={locale} messages={messages} />
         ))}
       </div>
     </section>
@@ -184,11 +191,13 @@ function StatPill({ label, value }: { label: string; value: number }) {
 }
 
 export default async function MatchesPage() {
-  const { profile } = await requireAuth()
+  const { user, profile } = await requireAuth()
 
   if (!isAdminRole(profile.role) && !isStaffRole(profile.role)) {
     redirect('/dashboard')
   }
+  const locale = await getUserLocale(user.id)
+  const messages = getMessages(locale)
 
   const supabase = createAdminClient()
 
@@ -242,7 +251,7 @@ export default async function MatchesPage() {
         profile_photo: row.child.profile_photo?.url ?? null, // Safely maps out image link strings
       },
       sponsor: row.sponsor,
-      country: row.child.country ?? 'Unknown',
+      country: row.child.country ?? t(messages, 'matches.card.unknownCountry'),
     }))
 
   const byCountry = new Map<string, Match[]>()
@@ -258,36 +267,36 @@ export default async function MatchesPage() {
   const isAdmin = isAdminRole(profile.role)
 
   const regionLabel = isAdmin
-    ? 'All regions'
-    : (profile.country?.join(', ') ?? 'Your region')
+    ? t(messages, 'matches.header.allRegions')
+    : (profile.country?.join(', ') ?? t(messages, 'matches.header.yourRegion'))
 
   return (
     <main className="google-sans-registry min-h-[calc(100svh-4rem)] bg-ice pb-12">
       <RegistryHeader
-        badge={isAdmin ? 'Admin Portal' : 'Staff Portal'}
+        badge={isAdmin ? t(messages, 'matches.header.adminBadge') : t(messages, 'matches.header.staffBadge')}
         eyebrow={regionLabel}
-        title="Matches"
-        subtitle="Children currently sponsored, grouped by country."
+        title={t(messages, 'matches.registry.title')}
+        subtitle={t(messages, 'matches.registry.subtitle')}
       />
 
       <div className="mx-auto max-w-4xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
         {/* Summary stats */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <StatPill label="Active matches" value={totalMatches} />
-          <StatPill label="Countries" value={totalCountries} />
+          <StatPill label={t(messages, 'matches.stats.activeMatches')} value={totalMatches} />
+          <StatPill label={t(messages, 'matches.stats.countries')} value={totalCountries} />
           <div className="col-span-2 flex items-center justify-center gap-3 rounded-xl border border-teal/20 bg-teal/5 px-5 py-4 sm:col-span-1">
             <HeartHandshake className="size-6 shrink-0 text-teal" aria-hidden="true" />
             <p className="text-sm font-semibold leading-snug text-teal">
               {totalMatches === 1
-                ? '1 child is being supported'
-                : `${totalMatches} children are being supported`}
+                ? t(messages, 'matches.stats.supportedSingular')
+                : t(messages, 'matches.stats.supportedPlural').replace('{count}', totalMatches.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US'))}
             </p>
           </div>
         </div>
 
         {error && (
           <div className="rounded-xl border border-destructive/20 bg-white px-5 py-4 text-sm font-semibold text-destructive shadow-sm">
-            Could not load matches. Please refresh or contact your administrator.
+            {t(messages, 'matches.error.load')}
           </div>
         )}
 
@@ -297,9 +306,9 @@ export default async function MatchesPage() {
               <Users className="size-7" aria-hidden="true" />
             </div>
             <div>
-              <p className="text-lg font-bold text-navy">No active matches</p>
+              <p className="text-lg font-bold text-navy">{t(messages, 'matches.empty.title')}</p>
               <p className="mt-1 text-sm font-medium text-navy/55">
-                No children in your region have an active sponsorship yet.
+                {t(messages, 'matches.empty.description')}
               </p>
             </div>
           </div>
@@ -310,6 +319,8 @@ export default async function MatchesPage() {
             key={country}
             country={country}
             matches={byCountry.get(country)!}
+            locale={locale}
+            messages={messages}
           />
         ))}
       </div>

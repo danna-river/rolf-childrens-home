@@ -1,7 +1,9 @@
 "use client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useTranslations } from "@/i18n/client"
 
 export function CountryFilter({ countries }: { countries: string[] }) {
+  const t = useTranslations()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -16,13 +18,13 @@ export function CountryFilter({ countries }: { countries: string[] }) {
   }
 
   const options = [
-    { value: "all", label: "All" },
+    { value: "all", label: t("children.filters.all") },
     ...countries.map((c) => ({ value: c, label: c })),
   ]
 
   return (
     <div>
-      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">Country</p>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">{t("children.filters.country")}</p>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
           <button

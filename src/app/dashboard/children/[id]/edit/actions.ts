@@ -4,6 +4,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
+import { ageFromBirthParts, ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
 import { commitStagedFilesToCountry, moveFileToSystemTrash } from '@/lib/googleDrive'
@@ -167,6 +168,16 @@ export async function updateChildAction(
   }
 
   const actorFullName = actorProfile.full_name || 'Unknown User'
+  const normalizedInput: UpdateChildInput = {
+    ...input,
+    bio: input.bio
+      ? ensureBioIncludesAgeAndCountry(input.bio, {
+          age: ageFromBirthParts(input.birth_year, input.birth_month, input.birth_day),
+          country: input.country,
+          homeDuration: homeDurationFromDate(input.date_joined ?? (input.year_joined ? `${input.year_joined}-01-01` : null)),
+        })
+      : undefined,
+  }
 
   const changes: Array<{ field: string; from: any; to: any }> = []
   const normalizeDate = (val: any) => val ? new Date(val).toISOString().split('T')[0] : null
@@ -179,7 +190,7 @@ export async function updateChildAction(
 
   fieldsToTrack.forEach((field) => {
     let currentVal = flattenedCurrentChild[field]
-    let newVal = input[field]
+    let newVal = normalizedInput[field]
 
     if (typeof currentVal === 'string') currentVal = currentVal.trim() || null
     if (typeof newVal === 'string') newVal = newVal.trim() || null
@@ -358,7 +369,7 @@ export async function updateChildAction(
     updatedLog = [newLogEntry, ...updatedLog]
   }
 
-  const display_name = `${input.first_name} ${input.last_name}`.trim()
+  const display_name = `${normalizedInput.first_name} ${normalizedInput.last_name}`.trim()
 
   if (stagedFileIds && stagedFileIds.length > 0) {
     await commitStagedFilesToCountry(input.country, stagedFileIds)
@@ -367,24 +378,24 @@ export async function updateChildAction(
   const { error } = await (adminSupabase as any)
     .from('children')
     .update({
-      id_rolf: input.id_rolf.trim().toUpperCase(),
+      id_rolf: normalizedInput.id_rolf.trim().toUpperCase(),
       display_name,
-      first_name: input.first_name,
-      last_name: input.last_name,
-      birth_year: input.birth_year ?? null,
-      birth_month: input.birth_month ?? null,
-      birth_day: input.birth_day ?? null,
-      year_joined: input.year_joined ?? null,
-      date_joined: input.date_joined ?? null,
-      country: input.country,
-      career_aspiration: input.career_aspiration,
-      favorite_subject: input.favorite_subject,
-      hobby: input.hobby,
-      bio: input.bio ?? null,
-      notes: input.notes ?? null,
-      profile_photo: finalPhotoUuid, 
-      profile_video: finalVideoUuid, 
-      status: input.status,
+      first_name: normalizedInput.first_name,
+      last_name: normalizedInput.last_name,
+      birth_year: normalizedInput.birth_year ?? null,
+      birth_month: normalizedInput.birth_month ?? null,
+      birth_day: normalizedInput.birth_day ?? null,
+      year_joined: normalizedInput.year_joined ?? null,
+      date_joined: normalizedInput.date_joined ?? null,
+      country: normalizedInput.country,
+      career_aspiration: normalizedInput.career_aspiration,
+      favorite_subject: normalizedInput.favorite_subject,
+      hobby: normalizedInput.hobby,
+      bio: normalizedInput.bio ?? null,
+      notes: normalizedInput.notes ?? null,
+      profile_photo: finalPhotoUuid,
+      profile_video: finalVideoUuid,
+      status: normalizedInput.status,
       edit_log: updatedLog, 
     })
     .eq('id', id)

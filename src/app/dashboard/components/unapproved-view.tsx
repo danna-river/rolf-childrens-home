@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { ClockIcon } from 'lucide-react'
 import { signOutAction } from '@/app/login/actions'
+import { useTranslations } from '@/i18n/client'
 
 interface UnapprovedViewProps {
   email: string
 }
 
 export function UnapprovedView({ email }: UnapprovedViewProps) {
+  const t = useTranslations()
   const [loading, setLoading] = useState(false)
   const accountInitial = email.trim().charAt(0).toUpperCase() || '?'
 
@@ -18,13 +20,13 @@ export function UnapprovedView({ email }: UnapprovedViewProps) {
 
         <div className="bg-navy px-6 py-5 text-white">
           <div className="mb-3 inline-flex items-center rounded-md border border-amber-400/30 bg-amber-400/12 px-3 py-1 text-xs font-bold uppercase tracking-widest text-amber-400">
-            Pending Approval
+            {t('dashboard.unapproved.badge')}
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">
-            Account access pending
+            {t('dashboard.unapproved.title')}
           </h1>
           <p className="mt-0.5 text-sm font-medium text-white/55">
-            Awaiting administrator authorization
+            {t('dashboard.unapproved.subtitle')}
           </p>
         </div>
 
@@ -32,8 +34,7 @@ export function UnapprovedView({ email }: UnapprovedViewProps) {
           <div className="flex items-start gap-3 text-sm leading-relaxed text-navy/60">
             <ClockIcon className="mt-0.5 size-4 shrink-0 text-navy/35" aria-hidden />
             <p>
-              Your credentials were registered successfully. An administrator must assign you
-              a role before you can access the dashboard.
+              {t('dashboard.unapproved.description')}
             </p>
           </div>
 
@@ -43,7 +44,7 @@ export function UnapprovedView({ email }: UnapprovedViewProps) {
                 {accountInitial}
               </div>
               <div className="w-full min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-navy/45">Signed in as</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-navy/45">{t('dashboard.authorized.signedInAs')}</p>
                 <p className="mt-1 text-base font-semibold text-navy">{email}</p>
               </div>
             </div>
@@ -57,7 +58,7 @@ export function UnapprovedView({ email }: UnapprovedViewProps) {
               disabled={loading}
               className="cursor-pointer text-xs font-medium text-navy/40 transition-colors hover:text-red-600 disabled:text-navy/20"
             >
-              {loading ? 'Signing out…' : 'Sign out'}
+              {loading ? t('dashboard.authorized.signingOut') : t('menu.signOut')}
             </button>
           </form>
         </div>

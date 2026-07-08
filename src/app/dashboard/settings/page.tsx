@@ -2,6 +2,7 @@ import { requireAuth } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { isAdminRole } from '@/lib/profiles'
+import { getUserLocale } from '@/i18n/server'
 
 // View components imports
 import { AccountApprovalView } from '@/app/dashboard/settings/components/admin/account-approval-view'
@@ -26,6 +27,7 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
   const resolvedParams = await searchParams
   const targetTab = resolvedParams.tab || 'profile'
   const isSystemAdmin = isAdminRole(profile.role)
+  const locale = await getUserLocale(user.id)
 
   const supabase = await createClient()
 
@@ -119,6 +121,7 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     <ProfileView 
       initialName={profile?.full_name || ''} 
       email={user?.email || ''} 
+      initialLocale={locale}
     />
   )
 }

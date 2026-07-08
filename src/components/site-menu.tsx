@@ -8,11 +8,11 @@ import {
   XIcon,
   ChevronRightIcon,
   LogOutIcon,
-  UserIcon,
   SettingsIcon,
   UsersIcon,
   HandshakeIcon,
   HeartHandshakeIcon,
+  MailIcon,
 } from "lucide-react"
 
 import { signOutAction } from "@/app/login/actions"
@@ -22,12 +22,14 @@ import {
   isStaffRole,
   isDonorRole,
 } from "@/lib/profiles"
+import { useTranslations } from "@/i18n/client"
+import type { MessageKey } from "@/i18n/locales/en"
 
-function roleLabel(role: string) {
-  if (isAdminRole(role)) return "Administrator"
-  if (isStaffRole(role)) return "Regional Staff"
-  if (isDonorRole(role)) return "Donor"
-  return "Pending Approval"
+function roleLabelKey(role: string): MessageKey {
+  if (isAdminRole(role)) return "role.administrator"
+  if (isStaffRole(role)) return "role.staff"
+  if (isDonorRole(role)) return "role.donor"
+  return "role.pending"
 }
 
 interface SiteMenuProps {
@@ -36,24 +38,28 @@ interface SiteMenuProps {
 }
 
 export function SiteMenu({ email, role }: SiteMenuProps) {
+  const t = useTranslations()
   const links = [
     // Children registry — hidden for users still awaiting approval.
     ...(isUnapprovedRole(role)
       ? []
-      : [{ href: "/dashboard/children", label: "Children", icon: UsersIcon }]),
+      : [{ href: "/dashboard/children", labelKey: "nav.children" as const, icon: UsersIcon }]),
     ...(isAdminRole(role)
-      ? [{ href: "/dashboard/sponsorships", label: "Sponsorships", icon: HandshakeIcon }]
+      ? [{ href: "/dashboard/sponsorships", labelKey: "nav.sponsorships" as const, icon: HandshakeIcon }]
       : []),
     ...((isAdminRole(role) || isStaffRole(role))
-      ? [{ href: "/dashboard/matches", label: "Matches", icon: HeartHandshakeIcon }]
+      ? [{ href: "/dashboard/matches", labelKey: "nav.matches" as const, icon: HeartHandshakeIcon }]
       : []),
-    { href: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
+    ...((isAdminRole(role) || isStaffRole(role))
+      ? [{ href: "/dashboard/letters", labelKey: "nav.messages" as const, icon: MailIcon }]
+      : []),
+    { href: "/dashboard/settings", labelKey: "nav.settings" as const, icon: SettingsIcon },
   ]
 
   return (
     <DialogPrimitive.Root>
       <DialogPrimitive.Trigger
-        aria-label="Open menu"
+        aria-label={t("menu.open")}
         className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         <MenuIcon className="size-6" aria-hidden="true" />
@@ -72,7 +78,7 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
               className="h-12 w-auto"
             />
             <DialogPrimitive.Close
-              aria-label="Close menu"
+              aria-label={t("menu.close")}
               className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               <XIcon className="size-6" aria-hidden="true" />
@@ -80,21 +86,21 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
           </div>
 
           <DialogPrimitive.Title className="sr-only">
-            Main menu
+            {t("menu.main")}
           </DialogPrimitive.Title>
 
           {/* Page links — each closes the menu on navigation */}
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-            {links.map(({ href, label, icon: Icon }) => (
+            {links.map(({ href, labelKey, icon: Icon }) => (
               <DialogPrimitive.Close
-                key={label}
+                key={labelKey}
                 nativeButton={false}
                 className="group flex items-center justify-between rounded-2xl px-4 py-4 text-2xl font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 render={
                   <Link href={href}>
                     <span className="flex items-center gap-4">
                       <Icon className="size-6 text-teal" aria-hidden="true" />
-                      {label}
+                      {t(labelKey)}
                     </span>
                     <ChevronRightIcon
                       className="size-6 text-white/40 transition-transform group-hover:translate-x-0.5"
@@ -109,14 +115,14 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
           {/* Footer: identity + sign out */}
           <div className="shrink-0 border-t border-white/15 px-4 py-5 sm:px-6 lg:px-8">
             <p className="truncate text-sm font-medium">{email}</p>
-            <p className="text-xs text-white/60">{roleLabel(role)}</p>
+            <p className="text-xs text-white/60">{t(roleLabelKey(role))}</p>
             <form action={signOutAction} className="mt-4">
               <button
                 type="submit"
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
               >
                 <LogOutIcon className="size-5" aria-hidden="true" />
-                Sign out
+                {t("menu.signOut")}
               </button>
             </form>
           </div>

@@ -481,11 +481,6 @@ function VideoPanel({ child, accentIndex }: { child: Child; accentIndex: number 
             A message from {firstName}
           </p>
         </div>
-        {video.kind === 'drive' && (
-          <p className="mt-2 text-xs font-medium text-[#9a8d7d]">
-            If the video isn&apos;t playing, it may still be processing — please check back in a few minutes.
-          </p>
-        )}
       </div>
     </section>
   )
@@ -746,11 +741,9 @@ async function DonorChildren() {
               label="Countries"
               value={countries.length.toLocaleString()}
               helper={
-                countries.length === 1
-                  ? countries[0]
-                  : countries.length > 1
-                    ? `${countries.slice(0, 2).join(', ')}${countries.length > 2 ? ' +' : ''}`
-                    : 'Location details pending'
+                countries.length > 0
+                  ? countries.join(', ')
+                  : 'Location details pending'
               }
             />
             <StatCard

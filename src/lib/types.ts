@@ -2,6 +2,7 @@
 // Keep in sync with supabase/schema.sql.
 
 import type { UserRole } from '@/lib/profiles'
+import type { Locale } from '@/i18n/config'
 
 type DatabaseRow<T> = { [Key in keyof T]: T[Key] }
 
@@ -42,6 +43,7 @@ export interface Profile {
   full_name: string | null
   role: Role
   country: string[] | null   // staff only; null for admins and donors
+  ui_locale?: Locale
   created_at: string
 }
 
@@ -137,6 +139,58 @@ export interface Country {
   created_at: string
 }
 
+// --- Pen Pal Letters (moderated donor <-> child correspondence) ---
+
+export type PenPalThreadStatus = 'active' | 'closed'
+export type PenPalDirection = 'donor_to_child' | 'child_to_donor'
+export type PenPalMessageStatus =
+  | 'submitted'
+  | 'under_review'
+  | 'approved'
+  | 'delivered'
+  | 'published'
+  | 'rejected'
+
+export interface PenPalThread {
+  id: string
+  sponsorship_id: string
+  sponsor_id: string
+  child_id: string
+  status: PenPalThreadStatus
+  closed_reason: string | null
+  last_message_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PenPalMessage {
+  id: string
+  thread_id: string
+  direction: PenPalDirection
+  status: PenPalMessageStatus
+  raw_body: string
+  approved_body: string | null
+  author_profile_id: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  delivered_by: string | null
+  delivered_at: string | null
+  published_at: string | null
+  rejection_reason: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PenPalEvent {
+  id: string
+  thread_id: string
+  message_id: string | null
+  actor_profile_id: string | null
+  event_type: string
+  notes: string | null
+  created_at: string
+}
+
 // Minimal Supabase Database type for the typed client.
 export type Database = {
   public: {
@@ -145,6 +199,12 @@ export type Database = {
         Row: DatabaseRow<Profile>
         Insert: Omit<Profile, 'created_at'>
         Update: Partial<Omit<Profile, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      heartbeat: {
+        Row: { id: number; beat_at: string }
+        Insert: { id?: number; beat_at?: string }
+        Update: { id?: number; beat_at?: string }
         Relationships: []
       }
       children: {
@@ -210,6 +270,58 @@ export type Database = {
             referencedColumns: ['id']
           },
         ]
+      }
+      pen_pal_threads: {
+        Row: DatabaseRow<PenPalThread>
+        Insert: {
+          id?: string
+          sponsorship_id: string
+          sponsor_id: string
+          child_id: string
+          status?: PenPalThreadStatus
+          closed_reason?: string | null
+          last_message_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Omit<PenPalThread, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      pen_pal_messages: {
+        Row: DatabaseRow<PenPalMessage>
+        Insert: {
+          id?: string
+          thread_id: string
+          direction: PenPalDirection
+          status?: PenPalMessageStatus
+          raw_body: string
+          approved_body?: string | null
+          author_profile_id?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          delivered_by?: string | null
+          delivered_at?: string | null
+          published_at?: string | null
+          rejection_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Omit<PenPalMessage, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      pen_pal_events: {
+        Row: DatabaseRow<PenPalEvent>
+        Insert: {
+          id?: string
+          thread_id: string
+          message_id?: string | null
+          actor_profile_id?: string | null
+          event_type: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: Partial<Omit<PenPalEvent, 'id' | 'created_at'>>
+        Relationships: []
       }
       child_media: {
         Row: DatabaseRow<ChildMedia>

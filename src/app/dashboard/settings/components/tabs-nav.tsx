@@ -4,27 +4,29 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { isAdminRole } from '@/lib/profiles'
 import { UserIcon, LockIcon, ShieldCheckIcon, GlobeIcon, UsersIcon, FileTextIcon } from 'lucide-react'
+import { useTranslations } from '@/i18n/client'
 
 interface TabsNavProps {
   userRole: string
 }
 
 export function TabsNav({ userRole }: TabsNavProps) {
+  const t = useTranslations()
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab') || 'profile'
   const isSystemAdmin = isAdminRole(userRole)
 
   const tabs = [
-    { id: 'profile', label: 'Personal Profile', icon: UserIcon },
-    { id: 'security', label: 'Password & Security', icon: LockIcon },
+    { id: 'profile', label: t('settings.tabs.profile'), icon: UserIcon },
+    { id: 'security', label: t('settings.tabs.security'), icon: LockIcon },
   ]
 
   if (isSystemAdmin) {
     tabs.push(
-      { id: 'approvals', label: 'Approval Requests', icon: ShieldCheckIcon },
-      { id: 'global_config', label: 'Global Configurations', icon: GlobeIcon },
-      { id: 'manage_users', label: 'Manage Users', icon: UsersIcon },
-      { id: 'intake_form', label: 'Intake Forms', icon: FileTextIcon }
+      { id: 'approvals', label: t('settings.tabs.approvals'), icon: ShieldCheckIcon },
+      { id: 'global_config', label: t('settings.tabs.globalConfig'), icon: GlobeIcon },
+      { id: 'manage_users', label: t('settings.tabs.manageUsers'), icon: UsersIcon },
+      { id: 'intake_form', label: t('settings.tabs.intakeForms'), icon: FileTextIcon }
     )
   }
 
