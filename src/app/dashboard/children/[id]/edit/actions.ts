@@ -1,3 +1,4 @@
+// src/app/dashboard/children/[id]/edit/actions.ts
 "use server"
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -6,6 +7,7 @@ import { requireAuth } from '@/lib/auth'
 import { ageFromBirthParts, ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
+import { commitStagedFilesToCountry, moveFileToSystemTrash } from '@/lib/googleDrive'
 
 export type UpdateChildInput = {
   id_rolf: string
@@ -22,9 +24,35 @@ export type UpdateChildInput = {
   hobby: string
   bio?: string
   notes?: string
-  profile_photo: string | null
-  profile_video: string | null
+  profile_photo: string | null 
+  profile_video: string | null 
   status: 'active' | 'inactive'
+}
+
+// ⚡ HELPER METHOD: Replicates the identical sanitization and structure used by googleDrive.ts
+function sanitize(str: string): string {
+  return str.trim().replace(/[^a-zA-Z0-9]/g, "_")
+}
+
+function buildActionFilename(
+  input: UpdateChildInput,
+  type: "photo" | "video",
+  ext: string
+): string {
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+  const ms = Date.now()
+  // Basic fractional string to match the high-resolution timestamp formatting
+  const exactTimestamp = `${dateStr}-${ms}000`
+
+  const parts = [
+    input.id_rolf ? sanitize(input.id_rolf) : null,
+    input.last_name ? sanitize(input.last_name) : null,
+    input.first_name ? sanitize(input.first_name) : null,
+    type,
+    exactTimestamp,
+  ].filter(Boolean)
+  
+  return `${parts.join("_")}.${ext.toLowerCase()}`
 }
 
 export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ previewId: string | null }> {
@@ -104,6 +132,7 @@ export async function checkRolfIdForEdit(
 export async function updateChildAction(
   id: string,
   input: UpdateChildInput,
+  stagedFileIds?: string[]
 ): Promise<{ error: string | null }> {
   const { profile: actorProfile } = await requireAuth()
   const isSystemAdmin = isAdminRole(actorProfile.role)
@@ -116,24 +145,29 @@ export async function updateChildAction(
   }
 
   const supabase = await createClient()
+  const adminSupabase = await createAdminClient()
 
-  const { data: currentChild, error: fetchError } = await (supabase as any)
+  const { data: rawCurrentChild, error: fetchError } = await (supabase as any)
     .from('children')
-    .select('*')
+    .select(`
+      *,
+      profile_photo:child_media!fk_children_profile_photo(id, url),
+      profile_video:child_media!fk_children_profile_video(id, url)
+    `)
     .eq('id', id)
     .single()
 
-  if (fetchError || !currentChild) {
+  if (fetchError || !rawCurrentChild) {
     return { error: "Failed to locate the original child record for delta logging." }
   }
 
-  const { data: fullProfileData } = await (supabase as any)
-    .from('profiles')
-    .select('full_name')
-    .eq('id', actorProfile.id)
-    .single()
+  const flattenedCurrentChild = {
+    ...rawCurrentChild,
+    profile_photo: rawCurrentChild.profile_photo?.url ?? null,
+    profile_video: rawCurrentChild.profile_video?.url ?? null
+  }
 
-  const actorFullName = fullProfileData?.full_name || 'Unknown User'
+  const actorFullName = actorProfile.full_name || 'Unknown User'
   const normalizedInput: UpdateChildInput = {
     ...input,
     bio: input.bio
@@ -155,14 +189,11 @@ export async function updateChildAction(
   ]
 
   fieldsToTrack.forEach((field) => {
-    let currentVal = currentChild[field]
+    let currentVal = flattenedCurrentChild[field]
     let newVal = normalizedInput[field]
 
     if (typeof currentVal === 'string') currentVal = currentVal.trim() || null
-    else if (currentVal === undefined) currentVal = null
-
     if (typeof newVal === 'string') newVal = newVal.trim() || null
-    else if (newVal === undefined) newVal = null
 
     if (field === 'date_joined') {
       currentVal = normalizeDate(currentVal)
@@ -178,16 +209,161 @@ export async function updateChildAction(
     }
   })
 
-  let updatedLog = currentChild.edit_log || []
+  let finalPhotoUuid = input.profile_photo
+  let finalVideoUuid = input.profile_video
+
+  try {
+    // --- PROFILE PHOTO PROCESSING ---
+    if (!input.profile_photo || input.profile_photo.trim() === '') {
+      const oldPhotoId = typeof rawCurrentChild.profile_photo === 'object' ? rawCurrentChild.profile_photo?.id : rawCurrentChild.profile_photo;
+      
+      if (oldPhotoId) {
+        const { data: mediaRow } = await (adminSupabase as any)
+          .from('child_media')
+          .select('gdrive_file_id')
+          .eq('id', oldPhotoId)
+          .maybeSingle()
+
+        if (mediaRow) {
+          if (mediaRow.gdrive_file_id) {
+            try {
+              await moveFileToSystemTrash(mediaRow.gdrive_file_id)
+            } catch (gDriveErr) {
+              console.warn(`External asset bypass: File link ${mediaRow.gdrive_file_id} could not be moved to system trash (external reference).`)
+            }
+          }
+          await (adminSupabase as any).from('child_media').delete().eq('id', oldPhotoId)
+        }
+      }
+      finalPhotoUuid = null;
+    } else if (input.profile_photo.startsWith("https://")) {
+      if (rawCurrentChild.profile_photo && typeof rawCurrentChild.profile_photo === 'object' && rawCurrentChild.profile_photo.url === input.profile_photo) {
+        finalPhotoUuid = rawCurrentChild.profile_photo.id;
+      } else if (rawCurrentChild.profile_photo && typeof rawCurrentChild.profile_photo === 'string') {
+        finalPhotoUuid = rawCurrentChild.profile_photo;
+      } else {
+        const extractedFileId = input.profile_photo.split('/d/')[1]?.split('/')[0] || `photo-${Date.now()}`
+        
+        // ⚡ DYNAMIC STRUCTURE UPDATED: Generates file system matching descriptors for insert actions
+        const generatedFilename = buildActionFilename(input, "photo", "jpg")
+
+        const { data: photoMediaRow, error: photoDbErr } = await (adminSupabase as any)
+          .from('child_media')
+          .insert({
+            child_id: id,
+            gdrive_file_id: extractedFileId,
+            filename: generatedFilename,
+            url: input.profile_photo,
+            media_type: 'photo',
+            usage_type: 'profile_picture',
+            source: 'direct_upload',
+            uploaded_by: actorProfile.id
+          })
+          .select('id')
+          .single()
+
+        if (photoDbErr) throw photoDbErr;
+        if (photoMediaRow) finalPhotoUuid = photoMediaRow.id
+      }
+    } else {
+      finalPhotoUuid = input.profile_photo;
+    }
+
+    // --- PROFILE VIDEO PROCESSING ---
+    if (!input.profile_video || input.profile_video.trim() === '') {
+      const oldVideoId = typeof rawCurrentChild.profile_video === 'object' ? rawCurrentChild.profile_video?.id : rawCurrentChild.profile_video;
+
+      if (oldVideoId) {
+        const { data: mediaRow } = await (adminSupabase as any)
+          .from('child_media')
+          .select('gdrive_file_id')
+          .eq('id', oldVideoId)
+          .maybeSingle()
+
+        if (mediaRow) {
+          if (mediaRow.gdrive_file_id) {
+            try {
+              await moveFileToSystemTrash(mediaRow.gdrive_file_id)
+            } catch (gDriveErr) {
+              console.warn(`External asset bypass: File link ${mediaRow.gdrive_file_id} could not be moved to system trash.`)
+            }
+          }
+          await (adminSupabase as any).from('child_media').delete().eq('id', oldVideoId)
+        }
+      }
+      finalVideoUuid = null;
+    } else if (input.profile_video.startsWith("https://")) {
+      if (rawCurrentChild.profile_video && typeof rawCurrentChild.profile_video === 'object' && rawCurrentChild.profile_video.url === input.profile_video) {
+        finalVideoUuid = rawCurrentChild.profile_video.id;
+      } else if (rawCurrentChild.profile_video && typeof rawCurrentChild.profile_video === 'string') {
+        finalVideoUuid = rawCurrentChild.profile_video;
+      } else {
+        const extractedFileId = input.profile_video.split('/d/')[1]?.split('/')[0] || `video-${Date.now()}`
+        
+        // ⚡ DYNAMIC STRUCTURE UPDATED: Generates file system matching descriptors for insert actions
+        const generatedFilename = buildActionFilename(input, "video", "mp4")
+
+        const { data: videoMediaRow, error: videoDbErr } = await (adminSupabase as any)
+          .from('child_media')
+          .insert({
+            child_id: id,
+            gdrive_file_id: extractedFileId,
+            filename: generatedFilename,
+            url: input.profile_video,
+            media_type: 'video',
+            usage_type: 'profile_video',
+            source: 'direct_upload',
+            uploaded_by: actorProfile.id
+          })
+          .select('id')
+          .single()
+
+        if (videoDbErr) throw videoDbErr;
+        if (videoMediaRow) finalVideoUuid = videoMediaRow.id
+      }
+    } else {
+      finalVideoUuid = input.profile_video;
+    }
+
+    const oldPhotoId = typeof rawCurrentChild.profile_photo === 'object' ? rawCurrentChild.profile_photo?.id : rawCurrentChild.profile_photo;
+    const oldVideoId = typeof rawCurrentChild.profile_video === 'object' ? rawCurrentChild.profile_video?.id : rawCurrentChild.profile_video;
+
+    if (oldPhotoId && finalPhotoUuid && oldPhotoId !== finalPhotoUuid) {
+      await (adminSupabase as any)
+        .from('child_media')
+        .update({ usage_type: 'library' })
+        .eq('child_id', id)
+        .eq('usage_type', 'profile_picture')
+        .neq('id', finalPhotoUuid)
+    }
+    if (oldVideoId && finalVideoUuid && oldVideoId !== finalVideoUuid) {
+      await (adminSupabase as any)
+        .from('child_media')
+        .update({ usage_type: 'library' })
+        .eq('child_id', id)
+        .eq('usage_type', 'profile_video')
+        .neq('id', finalVideoUuid)
+    }
+  } catch (mediaError: any) {
+    console.error("Media registry synchronization failure:", mediaError)
+    return { error: `Media alignment error: ${mediaError.message}` }
+  }
+
+  const originalPhotoId = typeof rawCurrentChild.profile_photo === 'object' ? rawCurrentChild.profile_photo?.id : rawCurrentChild.profile_photo;
+  const originalVideoId = typeof rawCurrentChild.profile_video === 'object' ? rawCurrentChild.profile_video?.id : rawCurrentChild.profile_video;
+
+  if ((originalPhotoId ?? null) !== (finalPhotoUuid ?? null)) {
+    changes.push({ field: 'profile_photo', from: originalPhotoId ?? '—', to: finalPhotoUuid ?? '—' })
+  }
+  if ((originalVideoId ?? null) !== (finalVideoUuid ?? null)) {
+    changes.push({ field: 'profile_video', from: originalVideoId ?? '—', to: finalVideoUuid ?? '—' })
+  }
+
+  let updatedLog = rawCurrentChild.edit_log || []
   if (changes.length > 0) {
     const newLogEntry = {
       timestamp: new Date().toISOString(),
-      profile: {
-        id: actorProfile.id,
-        full_name: actorFullName,
-        role: actorProfile.role,
-        country: actorProfile.country
-      },
+      profile: { id: actorProfile.id, full_name: actorFullName, role: actorProfile.role, country: actorProfile.country },
       changes
     }
     updatedLog = [newLogEntry, ...updatedLog]
@@ -195,7 +371,10 @@ export async function updateChildAction(
 
   const display_name = `${normalizedInput.first_name} ${normalizedInput.last_name}`.trim()
 
-  const adminSupabase = await createAdminClient()
+  if (stagedFileIds && stagedFileIds.length > 0) {
+    await commitStagedFilesToCountry(input.country, stagedFileIds)
+  }
+
   const { error } = await (adminSupabase as any)
     .from('children')
     .update({
@@ -214,8 +393,8 @@ export async function updateChildAction(
       hobby: normalizedInput.hobby,
       bio: normalizedInput.bio ?? null,
       notes: normalizedInput.notes ?? null,
-      profile_photo: normalizedInput.profile_photo,
-      profile_video: normalizedInput.profile_video,
+      profile_photo: finalPhotoUuid,
+      profile_video: finalVideoUuid,
       status: normalizedInput.status,
       edit_log: updatedLog, 
     })
@@ -227,4 +406,34 @@ export async function updateChildAction(
   revalidatePath(`/dashboard/children/${id}`)
 
   return { error: null }
+}
+
+export async function deleteLibraryItemAction(mediaId: string): Promise<{ error: string | null }> {
+  try {
+    const { profile: actorProfile } = await requireAuth()
+    const adminSupabase = await createAdminClient()
+
+    const { data: mediaRow } = await (adminSupabase as any)
+      .from('child_media')
+      .select('gdrive_file_id, child_id')
+      .eq('id', mediaId)
+      .single()
+
+    if (!mediaRow) return { error: "Media item could not be found." }
+
+    if (mediaRow.gdrive_file_id) {
+      try {
+        await moveFileToSystemTrash(mediaRow.gdrive_file_id)
+      } catch (gDriveErr) {
+        console.warn(`External reference bypass: File ${mediaRow.gdrive_file_id} skipped trash folder allocation.`)
+      }
+    }
+
+    await (adminSupabase as any).from('child_media').delete().eq('id', mediaId)
+    revalidatePath(`/dashboard/children/${mediaRow.child_id}`)
+
+    return { error: null }
+  } catch (err: any) {
+    return { error: err.message || "An unexpected error occurred." }
+  }
 }

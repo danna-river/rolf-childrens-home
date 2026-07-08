@@ -1,10 +1,11 @@
-// Hybrid child-media helpers. The `profile_photo` and `profile_video` fields can
-// hold either an uploaded storage URL or a Google Drive share link. These pure
-// functions detect Drive links and turn them into renderable URLs:
+// Hybrid child-media helpers. The `profile_photo` and `profile_video` fields in the
+// children table now hold strict UUID foreign key references to rows in 'child_media'.
+// Once your server data layers pull and flatten those relational entries into raw text 
+// URL strings, these pure functions detect Drive links and turn them into renderable URLs:
 //   - photos  → a thumbnail image URL usable in <img>
 //   - videos  → an iframe preview URL (Drive video links cannot play in <video>)
-// Anything that isn't a Drive link is returned untouched so existing uploads keep
-// working exactly as before.
+// Anything that isn't a Drive link is returned untouched so direct storage bucket links 
+// keep working exactly as before.
 
 const DRIVE_HOSTS = ['drive.google.com', 'drive.usercontent.google.com']
 
@@ -90,3 +91,13 @@ export function resolveVideo(url: string | null | undefined): ResolvedVideo {
 /** Shared helper text shown beside Drive link inputs. */
 export const DRIVE_SHARE_HINT =
   'Google Drive files must be shared with anyone who has the link.'
+
+/** Drive video thumbnail image preview URL, usable directly in an <img src>. */
+export function resolveVideoThumbnail(url: string | null | undefined, size = 1000): string | null {
+  if (!url) return null
+  if (isGoogleDriveUrl(url)) {
+    const fileId = extractDriveFileId(url)
+    return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}` : null
+  }
+  return null // Return null if it's a generic bucket stream without native thumbnail hooks
+}

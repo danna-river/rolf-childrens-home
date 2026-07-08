@@ -24,25 +24,41 @@ export default async function EditChildPage({
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single() as { data: { role: string; country: string[] | null } | null; error: unknown }
+    .maybeSingle() as { data: { role: string; country: string[] | null } | null; error: unknown }
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
     return redirect('/login?error=Unauthorized')
   }
 
-  const { data: child } = await supabase
+  const { data: rawChild } = await supabase
     .from('children')
-    .select('*')
+    .select(`
+      *,
+      profile_photo:child_media!fk_children_profile_photo(id, url),
+      profile_video:child_media!fk_children_profile_video(id, url)
+    `)
     .eq('id', id)
-    .single() as { data: Child | null; error: unknown }
+    .maybeSingle() as { data: any | null; error: unknown }
 
-  if (!child) return redirect('/dashboard/children')
+  if (!rawChild) return redirect('/dashboard/children')
+
+  // ⚡ COLUMN REFERENCE FIX: Changed explicit select parameter to usage_type matching your system design
+  const { data: mediaLibraryRows } = await supabase
+    .from('child_media')
+    .select('id, url, media_type, usage_type, filename')
+    .eq('child_id', id)
+    .order('created_at', { ascending: false }) as { data: Array<{ id: string; url: string; media_type: string; usage_type: string; filename: string }> | null }
+
+  const child: Child = {
+    ...rawChild,
+    profile_photo: rawChild.profile_photo?.url ?? null,
+    profile_video: rawChild.profile_video?.url ?? null,
+  }
 
   let dropdownOptions: string[] = []
   const isSystemAdmin = isAdminRole(profile.role)
 
   if (isSystemAdmin) {
-    // Admins fetch options live from the master database parameters countries table
     const { data: countryRows } = await supabase
       .from('countries')
       .select('name')
@@ -50,7 +66,6 @@ export default async function EditChildPage({
       
     dropdownOptions = ((countryRows || []) as CountryRow[]).map((row) => row.name)
   } else {
-    // Localized staff inherit their assigned tracking matrix bounds array
     dropdownOptions = profile.country || []
   }
 
@@ -59,6 +74,7 @@ export default async function EditChildPage({
       child={child}
       availableCountries={dropdownOptions}
       isAdmin={isSystemAdmin}
+      initialLibrary={mediaLibraryRows || []}
     />
   )
 }

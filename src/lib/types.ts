@@ -34,6 +34,7 @@ export type SponsorContactType = 'sponsor' | 'donor_only' | 'prospect'
 
 export type ReceiptPreference = 'unknown' | 'requested' | 'not_needed'
 
+// ⚡ UPDATE: Matches your live schema's naming configurations
 export type MediaType = 'photo' | 'video'
 
 export interface Profile {
@@ -55,7 +56,7 @@ export interface Child {
   birth_year: number | null
   birth_month: number | null
   birth_day: number | null
-  profile_photo: string | null
+  profile_photo: string | null // Kept as string because our server actions flatten the relational joins to text URLs
   profile_video: string | null
   country: string | null
   year_joined: number | null
@@ -101,18 +102,18 @@ export interface Sponsor {
   created_at: string
 }
 
+// ⚡ UPDATE: Fully rebuilt to match your true information_schema table structure
 export interface ChildMedia {
   id: string
   child_id: string
-  type: MediaType
-  s3_key: string
-  filename: string | null
-  content_type: string | null
-  file_size_mb: number | null
-  caption: string | null
-  approved: boolean
-  uploaded_by: string | null
-  created_at: string
+  gdrive_file_id: string
+  filename: string
+  url: string
+  media_type: string
+  usage_type: string
+  source: string
+  uploaded_by: string
+  created_at: string | null
 }
 
 export interface ChildUpdate {
@@ -191,7 +192,6 @@ export interface PenPalEvent {
 }
 
 // Minimal Supabase Database type for the typed client.
-// Extend as needed — or replace with generated types from `supabase gen types`.
 export type Database = {
   public: {
     Tables: {

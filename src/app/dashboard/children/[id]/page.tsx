@@ -5,6 +5,7 @@ import { PhotoViewer } from './components/PhotoViewer'
 import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
 import { PenPalSection } from './components/PenPalSection'
+import { LibraryViewer } from './components/LibraryViewer' // ⚡ IMPORT LINKED
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
@@ -105,7 +106,8 @@ function DonorProfileFact({ label, value }: { label: string; value: string }) {
   )
 }
 
-function DonorChildDetail({ child }: { child: Child }) {
+// ⚡ INJECT PORTFOLIO PROPS DOWNSTREAM
+function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems: any[] }) {
   const name = donorChildName(child)
   const firstName = child.first_name || child.display_name || name
   const age = calculateAge(child.birth_year, child.birth_month, child.birth_day)
@@ -152,7 +154,6 @@ function DonorChildDetail({ child }: { child: Child }) {
               <div className="mx-auto w-full max-w-[18rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-[#eadfd0] bg-[#f6f1e8] shadow-[0_18px_45px_rgba(21,44,75,0.10)] md:mx-0 md:w-72 lg:w-80">
                 <div className="flex aspect-[3/4] w-full items-center justify-center">
                   {photoSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- donor media can be S3 or Google Drive URLs resolved at runtime.
                     <img
                       src={photoSrc}
                       alt={`${name} profile photo`}
@@ -201,6 +202,13 @@ function DonorChildDetail({ child }: { child: Child }) {
                 )}
               </div>
             </section>
+
+            {/* ⚡ INTEGRATE SEAMLESS DONOR VIEW COMPONENT CONTAINER FRAME */}
+            {libraryItems.length > 0 && (
+              <section className="pt-2">
+                <LibraryViewer mediaLibrary={libraryItems} />
+              </section>
+            )}
 
             {video.kind !== 'none' && (
               <section className="overflow-hidden rounded-3xl border border-teal/10 bg-sky/65">
@@ -258,28 +266,50 @@ export default async function ChildProfilePage({
     .from('profiles')
     .select('role, country')
     .eq('id', user.id)
-    .single() as { data: { role: string; country: string | string[] | null } | null; error: unknown }
+    .maybeSingle() as { data: { role: string; country: string | string[] | null } | null; error: unknown }
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'staff' && profile.role !== 'donor')) {
     return redirect('/login?error=Unauthorized')
   }
 
+  // ⚡ COMPREHENSIVE BATCH GATHER TRACK: Fetches portfolio rows for the child
+  const { data: mediaLibraryRows } = await supabase
+    .from('child_media')
+    .select('id, url, media_type, filename')
+    .eq('child_id', id)
+    .order('created_at', { ascending: false }) as { data: any[] | null }
+
+  const libraryItems = mediaLibraryRows || []
+
   if (profile.role === 'donor') {
     const donorChildResult = await supabase
       .from('children')
-      .select('*')
+      .select(`
+        *,
+        profile_photo:child_media!fk_children_profile_photo(id, url),
+        profile_video:child_media!fk_children_profile_video(id, url)
+      `)
       .eq('id', id)
       .single()
-    const donorChild = donorChildResult.data as Child | null
+    const rawDonorChild = donorChildResult.data as any
 
-    if (!donorChild) return notFound()
-    return <DonorChildDetail child={donorChild} />
+    if (!rawDonorChild) return notFound()
+
+    const donorChild: Child = {
+      ...rawDonorChild,
+      profile_photo: rawDonorChild.profile_photo?.url ?? null,
+      profile_video: rawDonorChild.profile_video?.url ?? null
+    }
+
+    return <DonorChildDetail child={donorChild} libraryItems={libraryItems} />
   }
 
   const childResult = await supabase
     .from('children')
     .select(`
       *,
+      profile_photo:child_media!fk_children_profile_photo(id, url),
+      profile_video:child_media!fk_children_profile_video(id, url),
       creator:created_by (
         full_name,
         role
@@ -287,16 +317,26 @@ export default async function ChildProfilePage({
     `)
     .eq('id', id)
     .single()
-  const child = childResult.data as ChildWithCreator | null
+  const rawChild = childResult.data as any
 
-  if (!child) return notFound()
+  if (!rawChild) return notFound()
 
-  const { eligibleForms, latestCompleted } = await getEligibleIntakeForms(
+  const child: ChildWithCreator & { profile_photo_id?: string | null; profile_video_id?: string | null } = {
+    ...rawChild,
+    profile_photo: rawChild.profile_photo?.url ?? null,
+    profile_video: rawChild.profile_video?.url ?? null,
+    profile_photo_id: rawChild.profile_photo?.id ?? null,
+    profile_video_id: rawChild.profile_video?.id ?? null
+  }
+
+  const eligibleFormsResult = await getEligibleIntakeForms(
     child.id,
     child.country ?? '',
     child.date_joined,
     child.year_joined
   )
+  const eligibleForms = eligibleFormsResult.eligibleForms
+  const latestCompleted = eligibleFormsResult.latestCompleted
 
   const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
   const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || t(messages, 'children.card.unnamed')
@@ -347,7 +387,6 @@ export default async function ChildProfilePage({
             <h1 className="text-2xl font-bold tracking-tight text-navy">{name}</h1>
             <p className={`text-xs font-mono mt-0.5 ${child.id_rolf ? 'text-teal font-semibold' : 'text-navy/30'}`}>{child.id_rolf || t(messages, 'children.card.rolfIdUnknown')}</p>
             
-            {/* Standard ROLF Status Badge */}
             <span className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
               isActive ? "border-teal/50 bg-teal/10 text-teal" : "border-stone bg-ice text-navy/55"
             }`}>
@@ -374,12 +413,18 @@ export default async function ChildProfilePage({
           </div>
         </div>
 
-        {/* Mapped custom intake worksheet orchestrator */}
         <IntakeSection 
           childId={id} 
           eligibleForms={eligibleForms} 
           latestCompleted={latestCompleted} 
         />
+
+        {/* ⚡ INTEGRATE SEAMLESS STAFF REGISTRY VIEW COMPONENT GRID */}
+        {libraryItems.length > 0 && (
+          <div className="bg-white rounded-md border border-stone p-5 shadow-2xs">
+            <LibraryViewer mediaLibrary={libraryItems} />
+          </div>
+        )}
 
         <div className="bg-white rounded-md border border-stone overflow-hidden shadow-2xs">
           {video.kind === "file" ? (
@@ -409,7 +454,6 @@ export default async function ChildProfilePage({
           <DetailRow label={t(messages, 'children.detail.bio')} value={detailBio} emptyLabel={notRecorded} />
         </div>
 
-        {/* Internal Notes Segment */}
         <div className="bg-amber-50/60 border border-amber-200/80 rounded-md px-5 py-4 shadow-2xs space-y-1.5">
           <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-amber-900">{t(messages, 'children.detail.internalNotes')}</p>
           {child.notes?.trim() ? (

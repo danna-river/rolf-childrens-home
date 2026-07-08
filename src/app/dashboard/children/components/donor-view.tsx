@@ -639,7 +639,7 @@ function DonorSkeleton() {
 async function DonorChildren() {
   const supabase = await createClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // ⚡ UPDATE: Update the sub-select query to pull media URLs from child_media
   const { data, error } = await (supabase as any)
     .from('sponsorships')
     .select(`
@@ -650,13 +650,30 @@ async function DonorChildren() {
       amount,
       frequency,
       end_date,
-      child:children(*)
+      child:children(
+        *,
+        profile_photo:child_media!fk_children_profile_photo(id, url),
+        profile_video:child_media!fk_children_profile_video(id, url)
+      )
     `)
     .eq('status', 'active')
     .not('child_id', 'is', null)
     .order('start_date', { ascending: true })
 
-  const profiles = donorProfilesFromRows((data ?? []) as DonorSponsorshipRow[])
+  // ⚡ UPDATE: Map and flatten the sub-joined media arrays back into simple URL strings 
+  const processedRows = ((data ?? []) as any[]).map((row) => {
+    if (!row.child || Array.isArray(row.child)) return row;
+    return {
+      ...row,
+      child: {
+        ...row.child,
+        profile_photo: row.child.profile_photo?.url ?? null,
+        profile_video: row.child.profile_video?.url ?? null,
+      },
+    };
+  });
+
+  const profiles = donorProfilesFromRows(processedRows as DonorSponsorshipRow[])
   const children = profiles.map((profile) => profile.child)
   const count = profiles.length
   const countries = Array.from(

@@ -21,12 +21,12 @@ type ChildMeta = {
 interface MediaPickerProps {
   type: "photo" | "video"
   value: string | null
-  onChange: (url: string | null) => void
+  // ⚡ UPDATE: Allow passing metadata response variables up to parent component
+  onChange: (url: string | null, metaData?: { fileId?: string }) => void
   existingUrl?: string | null
   onError?: (msg: string | null) => void
   onUploadStart?: () => void
   onUploadEnd?: () => void
-  /** Show the "Use Google Drive link" option. Off for new-child registration. */
   allowDriveLink?: boolean
   childMeta?: ChildMeta
 }
@@ -45,7 +45,6 @@ export function MediaPicker({
   const isPhoto = type === "photo"
 
   const previewSrc = localPreview ?? value
-  // A stored Drive link (not a fresh local file upload) needs special rendering.
   const isDriveValue = !localPreview && isGoogleDriveUrl(value)
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,11 +84,14 @@ export function MediaPicker({
       return
     }
 
-    const { url } = await res.json()
+    // ⚡ UPDATE: Capture both url and fileId parameters from the backend route response
+    const { url, fileId } = await res.json()
     setLocalPreview(null)
     setUploading(false)
     onUploadEnd?.()
-    onChange(url)
+    
+    // ⚡ UPDATE: Pass both elements up to the parent form tracking hook
+    onChange(url, { fileId })
   }
 
   const handleDriveApply = () => {
@@ -101,7 +103,10 @@ export function MediaPicker({
     onError?.(null)
     setShowDrive(false)
     setDriveInput("")
-    onChange(link)
+    
+    // If it's a manually pasted Drive link, parse out the file ID right here inline
+    const fileId = extractDriveFileId(link) || undefined
+    onChange(link, { fileId })
   }
 
   const handleRemove = () => {
