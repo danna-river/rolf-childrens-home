@@ -3,7 +3,8 @@
 import { useState, useTransition, useEffect } from 'react'
 import { saveIntakeFormAction } from '../intake-actions'
 import { MediaPicker } from '../../components/MediaPicker'
-import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon } from 'lucide-react'
+import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon, PlayCircleIcon } from 'lucide-react'
+import { resolvePhotoSrc, resolveVideoThumbnail } from '@/lib/childMedia'
 import { useTranslations } from '@/i18n/client'
 
 type IntakeQuestion = {
@@ -17,6 +18,7 @@ type EligibleIntakeForm = {
   id: string
   title: string
   answers?: Record<string, string>
+  mediaIds?: Record<string, string>
   questions?: IntakeQuestion[]
   lockedQuestions?: string[]
   isLatest?: boolean
@@ -31,6 +33,7 @@ interface IntakeSectionProps {
 
 export function IntakeSection({ childId, eligibleForms, latestCompleted }: IntakeSectionProps) {
   const t = useTranslations()
+  const [isPending, startTransition] = useTransition()
   const [selectedFormId, setSelectedFormId] = useState<string>(() => {
     if (eligibleForms.length === 0) return 'choose_form'
     if (latestCompleted) return 'choose_form'
@@ -46,19 +49,20 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
   )
 
   useEffect(() => {
-    setFormState(
-      eligibleForms.reduce((acc, form) => {
-        acc[form.id] = form.answers || {}
-        return acc
-      }, {} as Record<string, Record<string, string>>)
-    )
-  }, [eligibleForms])
+    startTransition(() => {
+      setFormState(
+        eligibleForms.reduce((acc, form) => {
+          acc[form.id] = form.answers || {}
+          return acc
+        }, {} as Record<string, Record<string, string>>)
+      )
+    })
+  }, [eligibleForms, startTransition])
   
   const [stagedFileIds, setStagedFileIds] = useState<Record<string, string[]>>({})
   const [currentPage, setCurrentPage] = useState<number>(1)
   const QUESTIONS_PER_PAGE = 8
 
-  const [isPending, startTransition] = useTransition()
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
   const [numericErrors, setNumericErrors] = useState<Record<string, boolean>>({})
 
@@ -202,6 +206,15 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
               const absoluteQuestionNumber = startIndex + qIdx + 1
               const currentResponse = activeAnswers[q.id] || ''
               const isFieldBlank = !currentResponse.toString().trim()
+              const mediaId = activeForm?.mediaIds?.[q.id]
+              const isMediaQuestion = q.field_type === 'media_photo' || q.field_type === 'media_video'
+              const lockedMediaThumbnail = isMediaQuestion
+                ? mediaId
+                  ? `/api/media/${mediaId}/thumbnail`
+                  : q.field_type === 'media_photo'
+                    ? resolvePhotoSrc(currentResponse, 400)
+                    : resolveVideoThumbnail(currentResponse, 400)
+                : null
 
               // This strictly checks against the server response (ignoring local unsaved files)
               const isFieldPermanentlyLocked = activeForm?.lockedQuestions?.includes(q.id) || false
@@ -251,7 +264,20 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                       {isFieldPermanentlyLocked ? (
                         <div className="bg-white border border-stone rounded-md p-4 flex flex-col sm:flex-row items-center gap-4 shadow-3xs animate-fade-in">
                           <div className="shrink-0">
-                            {q.field_type === 'media_photo' ? (
+                            {lockedMediaThumbnail ? (
+                              <div className="relative">
+                                {/* eslint-disable-next-line @next/next/no-img-element -- authenticated Drive thumbnails are served by the media route. */}
+                                <img
+                                  src={lockedMediaThumbnail}
+                                  alt="Intake asset file"
+                                  className="h-24 w-24 rounded-md object-cover border border-stone"
+                                />
+                                {q.field_type === 'media_video' && (
+                                  <PlayCircleIcon className="absolute inset-0 m-auto size-8 text-white drop-shadow" />
+                                )}
+                              </div>
+                            ) : q.field_type === 'media_photo' ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- legacy intake answers can still contain a direct image URL.
                               <img 
                                 src={currentResponse || undefined} 
                                 alt="Intake asset file" 
@@ -274,7 +300,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                               An answer has already been submitted for this field.
                             </p>
                             <p className="text-[11px] text-navy/50 leading-relaxed">
-                              To replace this file, it must first be removed from the child's central Media Library Portfolio grid panel.
+                              To replace this file, it must first be removed from the child&apos;s central Media Library Portfolio grid panel.
                             </p>
                           </div>
                         </div>
@@ -286,7 +312,6 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                           childMeta={{
                             idRolf: childId,
                             country: 'all',
-                            ...({ folderOverride: "SYSTEM_TRASH" } as any)
                           }}
                         />
                       )}

@@ -19,6 +19,20 @@ interface Props {
   initialLibrary: Array<{ id: string; url: string; media_type: string; usage_type: string; filename: string }>
 }
 
+const MEDIA_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function mediaThumbnailSrc(item: Props['initialLibrary'][number]): string {
+  if (MEDIA_ID_PATTERN.test(item.id)) {
+    return `/api/media/${item.id}/thumbnail`
+  }
+
+  if (item.media_type === 'photo') {
+    return resolvePhotoSrc(item.url) || item.url
+  }
+
+  return resolveVideoThumbnail(item.url) || ''
+}
+
 export function EditChildForm({ child, availableCountries, isAdmin, initialLibrary }: Props) {
   const t = useTranslations()
   const router = useRouter()
@@ -508,7 +522,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
                   <div className="flex gap-3 overflow-x-auto pb-3 pt-1 scrollbar-thin snap-x scroll-smooth">
                     {photoLibraryItems.map((item) => {
                       const isCurrentProfile = photoUrl === item.url
-                      const resolvedImageSrc = resolvePhotoSrc(item.url) || item.url
+                      const resolvedImageSrc = mediaThumbnailSrc(item)
 
                       return (
                         <div key={item.id} className={`relative flex-none w-32 aspect-square rounded-xl border bg-gray-50 overflow-hidden group snap-start shadow-xs transition-transform ${isCurrentProfile ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-100'}`}>
@@ -549,7 +563,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
                   <div className="flex gap-3 overflow-x-auto pb-3 pt-1 scrollbar-thin snap-x scroll-smooth">
                     {videoLibraryItems.map((item) => {
                       const isCurrentVideo = videoUrl === item.url
-                      const resolvedVideoThumb = resolveVideoThumbnail(item.url) || ''
+                      const resolvedVideoThumb = mediaThumbnailSrc(item)
 
                       return (
                         // ⚡ DIMS SYNCED FIX: Forced video elements into identical w-32 aspect-square frame dimensions

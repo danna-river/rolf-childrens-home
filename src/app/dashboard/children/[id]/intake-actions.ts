@@ -63,19 +63,23 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
 
   // 2. Fetch media separately to resolve UUIDs back into viewable URLs
   const { data: childMediaData } = await supabase.from('child_media').select('id, url').eq('child_id', childId)
-  const mediaMap: Record<string, string> = {}
+  const mediaMap: Record<string, { id: string; url: string }> = {}
+  const mediaByUrl: Record<string, { id: string; url: string }> = {}
   childMediaData?.forEach((m: any) => {
-    mediaMap[m.id] = m.url
+    mediaMap[m.id] = m
+    mediaByUrl[m.url] = m
   })
 
-  const submissionMap: Record<string, Record<string, { value: string; url: string }>> = {}
+  const submissionMap: Record<string, Record<string, { value: string; url: string; mediaId: string }>> = {}
   existingReports?.forEach((report: any) => {
-    const answersObj: Record<string, { value: string; url: string }> = {}
+    const answersObj: Record<string, { value: string; url: string; mediaId: string }> = {}
     report.report_answers?.forEach((ans: any) => {
       const savedValue = ans.answer_value || ""
+      const media = mediaMap[savedValue] || mediaByUrl[savedValue]
       answersObj[ans.question_id] = {
         value: savedValue,
-        url: mediaMap[savedValue] || ""
+        url: media?.url || (savedValue.startsWith('http') ? savedValue : ""),
+        mediaId: media?.id || "",
       }
     })
     submissionMap[report.template_id] = answersObj
@@ -92,6 +96,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     const savedQuestionAnswers = submissionMap[tpl.id] || {}
 
     const componentViewAnswers: Record<string, string> = {}
+    const componentMediaIds: Record<string, string> = {}
     const lockedQuestionsList: string[] = []
 
     questionsList.forEach((q: any) => {
@@ -104,6 +109,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
 
       if (q.field_type === 'media_photo' || q.field_type === 'media_video') {
         componentViewAnswers[q.id] = savedData?.url || savedData?.value || ""
+        if (savedData?.mediaId) componentMediaIds[q.id] = savedData.mediaId
       } else {
         componentViewAnswers[q.id] = savedData?.value || ""
       }
@@ -120,6 +126,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
       createdAt: tpl.created_at,
       questions: questionsList,
       answers: componentViewAnswers,
+      mediaIds: componentMediaIds,
       lockedQuestions: lockedQuestionsList,
       isCompleted: isFinished,
       isLatest: false
