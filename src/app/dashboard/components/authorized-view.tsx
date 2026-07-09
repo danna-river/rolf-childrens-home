@@ -102,35 +102,37 @@ export function AuthorizedView({ email, portalType }: AuthorizedViewProps) {
             </div>
           </div>
 
-          <section className="rounded-xl border border-stone bg-white px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-bold tracking-tight text-navy">{t('settings.language.title')}</h2>
-              <p className="hidden text-xs font-medium text-navy/45 sm:block">{t('dashboard.language.settingsHint')}</p>
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-stone bg-ice p-1">
-              {(['en', 'fr'] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => handleLocaleChange(option)}
-                  disabled={savingLocale}
-                  className={`min-h-9 rounded-lg px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                    locale === option
-                      ? 'bg-navy text-white shadow-sm'
-                      : 'text-navy/60 hover:bg-white hover:text-navy'
-                  }`}
-                >
-                  {option === 'en' ? t('settings.language.english') : t('settings.language.french')}
-                </button>
-              ))}
-            </div>
-            {languageMessage && (
-              <p className={`mt-2 text-xs font-semibold ${languageMessage.type === 'success' ? 'text-teal' : 'text-rose-700'}`}>
-                {languageMessage.text}
-              </p>
-            )}
-            <p className="mt-2 text-xs font-medium text-navy/45 sm:hidden">{t('dashboard.language.settingsHint')}</p>
-          </section>
+          {!isDonorPortal && (
+            <section className="rounded-xl border border-stone bg-white px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold tracking-tight text-navy">{t('settings.language.title')}</h2>
+                <p className="hidden text-xs font-medium text-navy/45 sm:block">{t('dashboard.language.settingsHint')}</p>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-stone bg-ice p-1">
+                {(['en', 'fr'] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => handleLocaleChange(option)}
+                    disabled={savingLocale}
+                    className={`min-h-9 rounded-lg px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                      locale === option
+                        ? 'bg-navy text-white shadow-sm'
+                        : 'text-navy/60 hover:bg-white hover:text-navy'
+                    }`}
+                  >
+                    {option === 'en' ? t('settings.language.english') : t('settings.language.french')}
+                  </button>
+                ))}
+              </div>
+              {languageMessage && (
+                <p className={`mt-2 text-xs font-semibold ${languageMessage.type === 'success' ? 'text-teal' : 'text-rose-700'}`}>
+                  {languageMessage.text}
+                </p>
+              )}
+              <p className="mt-2 text-xs font-medium text-navy/45 sm:hidden">{t('dashboard.language.settingsHint')}</p>
+            </section>
+          )}
 
           <Link
             href="/dashboard/children"

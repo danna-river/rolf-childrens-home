@@ -6,10 +6,12 @@ import {
   isGoogleDriveUrl,
   resolvePhotoSrc,
 } from "@/lib/childMedia"
+import { completeDriveUpload, createDriveUploadSession } from "@/lib/googleDrive"
 import { useTranslations } from "@/i18n/client"
 
 const MAX_MB = { photo: 15, video: 50 }
 const ACCEPT = { photo: "image/*", video: "video/*" }
+const UPLOAD_CHUNK_BYTES = 4 * 1024 * 1024
 
 type ChildMeta = {
   idRolf?: string | null
@@ -65,33 +67,89 @@ export function MediaPicker({
     setUploading(true)
     onUploadStart?.()
 
-    const body = new FormData()
-    body.append("file", file)
-    body.append("type", type)
-    if (childMeta?.idRolf) body.append("idRolf", childMeta.idRolf)
-    if (childMeta?.firstName) body.append("firstName", childMeta.firstName)
-    if (childMeta?.lastName) body.append("lastName", childMeta.lastName)
-    if (childMeta?.country) body.append("country", childMeta.country)
+    try {
+      const uploadTarget = await createDriveUploadSession({
+        type,
+        filename: file.name,
+        mimeType: file.type,
+        size: file.size,
+        meta: {
+          idRolf: childMeta?.idRolf ?? null,
+          firstName: childMeta?.firstName ?? null,
+          lastName: childMeta?.lastName ?? null,
+          country: childMeta?.country ?? null,
+          folderOverride: "SYSTEM_TRASH",
+        },
+      })
 
-    const res = await fetch("/api/upload", { method: "POST", body })
+      if (uploadTarget.error || !uploadTarget.uploadUrl) {
+        throw new Error(uploadTarget.error ?? "Missing Google Drive upload session")
+      }
 
-    if (!res.ok) {
-      const { error } = await res.json().catch(() => ({ error: t("children.media.uploadFailed") }))
-      onError?.(error ?? t("children.media.uploadFailedRetry"))
+      let uploadUrl = uploadTarget.uploadUrl
+      let offset = 0
+      let fileId: string | null = null
+
+      while (offset < file.size) {
+        const chunk = file.slice(offset, Math.min(offset + UPLOAD_CHUNK_BYTES, file.size))
+        const end = offset + chunk.size - 1
+        const uploadResponse = await fetch("/api/upload/drive-chunk", {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type,
+            "Content-Range": `bytes ${offset}-${end}/${file.size}`,
+            "X-Drive-Upload-Url": uploadUrl,
+          },
+          body: chunk,
+        })
+        const result = await uploadResponse.json().catch(() => null) as {
+          done?: boolean
+          fileId?: string
+          nextOffset?: number
+          uploadUrl?: string
+        } | null
+
+        if (!uploadResponse.ok || !result) {
+          throw new Error("Google Drive chunk upload failed")
+        }
+
+        uploadUrl = result.uploadUrl ?? uploadUrl
+        if (result.done) {
+          fileId = result.fileId ?? null
+          break
+        }
+
+        const nextOffset = result.nextOffset
+        if (
+          typeof nextOffset !== "number" ||
+          !Number.isSafeInteger(nextOffset) ||
+          nextOffset <= offset ||
+          nextOffset > file.size
+        ) {
+          throw new Error("Google Drive returned an invalid upload offset")
+        }
+        offset = nextOffset
+      }
+
+      if (!fileId) {
+        throw new Error("Google Drive did not return a file ID")
+      }
+
+      const completed = await completeDriveUpload(fileId)
+      if (completed.error || !completed.url) {
+        throw new Error(completed.error ?? "Google Drive file could not be finalized")
+      }
+
       setLocalPreview(null)
+      onChange(completed.url, { fileId })
+    } catch (error) {
+      console.error("[MediaPicker] Google Drive upload failed:", error)
+      onError?.(t("children.media.uploadFailedRetry"))
+      setLocalPreview(null)
+    } finally {
       setUploading(false)
       onUploadEnd?.()
-      return
     }
-
-    // ⚡ UPDATE: Capture both url and fileId parameters from the backend route response
-    const { url, fileId } = await res.json()
-    setLocalPreview(null)
-    setUploading(false)
-    onUploadEnd?.()
-    
-    // ⚡ UPDATE: Pass both elements up to the parent form tracking hook
-    onChange(url, { fileId })
   }
 
   const handleDriveApply = () => {

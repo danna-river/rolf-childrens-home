@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { resolvePhotoSrc, resolveVideo, resolveVideoThumbnail } from "@/lib/childMedia"
+import { resolveVideo } from "@/lib/childMedia"
 import { PlayCircleIcon } from "lucide-react"
 
 export interface MediaItem {
@@ -13,6 +13,10 @@ export interface MediaItem {
 
 interface Props {
     mediaLibrary: MediaItem[]
+}
+
+function mediaThumbnailUrl(mediaId: string): string {
+    return `/api/media/${mediaId}/thumbnail`
 }
 
 export function LibraryViewer({ mediaLibrary }: Props) {
@@ -37,7 +41,7 @@ export function LibraryViewer({ mediaLibrary }: Props) {
                     {photos.map((item) => (
                         <button key={item.id} onClick={() => setActiveItem(item)} className="relative flex-none w-32 aspect-square rounded-xl overflow-hidden border border-stone bg-white shadow-2xs snap-start">
                             {/* eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime. */}
-                            <img src={resolvePhotoSrc(item.url, 400) || item.url} alt={item.filename} className="w-full h-full object-cover" />
+                            <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="w-full h-full object-cover" />
                         </button>
                     ))}
                 </div>
@@ -49,7 +53,7 @@ export function LibraryViewer({ mediaLibrary }: Props) {
                     {videos.map((item) => (
                         <button key={item.id} onClick={() => setActiveItem(item)} className="relative flex-none w-32 aspect-square rounded-xl overflow-hidden border border-stone bg-slate-900 shadow-2xs snap-start flex items-center justify-center">
                             {/* eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime. */}
-                            <img src={resolveVideoThumbnail(item.url, 400) || ''} alt={item.filename} className="w-full h-full object-cover opacity-60" />
+                            <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="w-full h-full object-cover opacity-60" />
                             <PlayCircleIcon className="absolute size-8 text-white/90" />
                         </button>
                     ))}
@@ -62,7 +66,7 @@ export function LibraryViewer({ mediaLibrary }: Props) {
                     <div className="relative w-full max-w-2xl aspect-video bg-black rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         {activeItem.media_type === 'photo' ? (
                             // eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime.
-                            <img src={resolvePhotoSrc(activeItem.url, 1000) || activeItem.url} alt={activeItem.filename} className="w-full h-full object-contain" />
+                            <img src={mediaThumbnailUrl(activeItem.id)} alt={activeItem.filename} className="w-full h-full object-contain" />
                         ) : (() => {
                             const v = resolveVideo(activeItem.url)
                             return v.kind === 'drive' ? (
