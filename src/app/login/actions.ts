@@ -23,20 +23,20 @@ export async function loginAction(formData: FormData) {
 }
 
 export async function signUpAction(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const firstName = formData.get('firstName') as string
-  const lastName = formData.get('lastName') as string
+  const email = ((formData.get('email') as string | null) ?? '').trim()
+  const password = (formData.get('password') as string | null) ?? ''
+  const firstName = ((formData.get('firstName') as string | null) ?? '').trim()
+  const lastName = ((formData.get('lastName') as string | null) ?? '').trim()
 
   if (!email || !password || !firstName || !lastName) {
-    return { error: 'All registration fields are required.' }
+    return { errorKey: 'login.register.error.requiredFields' }
   }
 
   const fullName = firstName + ' ' + lastName
 
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -48,7 +48,15 @@ export async function signUpAction(formData: FormData) {
   })
 
   if (error) {
+    if (error.message.toLowerCase().includes('already registered')) {
+      return { errorKey: 'login.register.error.accountAlreadyExists' }
+    }
+
     return { error: error.message }
+  }
+
+  if (data.user && data.user.identities?.length === 0) {
+    return { errorKey: 'login.register.error.accountAlreadyExists' }
   }
 
   // Email confirmation is enabled in Supabase, so signUp emails a 6-digit code
@@ -59,16 +67,39 @@ export async function signUpAction(formData: FormData) {
   return { success: true, email }
 }
 
-export async function verifyOtpAction(email: string, token: string) {
+export async function resendVerificationCodeAction(email: string) {
+  const trimmedEmail = email.trim()
+
+  if (!trimmedEmail) {
+    return { errorKey: 'login.register.error.emailRequired' }
+  }
+
   const supabase = await createClient()
 
-  if (!email || !token || token.trim().length !== 6) {
-    return { error: 'A valid 6-digit verification code is required.' }
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: trimmedEmail,
+  })
+
+  if (error) {
+    console.error('[resendVerificationCode] Supabase resend error:', error.message)
+    return { errorKey: 'login.register.resendError' }
+  }
+
+  return { success: true }
+}
+
+export async function verifyOtpAction(email: string, token: string) {
+  const supabase = await createClient()
+  const verificationCode = token.replace(/\D/g, '')
+
+  if (!email || verificationCode.length < 6 || verificationCode.length > 10) {
+    return { errorKey: 'login.register.error.invalidCode' }
   }
 
   const { data, error } = await supabase.auth.verifyOtp({
     email,
-    token,
+    token: verificationCode,
     type: 'email',
   })
   if (error) {

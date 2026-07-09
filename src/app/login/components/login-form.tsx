@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { loginAction } from '@/app/login/actions'
+import { useTranslations } from '@/i18n/client'
 
 interface LoginFormProps {
   onSwitchToRegister: () => void
 }
 
 export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
+  const t = useTranslations()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -35,26 +37,26 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
       <div className="space-y-1">
         <label className="text-[11px] font-bold uppercase tracking-widest text-navy/45">
-          Email Address
+          {t('login.email')}
         </label>
         <input
           name="email"
           type="email"
           required
-          placeholder="example@email.com"
+          placeholder={t('login.emailPlaceholder')}
           className="w-full rounded-xl border border-stone bg-ice px-3 py-2 text-sm text-navy outline-none transition-all placeholder:text-navy/25 focus:border-teal focus:bg-white focus:ring-2 focus:ring-teal/20"
         />
       </div>
 
       <div className="space-y-1">
         <label className="text-[11px] font-bold uppercase tracking-widest text-navy/45">
-          Password
+          {t('login.password')}
         </label>
         <input
           name="password"
           type="password"
           required
-          placeholder="••••••••••••••••"
+          placeholder={t('login.passwordPlaceholder')}
           className="w-full rounded-xl border border-stone bg-ice px-3 py-2 text-sm text-navy outline-none transition-all placeholder:text-navy/25 focus:border-teal focus:bg-white focus:ring-2 focus:ring-teal/20"
         />
       </div>
@@ -64,7 +66,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
         disabled={loading}
         className="w-full cursor-pointer rounded-xl bg-navy py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy/90 disabled:opacity-50"
       >
-        {loading ? 'Signing in…' : 'Sign In'}
+        {loading ? t('login.signIn.signingIn') : t('login.signIn.submit')}
       </button>
 
       <div className="pt-1 text-center">
@@ -73,7 +75,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           onClick={onSwitchToRegister}
           className="cursor-pointer text-xs font-medium text-navy/40 transition-colors hover:text-teal"
         >
-          Need an account? Register here
+          {t('login.signIn.needAccount')}
         </button>
       </div>
     </form>

@@ -391,6 +391,46 @@ export const en = {
   // Register new sponsorship
 
   // login / sign in
+  'login.brand': "ROLF Children's Home",
+  'login.email': 'Email Address',
+  'login.emailPlaceholder': 'example@email.com',
+  'login.password': 'Password',
+  'login.passwordPlaceholder': '••••••••••••••••',
+  'login.signIn.title': 'Sign in',
+  'login.signIn.subtitle': 'Access your dashboard',
+  'login.signIn.signingIn': 'Signing in…',
+  'login.signIn.submit': 'Sign In',
+  'login.signIn.needAccount': 'Need an account? Register here',
+  'login.register.title': 'Create account',
+  'login.register.subtitle': 'All fields are required',
+  'login.register.firstName': 'First Name',
+  'login.register.firstNamePlaceholder': 'Margaret',
+  'login.register.lastName': 'Last Name',
+  'login.register.lastNamePlaceholder': 'Thompson',
+  'login.register.registering': 'Registering…',
+  'login.register.createAccount': 'Create Account',
+  'login.register.alreadyHaveAccount': 'Already have an account? Sign In',
+  'login.register.verificationCode': 'Verification Code',
+  'login.register.otpPlaceholder': '123456',
+  'login.register.verificationHelpPrefix': 'If this email still needs verification, check your inbox for the confirmation code sent to',
+  'login.register.verificationHelpSuffix':
+    '. Already-confirmed accounts can sign in while awaiting administrator approval.',
+  'login.register.verifyingCode': 'Verifying Code…',
+  'login.register.confirmAccount': 'Confirm Account',
+  'login.register.resendCode': 'Resend Code',
+  'login.register.resendingCode': 'Resending Code…',
+  'login.register.resendSuccess':
+    'If this account still needs verification, a new confirmation code was requested. Check your inbox and spam folder.',
+  'login.register.resendError':
+    'Could not request another code. If this email is already confirmed, sign in to continue; otherwise try again later.',
+  'login.register.error.emailRequired': 'Email address is required to resend a code.',
+  'login.register.error.requiredFields': 'All registration fields are required.',
+  'login.register.error.accountAlreadyExists':
+    'This email is already registered or confirmed. Sign in to continue, or ask an administrator to approve access.',
+  'login.register.error.invalidCode': 'Enter the numeric verification code from your email.',
+  'login.register.error.generic': 'Registration could not be completed. Please try again.',
+  'login.register.signInInstead': 'Sign in instead',
+  'login.register.backToRegistration': '← Back to registration',
 
 } as const
 

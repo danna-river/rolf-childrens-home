@@ -393,5 +393,45 @@ export const fr: Messages = {
   // Register new sponsorship
 
   // login / sign in
+  'login.brand': "ROLF Children's Home",
+  'login.email': 'Adresse e-mail',
+  'login.emailPlaceholder': 'exemple@email.com',
+  'login.password': 'Mot de passe',
+  'login.passwordPlaceholder': '••••••••••••••••',
+  'login.signIn.title': 'Se connecter',
+  'login.signIn.subtitle': 'Accéder à votre tableau de bord',
+  'login.signIn.signingIn': 'Connexion...',
+  'login.signIn.submit': 'Se connecter',
+  'login.signIn.needAccount': 'Besoin d’un compte ? Inscrivez-vous ici',
+  'login.register.title': 'Créer un compte',
+  'login.register.subtitle': 'Tous les champs sont obligatoires',
+  'login.register.firstName': 'Prénom',
+  'login.register.firstNamePlaceholder': 'Margaret',
+  'login.register.lastName': 'Nom',
+  'login.register.lastNamePlaceholder': 'Thompson',
+  'login.register.registering': 'Inscription...',
+  'login.register.createAccount': 'Créer le compte',
+  'login.register.alreadyHaveAccount': 'Vous avez déjà un compte ? Connectez-vous',
+  'login.register.verificationCode': 'Code de vérification',
+  'login.register.otpPlaceholder': '123456',
+  'login.register.verificationHelpPrefix': 'Si cet e-mail doit encore être vérifié, vérifiez votre boîte pour le code de confirmation envoyé à',
+  'login.register.verificationHelpSuffix':
+    '. Les comptes déjà confirmés peuvent se connecter en attendant l’approbation d’un administrateur.',
+  'login.register.verifyingCode': 'Vérification du code...',
+  'login.register.confirmAccount': 'Confirmer le compte',
+  'login.register.resendCode': 'Renvoyer le code',
+  'login.register.resendingCode': 'Renvoi du code...',
+  'login.register.resendSuccess':
+    'Si ce compte doit encore être vérifié, un nouveau code de confirmation a été demandé. Vérifiez votre boîte de réception et vos courriers indésirables.',
+  'login.register.resendError':
+    'Impossible de demander un autre code. Si cet e-mail est déjà confirmé, connectez-vous pour continuer ; sinon, réessayez plus tard.',
+  'login.register.error.emailRequired': 'L’adresse e-mail est requise pour renvoyer un code.',
+  'login.register.error.requiredFields': 'Tous les champs d’inscription sont obligatoires.',
+  'login.register.error.accountAlreadyExists':
+    'Cet e-mail est déjà inscrit ou confirmé. Connectez-vous pour continuer, ou demandez à un administrateur d’approuver l’accès.',
+  'login.register.error.invalidCode': 'Saisissez le code de vérification numérique reçu par e-mail.',
+  'login.register.error.generic': 'L’inscription n’a pas pu être terminée. Veuillez réessayer.',
+  'login.register.signInInstead': 'Se connecter plutôt',
+  'login.register.backToRegistration': '← Retour à l’inscription',
   
 }
