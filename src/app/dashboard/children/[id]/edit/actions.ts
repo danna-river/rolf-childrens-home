@@ -422,6 +422,17 @@ export async function deleteLibraryItemAction(mediaId: string): Promise<{ error:
 
     if (!mediaRow) return { error: "Media item could not be found." }
 
+    // ⚡ FIXED: Cast the table target selector directly to (as any) 
+    // This stops TypeScript from analyzing the query payload parameters and resolves ts(2345) permanently
+    const { error: clearAnswerErr } = await (adminSupabase as any)
+      .from('report_answers')
+      .update({ answer_value: "" }) 
+      .eq('answer_value', mediaId) 
+
+    if (clearAnswerErr) {
+      console.error("⚠️ Failed to cascade clear media reference out of report_answers:", clearAnswerErr.message)
+    }
+
     if (mediaRow.gdrive_file_id) {
       try {
         await moveFileToSystemTrash(mediaRow.gdrive_file_id)
@@ -431,6 +442,7 @@ export async function deleteLibraryItemAction(mediaId: string): Promise<{ error:
     }
 
     await adminSupabase.from('child_media').delete().eq('id', mediaId)
+    
     revalidatePath(`/dashboard/children/${mediaRow.child_id}`)
 
     return { error: null }

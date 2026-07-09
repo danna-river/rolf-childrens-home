@@ -2,13 +2,24 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { commitStagedFilesToCountry } from '@/lib/googleDrive'
+import { extractDriveFileId } from '@/lib/childMedia'
 import type { EditLogChange } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 
-// intake_templates / progress_reports / report_answers / template_questions aren't in the
-// generated Database schema, so these queries (and the data flowing out of them) need an
-// escape hatch from the typed client.
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+function sanitize(str: string): string {
+  return str.trim().replace(/[^a-zA-Z0-9]/g, "_")
+}
+
+function buildServerFilename(childData: any, type: "photo" | "video", ext: string): string {
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "")
+  const ms = Date.now()
+  const microfraction = String(ms % 1000).padStart(3, '0')
+  return `${childData.id_rolf ? sanitize(childData.id_rolf) : "unknown"}_${childData.last_name ? sanitize(childData.last_name) : ""}_${childData.first_name ? sanitize(childData.first_name) : ""}_${type}_${dateStr}-${ms}${microfraction}.${ext.toLowerCase()}`
+}
 
 export async function getEligibleIntakeForms(childId: string, childCountry: string, dateJoinedStr: string | null, yearJoinedNum: number | null) {
   const supabase = await createClient()
@@ -24,12 +35,20 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     .from('intake_templates')
     .select(`
       *,
-      template_questions (*)
+      template_questions (
+        id,
+        template_id,
+        question_text,
+        field_type,
+        choices,
+        created_at
+      )
     `)
     .order('created_at', { ascending: false })
 
   if (!templates) return { eligibleForms: [], latestCompleted: false }
 
+  // 1. Fetch reports WITHOUT the child_media join to prevent strict-FK query crashes
   const { data: existingReports } = await (supabase as any)
     .from('progress_reports')
     .select(`
@@ -42,12 +61,22 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     `)
     .eq('child_id', childId)
 
-  const submissionMap: Record<string, Record<string, string>> = {}
-  existingReports?.forEach((report: any) => {
-    const answersObj: Record<string, string> = {}
+  // 2. Fetch media separately to resolve UUIDs back into viewable URLs
+  const { data: childMediaData } = await supabase.from('child_media').select('id, url').eq('child_id', childId)
+  const mediaMap: Record<string, string> = {}
+  childMediaData?.forEach((m: any) => {
+    mediaMap[m.id] = m.url
+  })
 
+  const submissionMap: Record<string, Record<string, { value: string; url: string }>> = {}
+  existingReports?.forEach((report: any) => {
+    const answersObj: Record<string, { value: string; url: string }> = {}
     report.report_answers?.forEach((ans: any) => {
-      answersObj[ans.question_id] = ans.answer_value
+      const savedValue = ans.answer_value || ""
+      answersObj[ans.question_id] = {
+        value: savedValue,
+        url: mediaMap[savedValue] || ""
+      }
     })
     submissionMap[report.template_id] = answersObj
   })
@@ -63,13 +92,26 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     const savedQuestionAnswers = submissionMap[tpl.id] || {}
 
     const componentViewAnswers: Record<string, string> = {}
+    const lockedQuestionsList: string[] = []
+
     questionsList.forEach((q: any) => {
-      componentViewAnswers[q.question_text] = savedQuestionAnswers[q.id] || ""
+      const savedData = savedQuestionAnswers[q.id]
+      
+      // Strict Database Lock Check: Lock immediately if answer_value has any string.
+      if (savedData && savedData.value && savedData.value.trim() !== "") {
+        lockedQuestionsList.push(q.id)
+      }
+
+      if (q.field_type === 'media_photo' || q.field_type === 'media_video') {
+        componentViewAnswers[q.id] = savedData?.url || savedData?.value || ""
+      } else {
+        componentViewAnswers[q.id] = savedData?.value || ""
+      }
     })
 
     const isFinished = questionsList.length > 0 && questionsList.every((q: any) => {
-      const ans = savedQuestionAnswers[q.id]
-      return ans !== undefined && ans !== null && ans.trim() !== ""
+      const ansData = savedQuestionAnswers[q.id]
+      return ansData?.value !== undefined && ansData?.value !== null && ansData?.value.trim() !== ""
     })
 
     return {
@@ -78,6 +120,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
       createdAt: tpl.created_at,
       questions: questionsList,
       answers: componentViewAnswers,
+      lockedQuestions: lockedQuestionsList,
       isCompleted: isFinished,
       isLatest: false
     }
@@ -96,7 +139,8 @@ export async function saveIntakeFormAction(
   childId: string,
   templateId: string,
   formTitle: string,
-  newAnswers: Record<string, string>
+  newAnswers: Record<string, string>,
+  stagedDriveFileIds?: string[]
 ) {
   const supabase = await createClient()
 
@@ -113,9 +157,18 @@ export async function saveIntakeFormAction(
   const actorProfile = profileRes.data
   const childData = childRes.data
 
+  if (stagedDriveFileIds && stagedDriveFileIds.length > 0) {
+    try {
+      await commitStagedFilesToCountry(childData.country || 'all', Array.from(new Set(stagedDriveFileIds)))
+    } catch (err: any) {
+      console.error("❌ INTAKE GOOGLE_DRIVE COMMIT FAILURE:", err)
+      return { error: `Staging commitment failure: ${err?.message || err}` }
+    }
+  }
+
   const { data: dbQuestions } = await (supabase as any)
     .from('template_questions')
-    .select('id, question_text')
+    .select('id, question_text, field_type')
     .eq('template_id', templateId)
 
   if (!dbQuestions) return { error: "Failed to resolve blueprint master questions setup." }
@@ -145,25 +198,81 @@ export async function saveIntakeFormAction(
     reportId = newReport.id
   }
 
+  // Fetch answers without problematic joins
   const { data: oldAnswersList } = await (supabase as any)
     .from('report_answers')
     .select('question_id, answer_value')
     .eq('report_id', reportId)
 
+  // Secondary fetch for comparison map
+  const { data: childMediaData } = await supabase.from('child_media').select('id, url').eq('child_id', childId)
+  const mediaMap: Record<string, string> = {}
+  childMediaData?.forEach((m: any) => {
+    mediaMap[m.id] = m.url
+  })
+
   const priorAnswersMap: Record<string, string> = {}
+  const priorMediaUrlsMap: Record<string, string> = {}
+  
   oldAnswersList?.forEach((ans: any) => {
-    priorAnswersMap[ans.question_id] = ans.answer_value
+    const savedVal = ans.answer_value || ""
+    priorAnswersMap[ans.question_id] = savedVal
+    priorMediaUrlsMap[ans.question_id] = mediaMap[savedVal] || ""
   })
 
   const changes: EditLogChange[] = []
   const answersUpsertPayload: Array<{ report_id: string; question_id: string; answer_value: string }> = []
 
-  dbQuestions.forEach((q: any) => {
-    const clientValue = newAnswers[q.question_text] || ""
-    const oldValue = priorAnswersMap[q.id] || ""
+  for (const q of dbQuestions) {
+    const clientValue = newAnswers[q.id] || ""
+    const oldRawValue = priorAnswersMap[q.id] || ""
+    const oldMediaUrl = priorMediaUrlsMap[q.id] || ""
 
-    const cleanOld = oldValue.trim() ? oldValue.trim() : "—"
-    const cleanNew = clientValue.trim() ? clientValue.trim() : "—"
+    let finalAnswerValue = clientValue
+    const isMediaField = q.field_type === 'media_photo' || q.field_type === 'media_video'
+
+    if (isMediaField) {
+      if (clientValue.startsWith('http')) {
+        if (clientValue === oldMediaUrl) {
+          finalAnswerValue = oldRawValue
+        } else {
+          const determinedType = q.field_type === 'media_video' ? 'video' : 'photo'
+          const isGoogleDrive = clientValue.includes('drive.google.com')
+
+          const urlWithoutParams = clientValue.split('?')[0]
+          const extractedExt = urlWithoutParams.includes('.')
+            ? urlWithoutParams.split('.').pop()?.toLowerCase() || 'jpg'
+            : 'jpg'
+          const generatedFilename = buildServerFilename(childData, determinedType, extractedExt)
+
+          const adminSupabase = await createAdminClient()
+
+          const { data: mediaRecord } = await (adminSupabase as any)
+            .from('child_media')
+            .insert({
+              child_id: childId,
+              url: clientValue,
+              gdrive_file_id: isGoogleDrive ? extractDriveFileId(clientValue) : null,
+              source: isGoogleDrive ? 'google_drive' : 'supabase',
+              media_type: determinedType,
+              usage_type: 'intake',
+              filename: generatedFilename,
+              uploaded_by: user.id
+            })
+            .select('id')
+            .single()
+
+          if (mediaRecord) {
+            finalAnswerValue = mediaRecord.id
+          }
+        }
+      } else if (clientValue === "") {
+        finalAnswerValue = ""
+      }
+    }
+
+    const cleanOld = oldRawValue.trim() ? oldRawValue.trim() : "—"
+    const cleanNew = finalAnswerValue.trim() ? finalAnswerValue.trim() : "—"
 
     if (cleanOld !== cleanNew) {
       changes.push({
@@ -176,9 +285,9 @@ export async function saveIntakeFormAction(
     answersUpsertPayload.push({
       report_id: reportId,
       question_id: q.id,
-      answer_value: clientValue
+      answer_value: finalAnswerValue
     })
-  })
+  }
 
   if (changes.length > 0) {
     let updatedLog = childData.edit_log || []
@@ -198,14 +307,7 @@ export async function saveIntakeFormAction(
     updatedLog = [newLogEntry, ...updatedLog]
 
     const adminSupabase = await createAdminClient()
-    const { error: logUpdateError } = await adminSupabase
-      .from('children')
-      .update({ edit_log: updatedLog })
-      .eq('id', childId)
-
-    if (logUpdateError) {
-      return { error: `Failed saving log to child matrix: ${logUpdateError.message}` }
-    }
+    await adminSupabase.from('children').update({ edit_log: updatedLog }).eq('id', childId)
   }
 
   if (answersUpsertPayload.length > 0) {
