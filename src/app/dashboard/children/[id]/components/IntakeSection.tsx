@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { saveIntakeFormAction } from '../intake-actions'
+import { MediaPicker } from '../../components/MediaPicker'
 import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon } from 'lucide-react'
 import { useTranslations } from '@/i18n/client'
 
 type IntakeQuestion = {
+  id: string
   question_text: string
   field_type: string
   choices?: string[]
@@ -16,6 +18,7 @@ type EligibleIntakeForm = {
   title: string
   answers?: Record<string, string>
   questions?: IntakeQuestion[]
+  lockedQuestions?: string[]
   isLatest?: boolean
   isCompleted?: boolean
 }
@@ -35,13 +38,23 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
     return incompleteTarget?.id || 'choose_form'
   })
 
-  const [formState, setFormState] = useState<Record<string, Record<string, string>>>(
+  const [formState, setFormState] = useState<Record<string, Record<string, string>>>(() =>
     eligibleForms.reduce((acc, form) => {
       acc[form.id] = form.answers || {}
       return acc
     }, {} as Record<string, Record<string, string>>)
   )
+
+  useEffect(() => {
+    setFormState(
+      eligibleForms.reduce((acc, form) => {
+        acc[form.id] = form.answers || {}
+        return acc
+      }, {} as Record<string, Record<string, string>>)
+    )
+  }, [eligibleForms])
   
+  const [stagedFileIds, setStagedFileIds] = useState<Record<string, string[]>>({})
   const [currentPage, setCurrentPage] = useState<number>(1)
   const QUESTIONS_PER_PAGE = 8
 
@@ -58,7 +71,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
   }
 
   const activeForm = eligibleForms.find(f => f.id === selectedFormId) || null
-  const activeAnswers = activeForm ? (formState[activeForm.id] || {}) : {}
+  const activeAnswers = activeForm ? { ...(activeForm.answers || {}), ...(formState[activeForm.id] || {}) } : {}
 
   const totalQuestions = activeForm?.questions?.length || 0
   const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE) || 1
@@ -69,22 +82,37 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
     setSelectedFormId(newFormId)
     setCurrentPage(1)
     setSaveStatus(null)
+    setStagedFileIds({})
   }
 
-  const handleInputChange = (questionText: string, value: string, fieldType: string) => {
+  const handleInputChange = (questionId: string, value: string, fieldType: string) => {
     if (fieldType === 'number') {
       const isInvalid = value !== "" && !/^\d+$/.test(value)
-      setNumericErrors(prev => ({ ...prev, [questionText]: isInvalid }))
+      setNumericErrors(prev => ({ ...prev, [questionId]: isInvalid }))
     }
 
     setFormState(prev => ({
       ...prev,
       [activeForm!.id]: {
         ...(prev[activeForm!.id] || {}),
-        [questionText]: value
+        [questionId]: value
       }
     }))
     if (saveStatus) setSaveStatus(null)
+  }
+
+  const handleMediaChange = (questionId: string, url: string | null, fieldType: string) => {
+    handleInputChange(questionId, url || '', fieldType)
+
+    if (url && url.includes("/d/")) {
+      const extractedId = url.split("/d/")[1]?.split("/")[0]
+      if (extractedId) {
+        setStagedFileIds(prev => ({
+          ...prev,
+          [activeForm!.id]: [...(prev[activeForm!.id] || []), extractedId]
+        }))
+      }
+    }
   }
 
   const handleSaveForm = () => {
@@ -96,11 +124,18 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
 
     setSaveStatus(null)
     startTransition(async () => {
-      const res = await saveIntakeFormAction(childId, activeForm.id, activeForm.title, activeAnswers)
+      const res = await saveIntakeFormAction(
+        childId, 
+        activeForm.id, 
+        activeForm.title, 
+        activeAnswers,
+        Array.from(new Set(stagedFileIds[activeForm.id] || []))
+      )
       if (res.error) {
         setSaveStatus({ type: 'error', msg: res.error })
       } else {
         setSaveStatus({ type: 'success', msg: t('children.intake.saved') })
+        setStagedFileIds(prev => ({ ...prev, [activeForm.id]: [] }))
         setTimeout(() => setSaveStatus(null), 4000)
       }
     })
@@ -160,16 +195,19 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
           <p className="text-xs text-navy/60 font-medium">{t('children.intake.selectHelp')}</p>
         </div>
       ) : (
-        <div className="space-y-5 pt-1 animate-fade-in">
+        <div key={`${activeForm.id}-${activeForm.lockedQuestions?.length || 0}`} className="space-y-5 pt-1 animate-fade-in">
           
           <div className="space-y-4">
             {visibleQuestions.map((q: IntakeQuestion, qIdx: number) => {
               const absoluteQuestionNumber = startIndex + qIdx + 1
-              const currentResponse = activeAnswers[q.question_text] || ''
+              const currentResponse = activeAnswers[q.id] || ''
               const isFieldBlank = !currentResponse.toString().trim()
 
+              // This strictly checks against the server response (ignoring local unsaved files)
+              const isFieldPermanentlyLocked = activeForm?.lockedQuestions?.includes(q.id) || false
+
               return (
-                <div key={absoluteQuestionNumber} className="space-y-1.5 bg-ice/40 p-3 rounded-md border border-stone/80">
+                <div key={q.id} className="space-y-1.5 bg-ice/40 p-3 rounded-md border border-stone/80">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-navy/70">
                     <span className="text-teal font-mono mr-1">#{absoluteQuestionNumber}.</span> {q.question_text} {isFieldBlank && <span className="text-rose-600 font-normal lowercase italic">{t('children.intake.required')}</span>}
                   </label>
@@ -177,8 +215,9 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                   {q.field_type === 'select' ? (
                     <select
                       value={currentResponse}
-                      onChange={(e) => handleInputChange(q.question_text, e.target.value, q.field_type)}
-                      className="font-semibold w-full rounded-md border border-stone bg-white px-3 py-2 text-xs text-navy outline-none focus:border-teal transition-all cursor-pointer"
+                      disabled={isFieldPermanentlyLocked}
+                      onChange={(e) => handleInputChange(q.id, e.target.value, q.field_type)}
+                      className="font-semibold w-full rounded-md border border-stone bg-white px-3 py-2 text-xs text-navy outline-none focus:border-teal transition-all cursor-pointer disabled:opacity-60"
                     >
                       <option value="">{t('children.intake.chooseOption')}</option>
                       {(q.choices || []).map((choice: string, cIdx: number) => (
@@ -194,32 +233,80 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => handleInputChange(q.question_text, option.value, q.field_type)}
-                          className={`px-6 py-1.5 text-xs font-bold rounded-md border transition-all cursor-pointer ${
+                          disabled={isFieldPermanentlyLocked}
+                          onClick={() => handleInputChange(q.id, option.value, q.field_type)}
+                          className={`px-6 py-1.5 text-xs font-bold rounded-md border transition-all disabled:opacity-50 ${
                             currentResponse === option.value
                               ? 'bg-teal/15 border-teal/40 text-teal shadow-2xs' 
                               : 'bg-white border-stone text-navy/65 hover:bg-ice'
-                          }`}
+                          } ${!isFieldPermanentlyLocked ? 'cursor-pointer' : ''}`}
                         >
                           {option.label}
                         </button>
                       ))}
                     </div>
+                  ) : (q.field_type === 'media_photo' || q.field_type === 'media_video') ? (
+                    <div className="pt-1.5 space-y-2">
+                      {/* ⚡ LOCKED DOWN PRESENTATION CONTAINER BLOCK */}
+                      {isFieldPermanentlyLocked ? (
+                        <div className="bg-white border border-stone rounded-md p-4 flex flex-col sm:flex-row items-center gap-4 shadow-3xs animate-fade-in">
+                          <div className="shrink-0">
+                            {q.field_type === 'media_photo' ? (
+                              <img 
+                                src={currentResponse || undefined} 
+                                alt="Intake asset file" 
+                                className="h-24 w-24 rounded-md object-cover border border-stone"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <video 
+                                src={currentResponse || undefined} 
+                                controls 
+                                className="h-24 aspect-video rounded-md bg-stone border border-stone" 
+                              />
+                            )}
+                          </div>
+                          <div className="flex-1 text-center sm:text-left space-y-1">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-navy/5 text-navy/70 px-2 py-0.5 rounded border border-stone/50">
+                              🔒 Field Locked
+                            </span>
+                            <p className="text-xs font-semibold text-navy/80">
+                              An answer has already been submitted for this field.
+                            </p>
+                            <p className="text-[11px] text-navy/50 leading-relaxed">
+                              To replace this file, it must first be removed from the child's central Media Library Portfolio grid panel.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <MediaPicker
+                          type={q.field_type === 'media_video' ? 'video' : 'photo'}
+                          value={currentResponse}
+                          onChange={(url) => handleMediaChange(q.id, url, q.field_type)}
+                          childMeta={{
+                            idRolf: childId,
+                            country: 'all',
+                            ...({ folderOverride: "SYSTEM_TRASH" } as any)
+                          }}
+                        />
+                      )}
+                    </div>
                   ) : (
                     <div className="space-y-1">
                       <input
                         type={q.field_type}
+                        disabled={isFieldPermanentlyLocked}
                         onWheel={(e) => (e.target as HTMLInputElement).blur()}
                         value={currentResponse}
-                        onChange={(e) => handleInputChange(q.question_text, e.target.value, q.field_type)}
+                        onChange={(e) => handleInputChange(q.id, e.target.value, q.field_type)}
                         placeholder={t('children.intake.placeholder').replace('{type}', q.field_type)}
-                        className={`font-semibold w-full rounded-md border px-3 py-2 text-xs bg-white outline-none transition-all ${
-                          numericErrors[q.question_text] 
+                        className={`font-semibold w-full rounded-md border px-3 py-2 text-xs bg-white outline-none transition-all disabled:opacity-60 disabled:bg-stone/10 ${
+                          numericErrors[q.id] 
                             ? 'border-rose-400 bg-rose-50/20 text-rose-900' 
                             : 'border-stone text-navy placeholder:text-navy/30 focus:border-teal'
                         }`}
                       />
-                      {numericErrors[q.question_text] && (
+                      {numericErrors[q.id] && (
                         <p className="text-[10px] font-bold text-rose-700 flex items-center gap-1">
                           <AlertCircleIcon className="size-3" /> {t('children.intake.digitsOnly')}
                         </p>
