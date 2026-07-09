@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { ensureBioIncludesAgeAndCountry, hasRequiredBioFacts, homeDurationFromDate } from '@/lib/bio'
+import { hasRequiredBioFacts, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole, isStaffRole } from '@/lib/profiles'
 
 // Lightweight in-memory rate-limiter. Per-instance and ephemeral on Vercel,
@@ -77,17 +77,8 @@ function pick<T>(options: T[]): T {
 function templateBio(f: Fields): string {
   const parts: string[] = []
   if (f.firstName) parts.push(`My name is ${f.firstName}.`)
-  const facts: string[] = []
-  if (f.age) facts.push(pick([`I am ${f.age} years old`, `I just turned ${f.age}`, `I am ${f.age}`]))
-  if (f.country) facts.push(pick([`I live in ${f.country}`, `my home is in ${f.country}`, `I am from ${f.country}`]))
-  if (facts.length) parts.push(`${facts.join(' and ')}.`)
-  if (f.homeDuration) {
-    parts.push(pick([
-      `I have been at the Children's Home for ${f.homeDuration}.`,
-      `The Children's Home has cared for me for ${f.homeDuration}.`,
-      `I have lived at the Children's Home for ${f.homeDuration}.`,
-    ]))
-  }
+  // Age, country, and time at the Children's Home are deliberately omitted —
+  // they are injected live at display time so they never go stale.
   const hobby = hobbySentence(f.hobby)
   if (hobby) parts.push(hobby)
   if (f.subject) {
@@ -114,8 +105,8 @@ const SYSTEM_PROMPT = `You write short introductions for children living at a ch
 Rules:
 - Write in fluent, grammatically correct English, even if the input is in another language.
 - First person, in the child's own voice, starting with "My name is <first name>."
-- 4-6 short, simple sentences, phrased the way a child of that age would speak.
-- Always include the supplied age, country, and how long the child has been at the Children's Home.
+- 3-5 short, simple sentences, phrased the way a child would speak.
+- Do NOT state the child's age, country, or how long they have been at the Children's Home. Those facts are added automatically elsewhere, so including them here would create duplicates.
 - Make it fun and personal: add playful touches that grow naturally out of the child's own hobbies, favorite subject, and dream (e.g. a soccer lover might mention scoring goals with friends). Vary your sentence rhythm and word choices so every child's letter feels unique — do not reuse the same stock phrasing.
 - Rephrase the raw details naturally; fix any grammar in the input.
 - Never invent concrete facts (family, events, places); playful color around the given details is fine.
@@ -132,11 +123,10 @@ async function modelBio(f: Fields): Promise<string | null> {
 
   // PII minimization: the model only needs the first name. Internal notes are
   // deliberately NOT sent — they are a private staff record, never bio input.
+  // Age, country, and time at the home are deliberately NOT sent — they are
+  // added live at display time, so the model must not write them into the prose.
   const lines = [
     `First name: ${f.firstName || 'not given'}`,
-    `Age: ${f.age || 'not given'}`,
-    `Country: ${f.country || 'not given'}`,
-    `Time at Children's Home: ${f.homeDuration || 'not given'}`,
     `Hobbies: ${f.hobby || 'not given'}`,
     `Favorite subject: ${f.subject || 'not given'}`,
     `Dream job: ${f.career || 'not given'}`,
@@ -227,7 +217,9 @@ export async function POST(req: Request) {
   }
 
   // Model when configured, template otherwise — and template again if the
-  // model call fails, so the button always produces something.
-  const bio = ensureBioIncludesAgeAndCountry((await modelBio(fields)) ?? templateBio(fields), fields)
+  // model call fails, so the button always produces something. Age, country,
+  // and time at the home are intentionally left out of the stored bio and
+  // injected live at display time so they never go stale.
+  const bio = (await modelBio(fields)) ?? templateBio(fields)
   return NextResponse.json({ bio })
 }

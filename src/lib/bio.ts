@@ -4,6 +4,8 @@ export type BioFacts = {
   homeDuration?: string | null
 }
 
+export const DONOR_BLESSING = 'Thank you and may God bless you!'
+
 function cleanText(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
@@ -131,4 +133,16 @@ export function ensureBioIncludesAgeAndCountry(bio: string, facts: BioFacts): st
   }
 
   return text
+}
+
+/** Keeps the generated donor-letter closing visually separate from the story. */
+export function splitBioClosing(bio: string): string[] {
+  const text = cleanText(bio)
+  const closingPattern = new RegExp(`\\s*${escapeRegExp(DONOR_BLESSING)}$`, 'i')
+  const match = closingPattern.exec(text)
+
+  if (!match || match.index === undefined) return text ? [text] : []
+
+  const story = text.slice(0, match.index).trim()
+  return story ? [story, DONOR_BLESSING] : [DONOR_BLESSING]
 }

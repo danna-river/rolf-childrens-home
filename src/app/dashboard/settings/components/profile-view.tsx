@@ -10,9 +10,10 @@ interface ProfileViewProps {
   initialName?: string
   email?: string
   initialLocale?: Locale
+  isDonor?: boolean
 }
 
-export function ProfileView({ initialName = '', email = '', initialLocale = 'en' }: ProfileViewProps) {
+export function ProfileView({ initialName = '', email = '', initialLocale = 'en', isDonor = false }: ProfileViewProps) {
   const router = useRouter()
   const t = useTranslations()
   const [name, setName] = useState(initialName)
@@ -59,36 +60,38 @@ export function ProfileView({ initialName = '', email = '', initialLocale = 'en'
 
   return (
     <div className="google-sans-registry max-w-md space-y-4">
-      <section className="rounded-md border border-stone bg-white p-5 shadow-sm sm:p-6">
-        <div className="border-b border-stone pb-3">
-          <h3 className="text-base font-bold tracking-tight text-navy sm:text-lg">{t('settings.language.title')}</h3>
-          <p className="mt-0.5 text-xs font-medium leading-5 text-navy/55">{t('settings.language.description')}</p>
-        </div>
+      {!isDonor && (
+        <section className="rounded-md border border-stone bg-white p-5 shadow-sm sm:p-6">
+          <div className="border-b border-stone pb-3">
+            <h3 className="text-base font-bold tracking-tight text-navy sm:text-lg">{t('settings.language.title')}</h3>
+            <p className="mt-0.5 text-xs font-medium leading-5 text-navy/55">{t('settings.language.description')}</p>
+          </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-stone bg-ice p-1">
-          {(['en', 'fr'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => handleLocaleChange(option)}
-              disabled={savingLocale}
-              className={`min-h-10 rounded-lg px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                locale === option
-                  ? 'bg-navy text-white shadow-sm'
-                  : 'text-navy/60 hover:bg-white hover:text-navy'
-              }`}
-            >
-              {option === 'en' ? t('settings.language.english') : t('settings.language.french')}
-            </button>
-          ))}
-        </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-stone bg-ice p-1">
+            {(['en', 'fr'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => handleLocaleChange(option)}
+                disabled={savingLocale}
+                className={`min-h-10 rounded-lg px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  locale === option
+                    ? 'bg-navy text-white shadow-sm'
+                    : 'text-navy/60 hover:bg-white hover:text-navy'
+                }`}
+              >
+                {option === 'en' ? t('settings.language.english') : t('settings.language.french')}
+              </button>
+            ))}
+          </div>
 
-        {languageMessage && (
-          <p className={`mt-3 text-xs font-semibold ${languageMessage.type === 'success' ? 'text-teal' : 'text-rose-700'}`}>
-            {languageMessage.text}
-          </p>
-        )}
-      </section>
+          {languageMessage && (
+            <p className={`mt-3 text-xs font-semibold ${languageMessage.type === 'success' ? 'text-teal' : 'text-rose-700'}`}>
+              {languageMessage.text}
+            </p>
+          )}
+        </section>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4 rounded-md border border-stone bg-white p-5 shadow-sm sm:p-6">
         <div className="border-b border-stone pb-3">

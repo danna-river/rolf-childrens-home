@@ -1,6 +1,8 @@
 "use server"
 import { google } from "googleapis"
 import { Readable } from "stream"
+import { requireAuth } from "@/lib/auth"
+import { isAdminRole, isStaffRole } from "@/lib/profiles"
 
 export type ChildMeta = {
   idRolf: string | null
@@ -9,6 +11,12 @@ export type ChildMeta = {
   country: string | null
   folderOverride?: string
 }
+
+const MAX_BYTES = {
+  photo: 15 * 1024 * 1024,
+  video: 50 * 1024 * 1024,
+}
+const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
 
 function getDriveClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
@@ -25,6 +33,30 @@ function getDriveClient() {
   })
 
   return { drive: google.drive({ version: "v3", auth }), sharedDriveId }
+}
+
+async function getDriveAccessToken() {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  const key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, "\n")
+
+  if (!email || !key) {
+    throw new Error("Missing Google Drive environment variables")
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: { client_email: email, private_key: key },
+    scopes: ["https://www.googleapis.com/auth/drive"],
+  })
+
+  const client = await auth.getClient()
+  const accessToken = await client.getAccessToken()
+  const token = typeof accessToken === "string" ? accessToken : accessToken?.token
+
+  if (!token) {
+    throw new Error("Could not obtain Google Drive upload token")
+  }
+
+  return token
 }
 
 function sanitize(str: string): string {
@@ -134,6 +166,152 @@ export async function uploadToDrive(
     url: `https://drive.google.com/file/d/${fileId}/view`,
     filename
   }
+}
+
+export async function createDriveUploadSession({
+  type,
+  filename,
+  mimeType,
+  size,
+  meta,
+}: {
+  type: "photo" | "video"
+  filename: string
+  mimeType: string
+  size: number
+  meta: ChildMeta
+}): Promise<{ uploadUrl: string | null; error: string | null }> {
+  const { profile } = await requireAuth()
+  if (!isAdminRole(profile.role) && !isStaffRole(profile.role)) {
+    return { uploadUrl: null, error: "Unauthorized" }
+  }
+
+  if (type !== "photo" && type !== "video") {
+    return { uploadUrl: null, error: "Invalid upload type" }
+  }
+
+  if (size > MAX_BYTES[type]) {
+    return { uploadUrl: null, error: `File too large. Max ${MAX_BYTES[type] / 1024 / 1024} MB.` }
+  }
+
+  const expectedPrefix = type === "photo" ? "image/" : "video/"
+  if (!mimeType.startsWith(expectedPrefix)) {
+    return { uploadUrl: null, error: "Invalid file type" }
+  }
+
+  const { drive, sharedDriveId } = getDriveClient()
+  const accessToken = await getDriveAccessToken()
+  const ext = filename.split(".").pop() ?? (type === "photo" ? "jpg" : "mp4")
+  const driveFilename = buildFilename(meta, type, ext)
+  const targetFolderId = await findOrCreateFolder(drive, sharedDriveId, "SYSTEM_TRASH", sharedDriveId)
+
+  const response = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": mimeType,
+        "X-Upload-Content-Length": String(size),
+      },
+      body: JSON.stringify({
+        name: driveFilename,
+        parents: [targetFolderId],
+      }),
+    },
+  )
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    console.error("[createDriveUploadSession] Google Drive session error:", message)
+    return { uploadUrl: null, error: "Could not start Google Drive upload." }
+  }
+
+  const uploadUrl = response.headers.get("location")
+  if (!uploadUrl) {
+    return { uploadUrl: null, error: "Google Drive did not return an upload URL." }
+  }
+
+  return { uploadUrl, error: null }
+}
+
+export async function completeDriveUpload(fileId: string): Promise<{ url: string | null; error: string | null }> {
+  const { profile } = await requireAuth()
+  if (!isAdminRole(profile.role) && !isStaffRole(profile.role)) {
+    return { url: null, error: "Unauthorized" }
+  }
+
+  if (!fileId.trim()) {
+    return { url: null, error: "Missing Google Drive file ID." }
+  }
+
+  const { drive, sharedDriveId } = getDriveClient()
+  const stagingFolderId = await findOrCreateFolder(drive, sharedDriveId, "SYSTEM_TRASH", sharedDriveId)
+  const { data: fileData } = await drive.files.get({
+    fileId,
+    fields: "id,parents,driveId,trashed",
+    supportsAllDrives: true,
+  })
+
+  if (
+    fileData.trashed ||
+    fileData.driveId !== sharedDriveId ||
+    !fileData.parents?.includes(stagingFolderId)
+  ) {
+    return { url: null, error: "Invalid Google Drive upload file." }
+  }
+
+  await drive.permissions.create({
+    fileId,
+    requestBody: { role: "reader", type: "anyone" },
+    supportsAllDrives: true,
+  })
+
+  return {
+    url: `https://drive.google.com/file/d/${fileId}/view`,
+    error: null,
+  }
+}
+
+export async function getDriveThumbnail(fileId: string): Promise<{
+  body: ArrayBuffer
+  contentType: string
+} | null> {
+  if (!fileId.trim()) return null
+
+  const { drive } = getDriveClient()
+  const { data: file } = await drive.files.get({
+    fileId,
+    fields: "thumbnailLink",
+    supportsAllDrives: true,
+  })
+
+  if (!file.thumbnailLink) return null
+
+  const accessToken = await getDriveAccessToken()
+  const response = await fetch(file.thumbnailLink, {
+    headers: {
+      Accept: "image/avif,image/webp,image/*,*/*;q=0.8",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  })
+
+  const contentType = response.headers.get("content-type")
+  const contentLength = Number(response.headers.get("content-length") ?? 0)
+  if (
+    !response.ok ||
+    !contentType?.startsWith("image/") ||
+    (Number.isFinite(contentLength) && contentLength > MAX_THUMBNAIL_BYTES)
+  ) {
+    return null
+  }
+
+  const body = await response.arrayBuffer()
+  if (body.byteLength > MAX_THUMBNAIL_BYTES) return null
+
+  return { body, contentType }
 }
 
 export async function moveFileToSystemTrash(fileId: string): Promise<void> {

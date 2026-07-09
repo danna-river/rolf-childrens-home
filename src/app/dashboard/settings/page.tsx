@@ -118,10 +118,11 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
 
   // Base Fallback Tab: Renders the default user profile tab view
   return (
-    <ProfileView 
-      initialName={profile?.full_name || ''} 
-      email={user?.email || ''} 
+    <ProfileView
+      initialName={profile?.full_name || ''}
+      email={user?.email || ''}
       initialLocale={locale}
+      isDonor={profile.role === 'donor'}
     />
   )
 }

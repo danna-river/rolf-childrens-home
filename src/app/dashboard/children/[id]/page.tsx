@@ -9,9 +9,9 @@ import { LibraryViewer, type MediaItem } from './components/LibraryViewer' // âš
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
-import { ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
+import { ensureBioIncludesAgeAndCountry, homeDurationFromDate, splitBioClosing } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
-import type { Child, ChildWithMediaRefs } from '@/lib/types'
+import type { Child, ChildWithMediaRefs, SponsorshipFrequency } from '@/lib/types'
 import { getMessages, getUserLocale } from '@/i18n/server'
 import type { Locale } from '@/i18n/config'
 import type { MessageKey, Messages } from '@/i18n/locales/en'
@@ -72,6 +72,34 @@ function donorDateLabel(value: string | null): string | null {
   return date ? donorDateFormatter.format(date) : null
 }
 
+const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
+
+function shortDateLabel(value: string | null): string | null {
+  const date = safeDate(value)
+  return date ? shortDateFormatter.format(date) : null
+}
+
+const FREQUENCY_LABELS: Record<NonNullable<SponsorshipFrequency>, string> = {
+  one_time: 'One-time',
+  weekly: '/week',
+  biweekly: '/biweekly',
+  monthly: '/month',
+  quarterly: '/quarter',
+  semiannual: '/6 months',
+  annual: '/year',
+}
+
+function formatContribution(amount: number | null, frequency: SponsorshipFrequency | null): string {
+  if (!amount) return 'On file'
+  const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
+  if (!frequency || frequency === 'one_time') return usd
+  return `${usd}${FREQUENCY_LABELS[frequency]}`
+}
+
 function donorChildName(child: Child): string {
   return (
     [child.first_name, child.last_name].filter(Boolean).join(' ') ||
@@ -93,6 +121,11 @@ function donorSentenceList(items: string[]): string {
   return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`
 }
 
+function capitalizeFirst(value: string): string {
+  const trimmed = value.trim()
+  return trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1) : trimmed
+}
+
 function DonorProfileFact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-2xl border border-[#eadfd0] bg-[#f6f1e8] px-3 py-3">
@@ -107,7 +140,21 @@ function DonorProfileFact({ label, value }: { label: string; value: string }) {
 }
 
 // âš¡ INJECT PORTFOLIO PROPS DOWNSTREAM
-function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems: MediaItem[] }) {
+function DonorChildDetail({
+  child,
+  libraryItems,
+  sponsorshipStart,
+  sponsorshipEnd,
+  amount,
+  frequency,
+}: {
+  child: Child
+  libraryItems: MediaItem[]
+  sponsorshipStart: string | null
+  sponsorshipEnd: string | null
+  amount: number | null
+  frequency: SponsorshipFrequency | null
+}) {
   const name = donorChildName(child)
   const firstName = child.first_name || child.display_name || name
   const age = calculateAge(child.birth_year, child.birth_month, child.birth_day)
@@ -128,7 +175,7 @@ function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems:
     ? ensureBioIncludesAgeAndCountry(bioText, { age: bioAge, country: child.country, homeDuration })
     : null
   const storyParts = displayBioText
-    ? [displayBioText]
+    ? splitBioClosing(displayBioText)
     : [
         `My name is ${name}. ${bioAge !== null ? `I am ${bioAge} years old. ` : ''}${child.country ? `I live at the Children's Home in ${child.country}. ` : ''}${homeDuration ? `I have been at the Children's Home for ${homeDuration}. ` : ''}`,
         child.favorite_subject ? `My favorite subject is ${child.favorite_subject}.` : null,
@@ -185,6 +232,10 @@ function DonorChildDetail({ child, libraryItems }: { child: Child; libraryItems:
                   <DonorProfileFact label="Date joined" value={joined} />
                   <DonorProfileFact label="Favorite subject" value={child.favorite_subject || 'To be added'} />
                   <DonorProfileFact label="Hobbies" value={hobbies.length > 0 ? donorSentenceList(hobbies) : 'To be added'} />
+                  <DonorProfileFact label="Career aspiration" value={child.career_aspiration ? capitalizeFirst(child.career_aspiration) : 'To be added'} />
+                  <DonorProfileFact label="Sponsorship since" value={sponsorshipStart ? shortDateLabel(sponsorshipStart) ?? 'Active' : 'Active'} />
+                  <DonorProfileFact label="Contribution" value={formatContribution(amount, frequency)} />
+                  <DonorProfileFact label="End date" value={sponsorshipEnd ? shortDateLabel(sponsorshipEnd) ?? 'Ongoing' : 'Ongoing'} />
                 </dl>
               </div>
             </div>
@@ -302,7 +353,25 @@ export default async function ChildProfilePage({
       profile_video: rawDonorChild.profile_video?.url ?? null
     }
 
-    return <DonorChildDetail child={donorChild} libraryItems={libraryItems} />
+    // Sponsorship facts (since/contribution/end date) so this page matches
+    // the summary already shown on the sponsored-children list card.
+    const { data: sponsorshipRow } = await supabase
+      .from('sponsorships')
+      .select('start_date, end_date, amount, frequency')
+      .eq('child_id', id)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    return (
+      <DonorChildDetail
+        child={donorChild}
+        libraryItems={libraryItems}
+        sponsorshipStart={sponsorshipRow?.start_date ?? null}
+        sponsorshipEnd={sponsorshipRow?.end_date ?? null}
+        amount={sponsorshipRow?.amount ?? null}
+        frequency={sponsorshipRow?.frequency ?? null}
+      />
+    )
   }
 
   const childResult = await supabase

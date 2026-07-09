@@ -3,7 +3,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
-import { ageFromBirthParts, ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
 
@@ -148,13 +147,11 @@ export async function registerChildAction(
 
   const display_name = `${input.first_name} ${input.last_name}`.trim()
 
-  const normalizedBio = input.bio
-    ? ensureBioIncludesAgeAndCountry(input.bio, {
-        age: ageFromBirthParts(input.birth_year, input.birth_month, input.birth_day),
-        country: input.country,
-        homeDuration: homeDurationFromDate(input.date_joined ?? (input.year_joined ? `${input.year_joined}-01-01` : null)),
-      })
-    : null
+  // Store the bio narrative as written. Age, country, and time at the
+  // Children's Home are intentionally NOT baked in here — they are injected
+  // live at display time (see ensureBioIncludesAgeAndCountry in the views) so
+  // they never go stale as the child ages or time passes.
+  const normalizedBio = input.bio?.trim() || null
 
   // ⚡ 1. INSERT BASE CHILD PROFILE FIRST (Set media links to null temporarily to bypass FK constraints)
   const { data: insertedChild, error: insertError } = await supabase

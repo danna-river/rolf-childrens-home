@@ -13,6 +13,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import type { Child, ChildUpdate, ChildWithMediaRefs, Sponsorship } from '@/lib/types'
 import { calculateAge } from '@/components/actions'
+import { ensureBioIncludesAgeAndCountry, homeDurationFromDate, splitBioClosing } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 
 type IconComponent = typeof MapPin
@@ -146,6 +147,11 @@ function sentenceList(items: string[]): string {
   return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`
 }
 
+function capitalizeFirst(value: string): string {
+  const trimmed = value.trim()
+  return trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1) : trimmed
+}
+
 function yearsInHome(child: Child): number | null {
   const joined = safeDate(child.date_joined)
   const year = joined?.getFullYear() ?? child.year_joined
@@ -167,10 +173,22 @@ function monthsSince(value: string | null): number | null {
   return months >= 0 ? months : null
 }
 
+function daysSince(value: string | null): number | null {
+  const start = safeDate(value)
+  if (!start) return null
+
+  const days = Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return days >= 0 ? days : null
+}
+
 function connectionLabel(startDate: string | null): string | null {
   const months = monthsSince(startDate)
   if (months === null) return null
-  if (months === 0) return 'New this month'
+  if (months === 0) {
+    const days = daysSince(startDate)
+    if (days === null || days === 0) return 'Today'
+    return `${days} day${days === 1 ? '' : 's'}`
+  }
 
   const years = Math.floor(months / 12)
   const remainingMonths = months % 12
@@ -194,6 +212,29 @@ function storyFor(child: Child): string[] {
   const name = childName(child)
   const firstName = childFirstName(child, name)
   const age = calculateAge(child.birth_year, child.birth_month, child.birth_day)
+
+  // A saved bio is the child's whole letter (self-contained, ends with a
+  // blessing), so show it on its own — don't prepend the template intro that
+  // would repeat the name/age/country the bio already states.
+  const bioText = child.bio?.trim()
+  if (bioText) {
+    const bioAge = child.birth_year ? age : null
+    const homeDuration = homeDurationFromDate(
+      child.date_joined ?? (child.year_joined ? `${child.year_joined}-01-01` : null),
+    )
+    const displayBio = ensureBioIncludesAgeAndCountry(bioText, {
+      age: bioAge,
+      country: child.country,
+      homeDuration,
+    })
+    const parts = splitBioClosing(displayBio)
+    if (!/god bless/i.test(displayBio)) {
+      parts.push('Thank you for sponsoring me and loving me. I pray that God will bless you too!')
+    }
+    return parts
+  }
+
+  // No saved bio — assemble a friendly fallback story.
   const joined = child.year_joined
     ? ` in ${child.year_joined}`
     : child.date_joined
@@ -209,7 +250,7 @@ function storyFor(child: Child): string[] {
 
   return [
     `My name is ${name}. I joined the Children's Home${location}${joined}.${age ? ` I am ${age} years old this year.` : ''}`,
-    child.bio?.trim() || details.join(' ') || `The ROLF team is preparing more of ${firstName}'s story.`,
+    details.join(' ') || `The ROLF team is preparing more of ${firstName}'s story.`,
     'Thank you for sponsoring me and loving me. I pray that God will bless you too!',
   ]
 }
@@ -400,6 +441,10 @@ function DetailStrip({
     {
       label: 'Hobbies',
       value: hobbies.length > 0 ? sentenceList(hobbies) : 'To be added',
+    },
+    {
+      label: 'Career aspiration',
+      value: child.career_aspiration ? capitalizeFirst(child.career_aspiration) : 'To be added',
     },
     {
       label: 'Date joined',
