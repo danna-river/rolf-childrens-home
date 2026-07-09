@@ -32,7 +32,7 @@ export default async function UnifiedChildrenPage({
   }
 
   if (isDonorRole(profile.role)) {
-    return <DonorView />
+    return <DonorView donorProfileId={user.id} />
   }
 
   return redirect('/login?error=Unauthorized')

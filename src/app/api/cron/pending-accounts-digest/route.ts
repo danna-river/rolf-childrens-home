@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   // Vercel Cron includes `Authorization: Bearer ${CRON_SECRET}` when CRON_SECRET
   // is set. Reject anything else so the endpoint can't be triggered publicly.
   const secret = process.env.CRON_SECRET
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
     .select("id", { count: "exact", head: true })
     .eq("role", "unapproved")
   if (countError) {
-    return NextResponse.json({ error: countError.message }, { status: 500 })
+    console.error("[pending-accounts-digest] count failed:", countError.message)
+    return NextResponse.json({ error: "Failed to count pending accounts." }, { status: 500 })
   }
   // Nothing pending → no email.
   if (!count || count < 1) {
@@ -32,7 +33,8 @@ export async function GET(request: NextRequest) {
     .select("email")
     .eq("role", "admin")
   if (adminError) {
-    return NextResponse.json({ error: adminError.message }, { status: 500 })
+    console.error("[pending-accounts-digest] admin lookup failed:", adminError.message)
+    return NextResponse.json({ error: "Failed to load digest recipients." }, { status: 500 })
   }
   const adminEmails = (admins ?? [])
     .map((a: { email: string }) => a.email)

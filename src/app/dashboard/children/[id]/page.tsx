@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PhotoViewer } from './components/PhotoViewer'
@@ -11,7 +12,7 @@ import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
 import { ensureBioIncludesAgeAndCountry, homeDurationFromDate } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
-import type { Child, ChildWithMediaRefs } from '@/lib/types'
+import type { Child, ChildMediaRef, ChildWithMediaRefs } from '@/lib/types'
 import { getMessages, getUserLocale } from '@/i18n/server'
 import type { Locale } from '@/i18n/config'
 import type { MessageKey, Messages } from '@/i18n/locales/en'
@@ -22,6 +23,54 @@ type ChildWithCreator = Child & {
     role: string | null
   } | null
 }
+
+type DonorSafeChildWithMediaRefs = Pick<
+  Child,
+  | 'id'
+  | 'id_rolf'
+  | 'display_name'
+  | 'first_name'
+  | 'last_name'
+  | 'birth_year'
+  | 'birth_month'
+  | 'birth_day'
+  | 'country'
+  | 'bio'
+  | 'status'
+  | 'created_at'
+  | 'updated_at'
+  | 'date_joined'
+  | 'year_joined'
+  | 'career_aspiration'
+  | 'favorite_subject'
+  | 'hobby'
+> & {
+  profile_photo: ChildMediaRef | null
+  profile_video: ChildMediaRef | null
+}
+
+const DONOR_CHILD_SELECT = `
+  id,
+  id_rolf,
+  display_name,
+  first_name,
+  last_name,
+  birth_year,
+  birth_month,
+  birth_day,
+  country,
+  bio,
+  status,
+  created_at,
+  updated_at,
+  date_joined,
+  year_joined,
+  career_aspiration,
+  favorite_subject,
+  hobby,
+  profile_photo:child_media!fk_children_profile_photo(id, url),
+  profile_video:child_media!fk_children_profile_video(id, url)
+`
 
 function DetailRow({
   label,
@@ -283,23 +332,33 @@ export default async function ChildProfilePage({
   const libraryItems = mediaLibraryRows || []
 
   if (profile.role === 'donor') {
-    const donorChildResult = await supabase
-      .from('children')
+    const admin = await createAdminClient()
+    const donorChildResult = await admin
+      .from('sponsorships')
       .select(`
-        *,
-        profile_photo:child_media!fk_children_profile_photo(id, url),
-        profile_video:child_media!fk_children_profile_video(id, url)
+        child:children(${DONOR_CHILD_SELECT}),
+        sponsor:sponsors!inner(profile_id)
       `)
-      .eq('id', id)
-      .single()
-    const rawDonorChild = donorChildResult.data as ChildWithMediaRefs | null
+      .eq('status', 'active')
+      .eq('child_id', id)
+      .eq('sponsors.profile_id', user.id)
+      .maybeSingle()
+    const rawDonorChildRelation = (donorChildResult.data as {
+      child: DonorSafeChildWithMediaRefs | DonorSafeChildWithMediaRefs[] | null
+    } | null)?.child
+    const rawDonorChild = Array.isArray(rawDonorChildRelation)
+      ? rawDonorChildRelation[0] ?? null
+      : rawDonorChildRelation
 
     if (!rawDonorChild) return notFound()
 
     const donorChild: Child = {
       ...rawDonorChild,
       profile_photo: rawDonorChild.profile_photo?.url ?? null,
-      profile_video: rawDonorChild.profile_video?.url ?? null
+      profile_video: rawDonorChild.profile_video?.url ?? null,
+      notes: null,
+      created_by: null,
+      edit_log: [],
     }
 
     return <DonorChildDetail child={donorChild} libraryItems={libraryItems} />

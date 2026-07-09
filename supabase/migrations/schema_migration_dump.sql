@@ -829,45 +829,54 @@ ALTER FUNCTION public.audit_children_edit() OWNER TO postgres;
 
 CREATE FUNCTION public.handle_new_user() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public'
+    SET search_path TO ''
     AS $$
-declare 
-  role_raw text; 
-  role_value text;
-  country_raw text;
 begin
-  -- 1. Extract and sanitize the role from raw user metadata if present
-  role_raw := lower(trim(coalesce(new.raw_user_meta_data->>'role', 'unapproved')));
-  
-  -- 2. Strictly filter and map valid registration roles. 
-  -- Legacy data_inputer variants are completely removed here.
-  role_value := case
-    when role_raw in ('admin', 'staff', 'donor') then role_raw
-    else 'unapproved' -- 🌟 SECURE DEFAULT: Shuts down unauthenticated elevations
-  end;
-
-  -- 3. Extract the country string cleanly
-  country_raw := nullif(trim(coalesce(new.raw_user_meta_data->>'country','')), '');
-
-  -- 4. Safely package data and map fields to your text array profiles column
   insert into public.profiles (id, email, full_name, role, country)
   values (
-    new.id, 
-    new.email, 
-    coalesce(new.raw_user_meta_data->>'full_name',''), 
-    role_value,
-    case 
-      when country_raw is not null then ARRAY[country_raw]
-      else '{}'::text[]
-    END
-  );
-  
+    new.id,
+    coalesce(new.email, ''),
+    coalesce(new.raw_user_meta_data ->> 'full_name', ''),
+    'unapproved',
+    '{}'::text[]
+  )
+  on conflict (id) do update
+  set
+    email = excluded.email,
+    full_name = excluded.full_name;
+
   return new;
-end; 
+end;
 $$;
 
 
 ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
+
+--
+-- Name: guard_profile_self_update(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.guard_profile_self_update() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if current_role = 'service_role' or (select public.is_admin()) then
+    return new;
+  end if;
+
+  if (to_jsonb(new) - 'full_name' - 'ui_locale')
+    is distinct from
+    (to_jsonb(old) - 'full_name' - 'ui_locale') then
+    raise exception 'Only display preferences can be updated on your own profile.';
+  end if;
+
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION public.guard_profile_self_update() OWNER TO postgres;
 
 --
 -- Name: is_admin(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -3517,7 +3526,9 @@ CREATE TABLE public.profiles (
     role text NOT NULL,
     country text[] DEFAULT '{}'::text[],
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT profiles_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'staff'::text, 'donor'::text, 'unapproved'::text])))
+    ui_locale text DEFAULT 'en'::text NOT NULL,
+    CONSTRAINT profiles_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'staff'::text, 'donor'::text, 'unapproved'::text]))),
+    CONSTRAINT profiles_ui_locale_check CHECK ((ui_locale = ANY (ARRAY['en'::text, 'fr'::text])))
 );
 
 
@@ -4755,6 +4766,13 @@ CREATE TRIGGER children_audit BEFORE UPDATE ON public.children FOR EACH ROW EXEC
 
 
 --
+-- Name: profiles guard_profile_self_update; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER guard_profile_self_update BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.guard_profile_self_update();
+
+
+--
 -- Name: subscription tr_check_filters; Type: TRIGGER; Schema: realtime; Owner: supabase_admin
 --
 
@@ -5181,10 +5199,10 @@ CREATE POLICY "child_media: admin all" ON public.child_media USING ((EXISTS ( SE
 -- Name: child_media child_media: donor assigned approved read; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY "child_media: donor assigned approved read" ON public.child_media FOR SELECT USING (((approved = true) AND (EXISTS ( SELECT 1
+CREATE POLICY "child_media: donor assigned approved read" ON public.child_media FOR SELECT TO authenticated USING (((approved = true) AND (EXISTS ( SELECT 1
    FROM (public.sponsorships s
-     JOIN public.children c ON ((c.id = child_media.child_id)))
-  WHERE ((s.child_id = child_media.child_id) AND (s.donor_id = auth.uid()) AND (s.status = 'active'::text) AND (c.status = 'active'::text))))));
+     JOIN public.sponsors sponsor ON ((sponsor.id = s.sponsor_id)))
+  WHERE ((s.child_id = child_media.child_id) AND (s.status = 'active'::text) AND (sponsor.profile_id = auth.uid()))))));
 
 
 --
@@ -5216,10 +5234,10 @@ CREATE POLICY "child_updates: admin all" ON public.child_updates USING ((EXISTS 
 -- Name: child_updates child_updates: donor assigned visible read; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY "child_updates: donor assigned visible read" ON public.child_updates FOR SELECT USING (((visible_to_donor = true) AND (EXISTS ( SELECT 1
+CREATE POLICY "child_updates: donor assigned visible read" ON public.child_updates FOR SELECT TO authenticated USING (((visible_to_donor = true) AND (EXISTS ( SELECT 1
    FROM (public.sponsorships s
-     JOIN public.children c ON ((c.id = child_updates.child_id)))
-  WHERE ((s.child_id = child_updates.child_id) AND (s.donor_id = auth.uid()) AND (s.status = 'active'::text) AND (c.status = 'active'::text))))));
+     JOIN public.sponsors sponsor ON ((sponsor.id = s.sponsor_id)))
+  WHERE ((s.child_id = child_updates.child_id) AND (s.status = 'active'::text) AND (sponsor.profile_id = auth.uid()))))));
 
 
 --
@@ -5245,15 +5263,6 @@ ALTER TABLE public.children ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "children: admin all" ON public.children USING ((EXISTS ( SELECT 1
    FROM public.profiles p
   WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))));
-
-
---
--- Name: children children: donor assigned read; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY "children: donor assigned read" ON public.children FOR SELECT USING (((status = 'active'::text) AND (EXISTS ( SELECT 1
-   FROM public.sponsorships s
-  WHERE ((s.child_id = children.id) AND (s.donor_id = auth.uid()) AND (s.status = 'active'::text))))));
 
 
 --
@@ -5332,6 +5341,13 @@ CREATE POLICY "profiles: admin write" ON public.profiles USING (public.is_admin(
 --
 
 CREATE POLICY "profiles: own read" ON public.profiles FOR SELECT USING ((auth.uid() = id));
+
+
+--
+-- Name: profiles profiles: own update display preferences; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "profiles: own update display preferences" ON public.profiles FOR UPDATE TO authenticated USING ((auth.uid() = id)) WITH CHECK ((auth.uid() = id));
 
 
 --
@@ -6903,4 +6919,3 @@ ALTER EVENT TRIGGER pgrst_drop_watch OWNER TO supabase_admin;
 --
 
 \unrestrict 31lxxbzLMD5AFO2kRD1MixLJcSHr61bmCf0whXopFrVD8N6pU3UGRrqP4gxjKgE
-

@@ -10,8 +10,8 @@ import {
   Play,
   Sparkles,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
-import type { Child, ChildUpdate, ChildWithMediaRefs, Sponsorship } from '@/lib/types'
+import { createAdminClient } from '@/lib/supabase/admin'
+import type { Child, ChildMediaRef, ChildUpdate, Sponsorship } from '@/lib/types'
 import { calculateAge } from '@/components/actions'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 
@@ -24,10 +24,59 @@ type DonorSponsorshipRow = Pick<
   child: Child | Child[] | null
 }
 
+type DonorSafeChildWithMediaRefs = Pick<
+  Child,
+  | 'id'
+  | 'id_rolf'
+  | 'display_name'
+  | 'first_name'
+  | 'last_name'
+  | 'birth_year'
+  | 'birth_month'
+  | 'birth_day'
+  | 'country'
+  | 'bio'
+  | 'status'
+  | 'created_at'
+  | 'updated_at'
+  | 'date_joined'
+  | 'year_joined'
+  | 'career_aspiration'
+  | 'favorite_subject'
+  | 'hobby'
+> & {
+  profile_photo: ChildMediaRef | null
+  profile_video: ChildMediaRef | null
+}
+
 /** Raw query shape: the embedded child arrives with child_media refs instead of flat URLs. */
 type DonorSponsorshipQueryRow = Omit<DonorSponsorshipRow, 'child'> & {
-  child: ChildWithMediaRefs | ChildWithMediaRefs[] | null
+  child: DonorSafeChildWithMediaRefs | DonorSafeChildWithMediaRefs[] | null
+  sponsor?: { profile_id: string | null } | { profile_id: string | null }[] | null
 }
+
+const DONOR_CHILD_SELECT = `
+  id,
+  id_rolf,
+  display_name,
+  first_name,
+  last_name,
+  birth_year,
+  birth_month,
+  birth_day,
+  country,
+  bio,
+  status,
+  created_at,
+  updated_at,
+  date_joined,
+  year_joined,
+  career_aspiration,
+  favorite_subject,
+  hobby,
+  profile_photo:child_media!fk_children_profile_photo(id, url),
+  profile_video:child_media!fk_children_profile_video(id, url)
+`
 
 type DonorChildProfile = {
   child: Child
@@ -641,8 +690,8 @@ function DonorSkeleton() {
   )
 }
 
-async function DonorChildren() {
-  const supabase = await createClient()
+async function DonorChildren({ donorProfileId }: { donorProfileId: string }) {
+  const supabase = await createAdminClient()
 
   // ⚡ UPDATE: Update the sub-select query to pull media URLs from child_media
   const { data, error } = await supabase
@@ -655,13 +704,11 @@ async function DonorChildren() {
       amount,
       frequency,
       end_date,
-      child:children(
-        *,
-        profile_photo:child_media!fk_children_profile_photo(id, url),
-        profile_video:child_media!fk_children_profile_video(id, url)
-      )
+      sponsor:sponsors!inner(profile_id),
+      child:children(${DONOR_CHILD_SELECT})
     `)
     .eq('status', 'active')
+    .eq('sponsors.profile_id', donorProfileId)
     .not('child_id', 'is', null)
     .order('start_date', { ascending: true }) as { data: DonorSponsorshipQueryRow[] | null; error: unknown }
 
@@ -674,6 +721,9 @@ async function DonorChildren() {
         ...row.child,
         profile_photo: row.child.profile_photo?.url ?? null,
         profile_video: row.child.profile_video?.url ?? null,
+        notes: null,
+        created_by: null,
+        edit_log: [],
       },
     };
   });
@@ -798,12 +848,12 @@ async function DonorChildren() {
   )
 }
 
-export function DonorView() {
+export function DonorView({ donorProfileId }: { donorProfileId: string }) {
   return (
     <div className="google-sans-page min-h-[calc(100svh_-_4rem)] bg-[#f8f1e8]">
       <main className="px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <Suspense fallback={<DonorSkeleton />}>
-          <DonorChildren />
+          <DonorChildren donorProfileId={donorProfileId} />
         </Suspense>
       </main>
     </div>

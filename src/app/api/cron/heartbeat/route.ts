@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 // holds a single row that gets updated in place, so it never grows.
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("[heartbeat] failed:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Failed to record heartbeat." }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, beat_at: beatAt })
