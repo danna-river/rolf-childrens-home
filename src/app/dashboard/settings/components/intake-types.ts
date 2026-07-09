@@ -1,4 +1,4 @@
-export type FieldTypeConstraint = 'text' | 'number' | 'date' | 'boolean' | 'select'
+export type FieldTypeConstraint = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'media_photo' | 'media_video'
 
 export interface QuestionInput {
   id?: string
