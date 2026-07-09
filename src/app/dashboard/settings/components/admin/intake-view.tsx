@@ -373,6 +373,8 @@ export function IntakeView() {
                                                     <option value="date">Date</option>
                                                     <option value="boolean">Yes / No</option>
                                                     <option value="select">Multiple Choice</option>
+                                                    <option value="media_photo">Image Upload</option>
+                                                    <option value="media_video">Video Upload</option>
                                                 </select>
                                             </div>
 
