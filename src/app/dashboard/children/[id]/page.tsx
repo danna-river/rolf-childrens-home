@@ -5,7 +5,7 @@ import { PhotoViewer } from './components/PhotoViewer'
 import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
 import { PenPalSection } from './components/PenPalSection'
-import { LibraryViewer, type MediaItem } from './components/LibraryViewer' // ⚡ IMPORT LINKED
+import { LibraryViewer, type MediaItem } from './components/LibraryViewer'
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
 import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
@@ -258,7 +258,8 @@ function DonorChildDetail({
             {/* ⚡ INTEGRATE SEAMLESS DONOR VIEW COMPONENT CONTAINER FRAME */}
             {libraryItems.length > 0 && (
               <section className="pt-2">
-                <LibraryViewer mediaLibrary={libraryItems} />
+                {/* Fixed: Passed child.id as childId prop */}
+                <LibraryViewer childId={child.id} mediaLibrary={libraryItems} />
               </section>
             )}
 
@@ -327,7 +328,7 @@ export default async function ChildProfilePage({
   // ⚡ COMPREHENSIVE BATCH GATHER TRACK: Fetches portfolio rows for the child
   const { data: mediaLibraryRows } = await supabase
     .from('child_media')
-    .select('id, url, media_type, filename')
+    .select('id, url, media_type, filename, usage_type, created_at') // Make sure usage_type and created_at are included
     .eq('child_id', id)
     .order('created_at', { ascending: false }) as { data: MediaItem[] | null }
 
@@ -492,7 +493,8 @@ export default async function ChildProfilePage({
         {/* ⚡ INTEGRATE SEAMLESS STAFF REGISTRY VIEW COMPONENT GRID */}
         {libraryItems.length > 0 && (
           <div className="bg-white rounded-md border border-stone p-5 shadow-2xs">
-            <LibraryViewer mediaLibrary={libraryItems} />
+            {/* Fixed: Passed id as childId prop */}
+            <LibraryViewer childId={id} mediaLibrary={libraryItems} />
           </div>
         )}
 

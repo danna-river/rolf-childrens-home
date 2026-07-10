@@ -1,18 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useTransition } from "react"
 import { resolveVideo } from "@/lib/childMedia"
-import { PlayCircleIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
+import { PlayCircleIcon, ChevronLeftIcon, ChevronRightIcon, XIcon, UserCircleIcon, CheckCircle2Icon } from "lucide-react"
+import { setProfileMediaAction } from "../media-actions"
 
 export interface MediaItem {
     id: string
     url: string
     media_type: string
     filename: string
-    created_at?: string
+    usage_type: string // Must be included in your DB select!
+    created_at?: string 
 }
 
 interface Props {
+    childId: string 
     mediaLibrary: MediaItem[]
 }
 
@@ -20,8 +23,9 @@ function mediaThumbnailUrl(mediaId: string): string {
     return `/api/media/${mediaId}/thumbnail`
 }
 
-export function LibraryViewer({ mediaLibrary }: Props) {
+export function LibraryViewer({ childId, mediaLibrary }: Props) {
     const [activeItem, setActiveItem] = useState<MediaItem | null>(null)
+    const [isPending, startTransition] = useTransition()
 
     // Handle keyboard navigation
     useEffect(() => {
@@ -66,6 +70,30 @@ export function LibraryViewer({ mediaLibrary }: Props) {
         }
     }
 
+    // Server Action Handler
+    const handleSetProfile = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (!activeItem) return
+
+        startTransition(async () => {
+            const res = await setProfileMediaAction(
+                childId, 
+                activeItem.id, 
+                activeItem.media_type as 'photo' | 'video'
+            )
+            
+            if (res.error) {
+                alert(res.error)
+            } else {
+                // Optimistically update UI so it snaps to "Current" instantly
+                setActiveItem({ 
+                    ...activeItem, 
+                    usage_type: activeItem.media_type === 'photo' ? 'profile_picture' : 'profile_video' 
+                })
+            }
+        })
+    }
+
     return (
         <div className="space-y-5">
             <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-teal border-b border-stone pb-2">
@@ -79,6 +107,13 @@ export function LibraryViewer({ mediaLibrary }: Props) {
                         <button key={item.id} onClick={() => setActiveItem(item)} className="relative flex-none w-32 aspect-square rounded-xl overflow-hidden border border-stone bg-white shadow-2xs snap-start cursor-pointer hover:opacity-90 transition-opacity">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="w-full h-full object-cover" />
+                            
+                            {/* Indicator if already profile picture */}
+                            {item.usage_type === 'profile_picture' && (
+                                <div className="absolute top-1.5 right-1.5 bg-teal text-white rounded-full p-1 shadow-sm">
+                                    <UserCircleIcon className="size-3.5" />
+                                </div>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -92,6 +127,13 @@ export function LibraryViewer({ mediaLibrary }: Props) {
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="w-full h-full object-cover opacity-60" />
                             <PlayCircleIcon className="absolute size-8 text-white/90" />
+
+                            {/* Indicator if already profile video */}
+                            {item.usage_type === 'profile_video' && (
+                                <div className="absolute top-1.5 right-1.5 bg-teal text-white rounded-full p-1 shadow-sm z-10">
+                                    <UserCircleIcon className="size-3.5" />
+                                </div>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -101,6 +143,27 @@ export function LibraryViewer({ mediaLibrary }: Props) {
             {activeItem && (
                 <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" onClick={closeTheater}>
                     
+                    {/* Top Action Bar */}
+                    <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-4" onClick={e => e.stopPropagation()}>
+                        
+                        {/* Set Profile Button */}
+                        {activeItem.usage_type === 'profile_picture' || activeItem.usage_type === 'profile_video' ? (
+                            <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-teal/20 border border-teal/30 text-teal text-xs font-bold tracking-wide">
+                                <CheckCircle2Icon className="size-4" />
+                                Current Profile {activeItem.media_type === 'photo' ? 'Picture' : 'Video'}
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleSetProfile}
+                                disabled={isPending}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold tracking-wide transition-all cursor-pointer disabled:opacity-50"
+                            >
+                                <UserCircleIcon className="size-4" />
+                                {isPending ? 'Updating...' : `Set as Profile ${activeItem.media_type === 'photo' ? 'Picture' : 'Video'}`}
+                            </button>
+                        )}
+                    </div>
+
                     {/* Previous Button */}
                     {currentIndex > 0 && (
                         <button 
