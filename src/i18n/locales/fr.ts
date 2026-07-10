@@ -390,6 +390,58 @@ export const fr: Messages = {
   'children.subject.history': 'Histoire',
   'children.subject.other': 'Autre',
 
+  // Face search (registry toolbar dialog + photo enrollment)
+  'children.faceSearch.button': 'Recherche par visage',
+  'children.faceSearch.title': 'Retrouver un enfant par photo',
+  'children.faceSearch.description':
+    "Prenez ou téléversez une photo de l'enfant. La photo est analysée uniquement sur cet appareil — elle n'est jamais envoyée ni conservée.",
+  'children.faceSearch.useCamera': 'Utiliser la caméra',
+  'children.faceSearch.uploadPhoto': 'Téléverser une photo',
+  'children.faceSearch.capture': 'Capturer',
+  'children.faceSearch.searching': 'Recherche en cours…',
+  'children.faceSearch.indexing': 'Indexation de la photo pour la recherche par visage...',
+  'children.faceSearch.error.noFace':
+    "Aucun visage n'a été détecté sur la photo. Essayez une photo plus proche et bien éclairée.",
+  'children.faceSearch.error.multipleFaces':
+    "Plusieurs visages ont été détectés. Utilisez une photo où seul l'enfant apparaît.",
+  'children.faceSearch.error.lowQuality':
+    'Le visage est trop petit, flou ou tourné. Essayez une photo plus nette, prise de face.',
+  'children.faceSearch.error.camera':
+    "La caméra n'est pas disponible. Vérifiez les autorisations ou téléversez une photo.",
+  'children.faceSearch.error.engine':
+    "La recherche par visage n'a pas pu démarrer sur cet appareil. Vous pouvez toujours chercher par nom ou par identifiant ROLF.",
+  'children.faceSearch.results.help':
+    "Vérifiez attentivement avant d'ouvrir un profil — la recherche par visage propose des candidats, elle ne confirme pas une identité.",
+  'children.faceSearch.results.none': 'Aucun enfant correspondant trouvé.',
+  'children.faceSearch.results.noneHelp':
+    "L'enfant n'a peut-être pas encore de photo de profil indexée. Essayez la recherche par nom ou par identifiant ROLF.",
+  'children.faceSearch.results.best': 'Correspondance la plus proche',
+  'children.faceSearch.tryAgain': 'Essayer une autre photo',
+
+  // Settings → Face search enrollment (admin backfill)
+  'settings.tabs.faceSearch': 'Recherche par visage',
+  'settings.faceSearch.title': "Indexation de la recherche par visage",
+  'settings.faceSearch.description':
+    "Indexez les photos de profil existantes pour permettre au personnel de retrouver un enfant par photo. Les photos sont traitées une par une dans ce navigateur ; seule la signature du visage est conservée.",
+  'settings.faceSearch.loading': "Chargement de l'état d'indexation…",
+  'settings.faceSearch.stats.withPhoto': 'Avec photo',
+  'settings.faceSearch.stats.enrolled': 'Indexés',
+  'settings.faceSearch.stats.unsearchable': 'Sans visage exploitable',
+  'settings.faceSearch.stats.pending': "En attente d'indexation",
+  'settings.faceSearch.start': "Démarrer l'indexation",
+  'settings.faceSearch.allDone': 'Toutes les photos de profil sont indexées',
+  'settings.faceSearch.stop': 'Arrêter après la photo en cours',
+  'settings.faceSearch.starting': 'Préparation…',
+  'settings.faceSearch.processing': 'Indexation de {name}…',
+  'settings.faceSearch.runSummary':
+    'Indexés : {enrolled} · Sans visage exploitable : {unsearchable} · Échecs : {failed}',
+  'settings.faceSearch.help':
+    "Vous pouvez arrêter à tout moment et reprendre plus tard — les enfants déjà traités sont ignorés automatiquement. Les photos sans visage net unique sont marquées comme non indexables et restent des photos de profil valides.",
+  'settings.faceSearch.failuresTitle': 'À vérifier',
+  'settings.faceSearch.failuresHelp':
+    "Rien n'a été enregistré pour ces enfants ; ils restent dans la file. Relancez l'indexation pour réessayer.",
+  'settings.faceSearch.noPhoto': 'Aucune photo de profil enregistrée.',
+
   // Register new sponsorship
 
   // login / sign in
