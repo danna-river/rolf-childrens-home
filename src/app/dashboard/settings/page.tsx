@@ -11,6 +11,8 @@ import { AccountManagementView } from '@/app/dashboard/settings/components/admin
 import { ProfileView } from './components/profile-view'
 import { SecurityView } from './components/security-view'
 import { IntakeView } from './components/admin/intake-view'
+import { FaceSearchView } from './components/admin/face-search-view'
+import { getFaceBackfillQueue, getFaceTemplateStats } from '@/lib/face/actions'
 
 type SettingsPageProps = {
   searchParams: Promise<{ tab?: string }>
@@ -108,6 +110,23 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
 
     return <IntakeView />
+  }
+
+  if (targetTab === 'face_search') {
+    if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
+
+    const [statsResult, queueResult] = await Promise.all([
+      getFaceTemplateStats(),
+      getFaceBackfillQueue(),
+    ])
+
+    return (
+      <FaceSearchView
+        initialStats={statsResult.stats}
+        initialPending={queueResult.items.length}
+        initialError={statsResult.error ?? queueResult.error}
+      />
+    )
   }
 
   if (targetTab === 'security') {

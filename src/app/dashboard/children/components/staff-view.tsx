@@ -4,6 +4,7 @@ import {
   getJoinedYears,
 } from '@/components/actions'
 import { SearchBar } from '@/components/searchBar'
+import { FaceSearchButton } from '@/app/dashboard/children/components/FaceSearchButton'
 import { StatusFilter } from '@/components/statusFilter'
 import { CountryFilter } from '@/components/countryFilter'
 import { SortFilter } from '@/components/sortFilter'
@@ -97,7 +98,12 @@ export async function StaffView({ assignedCountries, searchParams, messages, loc
 
           <RegistryToolbar>
             <div className="space-y-4">
-              <SearchBar />
+              <div className="flex items-stretch gap-3">
+                <div className="min-w-0 flex-1">
+                  <SearchBar />
+                </div>
+                <FaceSearchButton />
+              </div>
               <div className="flex flex-col gap-4">
                 <StatusFilter />
                 <CountryFilter countries={assignedCountries} />

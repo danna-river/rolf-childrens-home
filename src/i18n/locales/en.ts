@@ -388,6 +388,53 @@ export const en = {
   'children.subject.history': 'History',
   'children.subject.other': 'Other',
 
+  // Face search (registry toolbar dialog + photo enrollment)
+  'children.faceSearch.button': 'Face Search',
+  'children.faceSearch.title': 'Find a child by photo',
+  'children.faceSearch.description':
+    'Take or upload a photo of the child. The photo is analyzed on this device only — it is never uploaded or stored.',
+  'children.faceSearch.useCamera': 'Use Camera',
+  'children.faceSearch.uploadPhoto': 'Upload Photo',
+  'children.faceSearch.capture': 'Capture',
+  'children.faceSearch.searching': 'Searching…',
+  'children.faceSearch.indexing': 'Indexing photo for face search...',
+  'children.faceSearch.error.noFace': 'No face was found in the photo. Try a closer, well-lit photo.',
+  'children.faceSearch.error.multipleFaces': 'More than one face was detected. Use a photo with only the child in frame.',
+  'children.faceSearch.error.lowQuality': 'The face is too small, blurry, or turned away. Try a clearer, front-facing photo.',
+  'children.faceSearch.error.camera': 'The camera is not available. Check permissions or upload a photo instead.',
+  'children.faceSearch.error.engine':
+    'Face search could not start on this device. You can still search by name or ROLF ID.',
+  'children.faceSearch.results.help':
+    'Review carefully before opening a profile — face search suggests candidates, it does not confirm identity.',
+  'children.faceSearch.results.none': 'No matching children found.',
+  'children.faceSearch.results.noneHelp':
+    'The child may not have a searchable profile photo yet. Try the name or ROLF ID search.',
+  'children.faceSearch.results.best': 'Closest match',
+  'children.faceSearch.tryAgain': 'Try another photo',
+
+  // Settings → Face search enrollment (admin backfill)
+  'settings.tabs.faceSearch': 'Face Search',
+  'settings.faceSearch.title': 'Face Search Enrollment',
+  'settings.faceSearch.description':
+    'Index existing profile photos so staff can find children by photo. Photos are processed one at a time in this browser; only the face signature is stored.',
+  'settings.faceSearch.loading': 'Loading enrollment status…',
+  'settings.faceSearch.stats.withPhoto': 'With photo',
+  'settings.faceSearch.stats.enrolled': 'Searchable',
+  'settings.faceSearch.stats.unsearchable': 'No usable face',
+  'settings.faceSearch.stats.pending': 'Awaiting indexing',
+  'settings.faceSearch.start': 'Start indexing',
+  'settings.faceSearch.allDone': 'All profile photos are indexed',
+  'settings.faceSearch.stop': 'Stop after current photo',
+  'settings.faceSearch.starting': 'Preparing…',
+  'settings.faceSearch.processing': 'Indexing {name}…',
+  'settings.faceSearch.runSummary': 'Indexed: {enrolled} · No usable face: {unsearchable} · Failed: {failed}',
+  'settings.faceSearch.help':
+    'You can stop at any time and resume later — completed children are skipped automatically. Photos without a clear single face are marked unsearchable and keep working as normal profile photos.',
+  'settings.faceSearch.failuresTitle': 'Needs attention',
+  'settings.faceSearch.failuresHelp':
+    'Nothing was recorded for these children; they stay in the queue. Run the indexing again to retry.',
+  'settings.faceSearch.noPhoto': 'No profile photo on file.',
+
   // Register new sponsorship
 
   // login / sign in

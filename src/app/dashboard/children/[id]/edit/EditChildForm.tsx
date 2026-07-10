@@ -7,6 +7,7 @@ import type { UpdateChildInput } from "./actions"
 import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
 import { MediaPicker } from "../../components/MediaPicker"
+import { enrollChildProfilePhoto } from "@/lib/face/enroll"
 import { resolvePhotoSrc, resolveVideoThumbnail } from "@/lib/childMedia"
 import { AlertTriangleIcon, CornerUpLeftIcon, UploadCloudIcon, CheckCircle2Icon, Loader2Icon, FilmIcon, ImageIcon, Trash2Icon, PlayCircleIcon } from "lucide-react"
 import { useTranslations } from "@/i18n/client"
@@ -39,6 +40,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
   const libraryFileRef = useRef<HTMLInputElement>(null)
   const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [indexingFace, setIndexingFace] = useState(false)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -254,6 +256,16 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
         setSubmitting(false)
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
+      }
+
+      // Best-effort face-search enrollment when the profile photo changed
+      // (replacing/removing a photo already invalidates the old template in
+      // the database). Failures never block the save — the admin backfill
+      // queue picks the child up later.
+      if (photoUrl && photoUrl !== (child.profile_photo ?? null)) {
+        setIndexingFace(true)
+        await enrollChildProfilePhoto(child.id)
+        setIndexingFace(false)
       }
 
       router.push("/dashboard/children")
@@ -753,11 +765,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
           disabled={!isFormValid() || mediaUploading || submitting || loadingPreview || libraryUploading}
           className="w-full py-3.5 rounded-xl bg-teal text-white font-semibold text-sm transition-colors duration-150 cursor-pointer hover:bg-teal/90 disabled:bg-stone disabled:text-navy/35 disabled:cursor-not-allowed"
         >
-          {submitting
-            ? t('children.register.saving')
-            : mediaUploading
-              ? t('children.register.processingMedia')
-              : t('children.edit.saveChanges')}
+          {indexingFace ? t('children.faceSearch.indexing') : submitting ? t('children.register.saving') : mediaUploading ? t('children.register.processingMedia') : t('children.edit.saveChanges')}
         </button>
       </div>
     </div>

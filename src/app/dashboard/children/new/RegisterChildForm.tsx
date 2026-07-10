@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { registerChildAction, getLatestIdPreview, checkRolfIdForRegistration } from "./actions"
 import { calcAge, SUBJECTS, Field } from "../components/form-utils"
 import { MediaPicker } from "../components/MediaPicker"
+import { enrollChildProfilePhoto } from "@/lib/face/enroll"
 import { useLocale, useTranslations } from "@/i18n/client"
 import type { MessageKey } from "@/i18n/locales/en"
 
@@ -65,6 +66,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [mediaUploading, setMediaUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [indexingFace, setIndexingFace] = useState(false)
   const [generatingBio, setGeneratingBio] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bioGenerated, setBioGenerated] = useState(false)
@@ -161,7 +163,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       profile_video: videoUrl,
     }
 
-    const { error: actionError } = await registerChildAction(input)
+    const { id: newChildId, error: actionError } = await registerChildAction(input)
     if (actionError) {
       setError(actionError)
       setSubmitting(false) // 🌟 Essential: Unlock button state on failure!
@@ -172,6 +174,15 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       setStep(0)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
+    }
+
+    // Best-effort face-search enrollment for the new profile photo. Runs on
+    // this device via the media proxy; a failure never blocks registration —
+    // the admin backfill queue picks the child up later.
+    if (newChildId && photoUrl) {
+      setIndexingFace(true)
+      await enrollChildProfilePhoto(newChildId)
+      setIndexingFace(false)
     }
 
     router.push("/dashboard/children")
@@ -458,7 +469,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
             disabled={submitting}
             className="w-full py-3.5 rounded-xl bg-teal text-white font-semibold text-sm transition-colors duration-150 cursor-pointer hover:bg-teal/90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {submitting ? t('children.register.saving') : t('children.register.button')}
+            {indexingFace ? t('children.faceSearch.indexing') : submitting ? t('children.register.saving') : t('children.register.button')}
           </button>
         )}
       </div>

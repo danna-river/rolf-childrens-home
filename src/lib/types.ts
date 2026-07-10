@@ -392,6 +392,35 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      /** Face lookup RPCs (see supabase/migrations/20260709120000_create_face_lookup.sql).
+       *  All are SECURITY DEFINER and re-check the caller's role and country
+       *  scope internally; embeddings are write-only from the app's side. */
+      match_child_face: {
+        Args: { query_embedding: number[]; query_model_version: string }
+        Returns: { child_id: string; distance: number }[]
+      }
+      upsert_child_face_template: {
+        Args: {
+          target_child_id: string
+          target_media_id: string
+          face_embedding: number[] | null
+          face_model_version: string
+        }
+        Returns: undefined
+      }
+      get_face_enrollment_queue: {
+        Args: { expected_model_version: string }
+        Returns: { child_id: string; media_id: string; display_name: string }[]
+      }
+      get_face_template_stats: {
+        Args: { expected_model_version: string }
+        Returns: {
+          children_with_photo: number
+          templates_active: number
+          templates_unsearchable: number
+        }[]
+      }
+    }
   }
 }
