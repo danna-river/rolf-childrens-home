@@ -9,6 +9,7 @@ import { StatusFilter } from '@/components/statusFilter'
 import { CountryFilter } from '@/components/countryFilter'
 import { SortFilter } from '@/components/sortFilter'
 import { YearJoinedFilter } from '@/components/yearJoinedFilter'
+import { LastUpdatedFilter } from '@/components/lastUpdatedFilter'
 import { ProfileList } from '@/components/profileList'
 import { Pagination } from '@/components/pagination'
 import { StaffLayout } from '@/app/dashboard/children/components/staff-layout'
@@ -27,6 +28,7 @@ type StaffSearchParams = {
   country?: string | string[]
   sort?: string
   yearJoined?: string
+  updated?: string
   page?: string
 }
 
@@ -47,18 +49,19 @@ export async function StaffView({ assignedCountries, searchParams, messages, loc
   const regionalLabel =
     assignedCountries.length > 0 ? assignedCountries.join(', ') : t('children.registry.noAssignedRegions')
 
-  const { search, status, country, sort, yearJoined, page } = await searchParams
+  const { search, status, country, sort, yearJoined, updated, page } = await searchParams
   const currentPage = Math.max(1, parseInt(page ?? '1'))
-  
+
   const selectedCountries = parseCountryFilter(country)
-  const countryQueryScope = selectedCountries && selectedCountries.length > 0 
-    ? selectedCountries 
+  const countryQueryScope = selectedCountries && selectedCountries.length > 0
+    ? selectedCountries
     : (assignedCountries.length > 0 ? assignedCountries : undefined)
   const hasFilters = Boolean(
     search?.trim()
     || (status && status !== 'all')
     || (selectedCountries && selectedCountries.length > 0)
     || (yearJoined && yearJoined !== 'all')
+    || (updated && updated !== 'all')
   )
 
   const [{ profiles, error, total }, joinedYears, stats] = await Promise.all([
@@ -70,6 +73,7 @@ export async function StaffView({ assignedCountries, searchParams, messages, loc
       true,
       yearJoined,
       currentPage,
+      updated,
     ),
     getJoinedYears(),
     getChildrenRegistryStats(countryQueryScope, true),
@@ -108,6 +112,7 @@ export async function StaffView({ assignedCountries, searchParams, messages, loc
                 <StatusFilter />
                 <CountryFilter countries={assignedCountries} />
                 <YearJoinedFilter years={joinedYears} />
+                <LastUpdatedFilter />
                 <SortFilter />
               </div>
             </div>

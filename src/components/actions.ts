@@ -140,6 +140,7 @@ export async function getChildrenProfiles(
   useSessionClient = false,
   yearJoined?: string,
   page = 1,
+  updated?: string,
 ): Promise<{ profiles: ChildProfile[]; error: string | null; total: number }> {
   const supabase = useSessionClient ? await createClient() : createAdminClient()
 
@@ -173,6 +174,17 @@ export async function getChildrenProfiles(
     query = query.eq('year_joined', parseInt(yearJoined))
   }
 
+  // Last-updated windows (values from LastUpdatedFilter). "over1y" surfaces
+  // stale profiles, counting a missing updated_at as never updated.
+  const updatedWithinDays: Record<string, number> = { '7d': 7, '30d': 30, '6m': 182 }
+  if (updated && updatedWithinDays[updated]) {
+    const cutoff = new Date(Date.now() - updatedWithinDays[updated] * 24 * 60 * 60 * 1000)
+    query = query.gte('updated_at', cutoff.toISOString())
+  } else if (updated === 'over1y') {
+    const cutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+    query = query.or(`updated_at.lt.${cutoff.toISOString()},updated_at.is.null`)
+  }
+
   if (sort === 'name_desc') {
     query = query.order('first_name', { ascending: false })
   } 
@@ -191,6 +203,11 @@ export async function getChildrenProfiles(
     query = query.order('id_rolf', { ascending: true, nullsFirst: false })
   } else if (sort === 'rolf_id_desc') {
     query = query.order('id_rolf', { ascending: false, nullsFirst: false })
+  } else if (sort === 'updated_desc') {
+    query = query.order('updated_at', { ascending: false, nullsFirst: false })
+  } else if (sort === 'updated_asc') {
+    // Stalest first: rows with no update timestamp lead the list.
+    query = query.order('updated_at', { ascending: true, nullsFirst: true })
   } else {
     query = query.order('first_name', { ascending: true })
   }

@@ -211,6 +211,11 @@ export const en = {
   'children.filters.status': 'Status',
   'children.filters.country': 'Country',
   'children.filters.yearJoined': 'Year joined',
+  'children.filters.lastUpdated': 'Last updated',
+  'children.filters.last7Days': 'Last 7 days',
+  'children.filters.last30Days': 'Last 30 days',
+  'children.filters.last6Months': 'Last 6 months',
+  'children.filters.overYearAgo': 'Over a year ago',
   'children.filters.sort': 'Sort',
   'children.filters.all': 'All',
   'children.filters.unknown': 'Unknown',
@@ -220,6 +225,8 @@ export const en = {
   'children.filters.oldest': 'Oldest',
   'children.filters.idAsc': 'ID ↑',
   'children.filters.idDesc': 'ID ↓',
+  'children.filters.recentlyUpdated': 'Recently updated',
+  'children.filters.leastRecentlyUpdated': 'Least recently updated',
   'children.register.button': 'Register Child',
 
   // Sponsorships registry
