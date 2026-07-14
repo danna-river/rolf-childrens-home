@@ -117,6 +117,20 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
 
   const canGenerateBio = () => isStep0Valid() && isStep1Valid()
 
+  const handleBackNavigation = () => {
+    if (step > 0) {
+      setStep(s => s - 1)
+    } else {
+      // Safe navigation: check if there's back history in the current tab context
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back()
+      } else {
+        // Safe fallback for direct entries (e.g., opened straight to a new tab)
+        router.push("/dashboard/children")
+      }
+    }
+  }
+
   // 🌟 ASYNCHRONOUS STEP GATE: Handles live background lookups on Step 0 to block continuation if input errors exist
   const handleStepProgression = async () => {
     setError(null)
@@ -176,9 +190,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       return
     }
 
-    // Best-effort face-search enrollment for the new profile photo. Runs on
-    // this device via the media proxy; a failure never blocks registration —
-    // the admin backfill queue picks the child up later.
+    // Best-effort face-search enrollment for the new profile photo.
     if (newChildId && photoUrl) {
       setIndexingFace(true)
       await enrollChildProfilePhoto(newChildId)
@@ -249,7 +261,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
         <div className="px-4 py-4 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => step > 0 ? setStep(s => s - 1) : router.back()}
+            onClick={handleBackNavigation}
             disabled={submitting || validatingStepZero}
             className="text-navy/60 hover:text-navy text-sm font-medium cursor-pointer"
           >
