@@ -95,10 +95,8 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
 
   const handleCancel = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
-      // Safely go back if there is actual browser history in this tab
       router.back()
     } else {
-      // Fallback directly to the safe child detail page
       router.push(`/dashboard/children/${child.id}`)
     }
   }
@@ -113,11 +111,14 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
     setForm(f => ({ ...f, country: value }))
   }
 
-  const handleProfileMediaChange = (type: "photo" | "video", url: string | null) => {
+  const handleProfileMediaChange = (type: "photo" | "video", url: string | null, metaData?: { fileId?: string }) => {
     if (type === "photo") setPhotoUrl(url)
     if (type === "video") setVideoUrl(url)
 
-    if (url && url.includes("/d/")) {
+    // Stage new Drive uploads to commit when saving changes
+    if (metaData?.fileId) {
+      setStagedDriveFileIds(prev => [...prev, metaData.fileId!])
+    } else if (url && url.includes("/d/")) {
       const extractedId = url.split("/d/")[1]?.split("/")[0]
       if (extractedId) {
         setStagedDriveFileIds(prev => [...prev, extractedId])
@@ -268,7 +269,6 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
         return
       }
 
-      // Best-effort face-search enrollment when the profile photo changed
       if (photoUrl && photoUrl !== (child.profile_photo ?? null)) {
         setIndexingFace(true)
         await enrollChildProfilePhoto(child.id)
@@ -531,7 +531,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
               <MediaPicker
                 type="photo"
                 value={photoUrl}
-                onChange={url => handleProfileMediaChange("photo", url)}
+                onChange={(url, meta) => handleProfileMediaChange("photo", url, meta)}
                 existingUrl={photoUrl}
                 onError={setError}
                 onUploadStart={() => setMediaUploading(true)}
@@ -543,7 +543,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
               <MediaPicker
                 type="video"
                 value={videoUrl}
-                onChange={url => handleProfileMediaChange("video", url)}
+                onChange={(url, meta) => handleProfileMediaChange("video", url, meta)}
                 existingUrl={videoUrl}
                 onError={setError}
                 onUploadStart={() => setMediaUploading(true)}
