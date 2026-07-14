@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { saveIntakeFormAction } from '../intake-actions'
 import { MediaPicker } from '../../components/MediaPicker'
-import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon, PlayCircleIcon } from 'lucide-react'
+import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon, PlayCircleIcon, CheckIcon, CircleIcon } from 'lucide-react'
 import { resolvePhotoSrc, resolveVideoThumbnail } from '@/lib/childMedia'
 import { useTranslations } from '@/i18n/client'
 
@@ -48,6 +48,8 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
     }, {} as Record<string, Record<string, string>>)
   )
 
+  const [profileToggles, setProfileToggles] = useState<Record<string, boolean>>({})
+
   useEffect(() => {
     startTransition(() => {
       setFormState(
@@ -87,6 +89,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
     setCurrentPage(1)
     setSaveStatus(null)
     setStagedFileIds({})
+    setProfileToggles({})
   }
 
   const handleInputChange = (questionId: string, value: string, fieldType: string) => {
@@ -108,6 +111,10 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
   const handleMediaChange = (questionId: string, url: string | null, fieldType: string) => {
     handleInputChange(questionId, url || '', fieldType)
 
+    if (!url) {
+      setProfileToggles(prev => ({ ...prev, [questionId]: false }))
+    }
+
     if (url && url.includes("/d/")) {
       const extractedId = url.split("/d/")[1]?.split("/")[0]
       if (extractedId) {
@@ -117,6 +124,13 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
         }))
       }
     }
+  }
+
+  const toggleProfilePictureSetting = (questionId: string) => {
+    setProfileToggles(prev => ({
+      ...prev,
+      [questionId]: !prev[questionId]
+    }))
   }
 
   const handleSaveForm = () => {
@@ -133,13 +147,15 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
         activeForm.id, 
         activeForm.title, 
         activeAnswers,
-        Array.from(new Set(stagedFileIds[activeForm.id] || []))
+        Array.from(new Set(stagedFileIds[activeForm.id] || [])),
+        profileToggles
       )
       if (res.error) {
         setSaveStatus({ type: 'error', msg: res.error })
       } else {
         setSaveStatus({ type: 'success', msg: t('children.intake.saved') })
         setStagedFileIds(prev => ({ ...prev, [activeForm.id]: [] }))
+        setProfileToggles({})
         setTimeout(() => setSaveStatus(null), 4000)
       }
     })
@@ -216,8 +232,8 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                     : resolveVideoThumbnail(currentResponse, 400)
                 : null
 
-              // This strictly checks against the server response (ignoring local unsaved files)
               const isFieldPermanentlyLocked = activeForm?.lockedQuestions?.includes(q.id) || false
+              const isSetAsProfileChecked = profileToggles[q.id] || false
 
               return (
                 <div key={q.id} className="space-y-1.5 bg-ice/40 p-3 rounded-md border border-stone/80">
@@ -260,13 +276,12 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                     </div>
                   ) : (q.field_type === 'media_photo' || q.field_type === 'media_video') ? (
                     <div className="pt-1.5 space-y-2">
-                      {/* ⚡ LOCKED DOWN PRESENTATION CONTAINER BLOCK */}
                       {isFieldPermanentlyLocked ? (
                         <div className="bg-white border border-stone rounded-md p-4 flex flex-col sm:flex-row items-center gap-4 shadow-3xs animate-fade-in">
                           <div className="shrink-0">
                             {lockedMediaThumbnail ? (
                               <div className="relative">
-                                {/* eslint-disable-next-line @next/next/no-img-element -- authenticated Drive thumbnails are served by the media route. */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={lockedMediaThumbnail}
                                   alt="Intake asset file"
@@ -277,7 +292,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                                 )}
                               </div>
                             ) : q.field_type === 'media_photo' ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- legacy intake answers can still contain a direct image URL.
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img 
                                 src={currentResponse || undefined} 
                                 alt="Intake asset file" 
@@ -305,15 +320,41 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                           </div>
                         </div>
                       ) : (
-                        <MediaPicker
-                          type={q.field_type === 'media_video' ? 'video' : 'photo'}
-                          value={currentResponse}
-                          onChange={(url) => handleMediaChange(q.id, url, q.field_type)}
-                          childMeta={{
-                            idRolf: childId,
-                            country: 'all',
-                          }}
-                        />
+                        /* CSS OVERRIDE CONTAINER: Inject toggle buttons directly under MediaPicker layouts */
+                        <div className="[&_p.text-gray-400]:hidden space-y-3">
+                          <MediaPicker
+                            type={q.field_type === 'media_video' ? 'video' : 'photo'}
+                            value={currentResponse}
+                            onChange={(url) => handleMediaChange(q.id, url, q.field_type)}
+                            childMeta={{
+                              idRolf: childId,
+                              country: 'all',
+                            }}
+                          />
+                          
+                          {!isFieldBlank && (
+                            <div className="flex justify-center pt-1 animate-fade-in">
+                              <button
+                                type="button"
+                                onClick={() => toggleProfilePictureSetting(q.id)}
+                                className={`w-full max-w-xs flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border font-bold text-xs transition-all duration-150 shadow-2xs cursor-pointer ${
+                                  isSetAsProfileChecked
+                                    ? 'bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700'
+                                    : 'bg-stone/15 border-stone/30 text-navy/80 hover:bg-stone/25'
+                                }`}
+                              >
+                                {isSetAsProfileChecked ? (
+                                  <CheckIcon className="size-3.5 text-white stroke-[3px]" />
+                                ) : (
+                                  <CircleIcon className="size-3.5 text-navy/50 stroke-[2.5px]" />
+                                )}
+                                <span>
+                                  {q.field_type === 'media_video' ? 'Set as New Profile Video' : 'Set as New Profile Picture'}
+                                </span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   ) : (
