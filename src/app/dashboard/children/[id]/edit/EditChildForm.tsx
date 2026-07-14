@@ -96,8 +96,10 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
   const handleCancel = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back()
-    } else {
+    } else if (child?.id) {
       router.push(`/dashboard/children/${child.id}`)
+    } else {
+      router.push("/dashboard/children")
     }
   }
 
@@ -115,7 +117,6 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
     if (type === "photo") setPhotoUrl(url)
     if (type === "video") setVideoUrl(url)
 
-    // Stage new Drive uploads to commit when saving changes
     if (metaData?.fileId) {
       setStagedDriveFileIds(prev => [...prev, metaData.fileId!])
     } else if (url && url.includes("/d/")) {
@@ -275,7 +276,12 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
         setIndexingFace(false)
       }
 
-      router.push("/dashboard/children")
+      // Safe Parameter Matrix Navigation
+      if (child?.id) {
+        router.push(`/dashboard/children/${child.id}`)
+      } else {
+        router.push("/dashboard/children")
+      }
     } catch {
       setError(t('children.edit.networkError'))
       setSubmitting(false)
