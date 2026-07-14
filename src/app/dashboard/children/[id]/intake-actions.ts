@@ -48,7 +48,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
 
   if (!templates) return { eligibleForms: [], latestCompleted: false }
 
-  // 1. Fetch reports WITHOUT the child_media join to prevent strict-FK query crashes
   const { data: existingReports } = await (supabase as any)
     .from('progress_reports')
     .select(`
@@ -61,7 +60,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     `)
     .eq('child_id', childId)
 
-  // 2. Fetch media separately to resolve UUIDs back into viewable URLs
   const { data: childMediaData } = await supabase.from('child_media').select('id, url').eq('child_id', childId)
   const mediaMap: Record<string, { id: string; url: string }> = {}
   const mediaByUrl: Record<string, { id: string; url: string }> = {}
@@ -102,7 +100,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     questionsList.forEach((q: any) => {
       const savedData = savedQuestionAnswers[q.id]
       
-      // Strict Database Lock Check: Lock immediately if answer_value has any string.
       if (savedData && savedData.value && savedData.value.trim() !== "") {
         lockedQuestionsList.push(q.id)
       }
@@ -147,7 +144,8 @@ export async function saveIntakeFormAction(
   templateId: string,
   formTitle: string,
   newAnswers: Record<string, string>,
-  stagedDriveFileIds?: string[]
+  stagedDriveFileIds?: string[],
+  profileToggles?: Record<string, boolean>
 ) {
   const supabase = await createClient()
 
@@ -205,13 +203,11 @@ export async function saveIntakeFormAction(
     reportId = newReport.id
   }
 
-  // Fetch answers without problematic joins
   const { data: oldAnswersList } = await (supabase as any)
     .from('report_answers')
     .select('question_id, answer_value')
     .eq('report_id', reportId)
 
-  // Secondary fetch for comparison map
   const { data: childMediaData } = await supabase.from('child_media').select('id, url').eq('child_id', childId)
   const mediaMap: Record<string, string> = {}
   childMediaData?.forEach((m: any) => {
@@ -230,6 +226,10 @@ export async function saveIntakeFormAction(
   const changes: EditLogChange[] = []
   const answersUpsertPayload: Array<{ report_id: string; question_id: string; answer_value: string }> = []
 
+  // Track if we need to apply profile photo or profile video updates to the main child profile row
+  let assignedProfilePhotoUuid: string | null = null
+  let assignedProfileVideoUuid: string | null = null
+
   for (const q of dbQuestions) {
     const clientValue = newAnswers[q.id] || ""
     const oldRawValue = priorAnswersMap[q.id] || ""
@@ -237,11 +237,18 @@ export async function saveIntakeFormAction(
 
     let finalAnswerValue = clientValue
     const isMediaField = q.field_type === 'media_photo' || q.field_type === 'media_video'
+    const isToggleSet = profileToggles?.[q.id] || false
 
     if (isMediaField) {
       if (clientValue.startsWith('http')) {
         if (clientValue === oldMediaUrl) {
           finalAnswerValue = oldRawValue
+          
+          // If the profile picture toggle is active for an asset already written in Supabase, stage its primary identifier
+          if (isToggleSet) {
+            if (q.field_type === 'media_photo') assignedProfilePhotoUuid = finalAnswerValue
+            if (q.field_type === 'media_video') assignedProfileVideoUuid = finalAnswerValue
+          }
         } else {
           const determinedType = q.field_type === 'media_video' ? 'video' : 'photo'
           const isGoogleDrive = clientValue.includes('drive.google.com')
@@ -254,6 +261,7 @@ export async function saveIntakeFormAction(
 
           const adminSupabase = await createAdminClient()
 
+          // Insert the intake media record with the standard target designation type parameters
           const { data: mediaRecord } = await (adminSupabase as any)
             .from('child_media')
             .insert({
@@ -262,7 +270,9 @@ export async function saveIntakeFormAction(
               gdrive_file_id: isGoogleDrive ? extractDriveFileId(clientValue) : null,
               source: isGoogleDrive ? 'google_drive' : 'supabase',
               media_type: determinedType,
-              usage_type: 'intake',
+              usage_type: isToggleSet 
+                ? (determinedType === 'video' ? 'profile_video' : 'profile_picture') 
+                : 'intake',
               filename: generatedFilename,
               uploaded_by: user.id
             })
@@ -271,6 +281,11 @@ export async function saveIntakeFormAction(
 
           if (mediaRecord) {
             finalAnswerValue = mediaRecord.id
+            
+            if (isToggleSet) {
+              if (determinedType === 'photo') assignedProfilePhotoUuid = mediaRecord.id
+              if (determinedType === 'video') assignedProfileVideoUuid = mediaRecord.id
+            }
           }
         }
       } else if (clientValue === "") {
@@ -294,6 +309,43 @@ export async function saveIntakeFormAction(
       question_id: q.id,
       answer_value: finalAnswerValue
     })
+  }
+
+  // --- TRANSITIONAL TRANSACTION BLOCK: BUMP EXISTING PICTURE TO THE LIBRARY AND ASSIGN NEW GUID REFERENCE ---
+  if (assignedProfilePhotoUuid || assignedProfileVideoUuid) {
+    const adminSupabase = await createAdminClient()
+    
+    // Explicitly type columns to pass Supabase's generated signature checks
+    const childUpdatePayload: { profile_photo?: string | null; profile_video?: string | null } = {}
+  
+    if (assignedProfilePhotoUuid) {
+      if (childData.profile_photo && childData.profile_photo !== assignedProfilePhotoUuid) {
+        await adminSupabase
+          .from('child_media')
+          .update({ usage_type: 'library' })
+          .eq('child_id', childId)
+          .eq('usage_type', 'profile_picture')
+          .neq('id', assignedProfilePhotoUuid)
+      }
+      childUpdatePayload.profile_photo = assignedProfilePhotoUuid
+      changes.push({ field: 'profile_photo', from: childData.profile_photo || '—', to: assignedProfilePhotoUuid })
+    }
+  
+    if (assignedProfileVideoUuid) {
+      if (childData.profile_video && childData.profile_video !== assignedProfileVideoUuid) {
+        await adminSupabase
+          .from('child_media')
+          .update({ usage_type: 'library' })
+          .eq('child_id', childId)
+          .eq('usage_type', 'profile_video')
+          .neq('id', assignedProfileVideoUuid)
+      }
+      childUpdatePayload.profile_video = assignedProfileVideoUuid
+      changes.push({ field: 'profile_video', from: childData.profile_video || '—', to: assignedProfileVideoUuid })
+    }
+  
+    // This will now compile flawlessly
+    await adminSupabase.from('children').update(childUpdatePayload).eq('id', childId)
   }
 
   if (changes.length > 0) {
