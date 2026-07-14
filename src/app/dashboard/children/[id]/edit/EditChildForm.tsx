@@ -93,6 +93,16 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
     setForm(f => ({ ...f, [field]: value }))
   }
 
+  const handleCancel = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      // Safely go back if there is actual browser history in this tab
+      router.back()
+    } else {
+      // Fallback directly to the safe child detail page
+      router.push(`/dashboard/children/${child.id}`)
+    }
+  }
+
   const handleCountryChange = (value: string) => {
     setError(null)
     if (value === child.country) {
@@ -259,9 +269,6 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
       }
 
       // Best-effort face-search enrollment when the profile photo changed
-      // (replacing/removing a photo already invalidates the old template in
-      // the database). Failures never block the save — the admin backfill
-      // queue picks the child up later.
       if (photoUrl && photoUrl !== (child.profile_photo ?? null)) {
         setIndexingFace(true)
         await enrollChildProfilePhoto(child.id)
@@ -303,7 +310,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
         <div className="px-4 py-4 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={handleCancel}
             disabled={submitting}
             className="text-navy/60 hover:text-navy text-sm font-medium inline-flex items-center gap-1.5 cursor-pointer"
           >
