@@ -60,6 +60,19 @@ type RegistryStatsRow = {
   country: string | null
 }
 
+/** Split a registry search into per-word ilike patterns. Escapes ilike
+ *  wildcards and strips characters that would break the PostgREST .or()
+ *  filter grammar (commas/parentheses delimit its terms). */
+function toIlikeSearchPatterns(search: string): string[] {
+  return search
+    .trim()
+    .split(/\s+/)
+    .map((term) => term.replace(/[,()]/g, '').replace(/([\\%_])/g, '\\$1'))
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((term) => `%${term}%`)
+}
+
 export async function getJoinedYears(): Promise<number[]> {
   const supabase = createAdminClient()
   const { data } = await supabase
@@ -142,7 +155,12 @@ export async function getChildrenProfiles(
   }
 
   if (search) {
-    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,id_rolf.ilike.%${search}%`)
+    // Every word must match a name field or the ROLF ID (chained .or() groups
+    // AND together), so full names work in either order: "Grace Nakato" and
+    // "Nakato Grace" both find first_name=Grace, last_name=Nakato.
+    for (const pattern of toIlikeSearchPatterns(search)) {
+      query = query.or(`first_name.ilike.${pattern},last_name.ilike.${pattern},id_rolf.ilike.${pattern}`)
+    }
   }
 
   if (status === 'active' || status === 'inactive') {
