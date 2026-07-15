@@ -24,13 +24,6 @@ function buildServerFilename(childData: any, type: "photo" | "video", ext: strin
 export async function getEligibleIntakeForms(childId: string, childCountry: string, dateJoinedStr: string | null, yearJoinedNum: number | null) {
   const supabase = await createClient()
 
-  let joinDateThreshold: Date | null = null
-  if (dateJoinedStr) {
-    joinDateThreshold = new Date(dateJoinedStr)
-  } else if (yearJoinedNum) {
-    joinDateThreshold = new Date(yearJoinedNum, 0, 1)
-  }
-
   const { data: templates } = await (supabase as any)
     .from('intake_templates')
     .select(`
@@ -46,7 +39,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     `)
     .order('created_at', { ascending: false })
 
-  if (!templates) return { eligibleForms: [], latestCompleted: false }
+  if (!templates) return { eligibleForms: [], latestCompleted: true }
 
   const { data: existingReports } = await (supabase as any)
     .from('progress_reports')
@@ -83,10 +76,19 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     submissionMap[report.template_id] = answersObj
   })
 
+  const currentYear = new Date().getFullYear()
+  const previousYear = currentYear - 1
+
   const eligibleForms = templates.map((tpl: any) => {
+    // ⚡ Status Gate: Inactive forms are explicitly discarded
+    if (tpl.status === 'inactive') return null
+
     const isTargetRegion = tpl.country === 'all' || tpl.country === childCountry
+    
+    // ⚡ Timeline Gate: Evaluate strictly using calendar year comparison from year_joined
     const templateCreatedAt = new Date(tpl.created_at)
-    const isTimelineEligible = !joinDateThreshold || templateCreatedAt >= joinDateThreshold
+    const templateYear = templateCreatedAt.getFullYear()
+    const isTimelineEligible = !yearJoinedNum || templateYear >= yearJoinedNum
 
     if (!isTargetRegion || !isTimelineEligible) return null
 
@@ -121,6 +123,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
       id: tpl.id,
       title: tpl.title,
       createdAt: tpl.created_at,
+      templateYear,
       questions: questionsList,
       answers: componentViewAnswers,
       mediaIds: componentMediaIds,
@@ -134,7 +137,14 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     eligibleForms[0].isLatest = true
   }
 
-  const latestCompleted = eligibleForms.length > 0 ? eligibleForms[0].isCompleted : true
+  // ⚡ Target Window Completeness Verification: Ensure ALL forms within the current year and previous calendar year are fully finished
+  const targetWindowForms = eligibleForms.filter(
+    (form: any) => form.templateYear === currentYear || form.templateYear === previousYear
+  )
+  
+  const latestCompleted = targetWindowForms.length > 0 
+    ? targetWindowForms.every((form: any) => form.isCompleted) 
+    : true
 
   return { eligibleForms, latestCompleted }
 }
