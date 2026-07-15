@@ -18,7 +18,7 @@ const optionalText = z.string().trim().max(10_000).nullable().optional()
 const optionalShortText = z.string().trim().max(255).nullable().optional()
 
 const childPayloadSchema = z.object({
-  id_rolf: z.string().trim().toUpperCase().max(80).optional(),
+  id_rolf: z.string().trim().toUpperCase().max(80).nullable().optional(),
   first_name: optionalShortText,
   last_name: optionalShortText,
   birth_year: z.number().int().min(1900).max(2100).nullable().optional(),
@@ -35,20 +35,85 @@ const childPayloadSchema = z.object({
   status: z.enum(['active', 'inactive']).optional(),
 }).strict()
 
-const operationSchema = z.object({
+type ChildPayload = z.infer<typeof childPayloadSchema>
+type Operation = {
+  operation_id: string
+  operation_type: 'create_child' | 'update_child'
+  child_id: string
+  base_sync_version: number | null
+  payload: ChildPayload
+}
+
+const mobileChildFieldsSchema = z.object({
+  firstName: z.string().trim().max(255),
+  lastName: z.string().trim().max(255),
+  birthYear: z.number().int().min(1900).max(2100).nullable(),
+  birthMonth: z.number().int().min(1).max(12).nullable(),
+  birthDay: z.number().int().min(1).max(31).nullable(),
+  country: z.string().trim().min(1).max(120),
+  dateJoined: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  careerAspiration: z.string().trim().max(10_000),
+  favoriteSubject: z.string().trim().max(10_000),
+  hobby: z.string().trim().max(10_000),
+  bio: z.string().trim().max(10_000),
+  notes: z.string().trim().max(10_000),
+  status: z.enum(['active', 'inactive']),
+}).strict()
+
+function fieldsToPayload(fields: z.infer<typeof mobileChildFieldsSchema>): ChildPayload {
+  return {
+    first_name: fields.firstName,
+    last_name: fields.lastName,
+    birth_year: fields.birthYear,
+    birth_month: fields.birthMonth,
+    birth_day: fields.birthDay,
+    country: fields.country,
+    date_joined: fields.dateJoined,
+    career_aspiration: fields.careerAspiration,
+    favorite_subject: fields.favoriteSubject,
+    hobby: fields.hobby,
+    bio: fields.bio,
+    notes: fields.notes,
+    status: fields.status,
+  }
+}
+
+const legacyOperationSchema = z.object({
   operation_id: z.string().uuid(),
   operation_type: z.enum(['create_child', 'update_child']),
   child_id: z.string().uuid(),
   base_sync_version: z.number().int().positive().nullable(),
   payload: childPayloadSchema,
-}).strict()
+}).strict().transform((operation): Operation => operation)
+
+const androidOperationSchema = z.object({
+  op_id: z.string().uuid(),
+  op_type: z.enum(['create_child', 'update_child']),
+  child_local_id: z.string().uuid(),
+  child_server_id: z.string().uuid().nullable().optional(),
+  id_rolf: z.string().trim().toUpperCase().max(80).nullable().optional(),
+  base_sync_version: z.number().int().min(0),
+  fields: mobileChildFieldsSchema,
+}).strict().transform((operation): Operation => ({
+  operation_id: operation.op_id,
+  operation_type: operation.op_type,
+  child_id: operation.op_type === 'update_child'
+    ? (operation.child_server_id ?? operation.child_local_id)
+    : operation.child_local_id,
+  base_sync_version: operation.op_type === 'create_child' ? null : operation.base_sync_version,
+  payload: {
+    ...fieldsToPayload(operation.fields),
+    ...(operation.id_rolf ? { id_rolf: operation.id_rolf } : {}),
+  },
+}))
+
+const operationSchema = z.union([legacyOperationSchema, androidOperationSchema])
 
 const syncSchema = z.object({
   device_installation_id: z.string().trim().min(3).max(200),
   operations: z.array(operationSchema).min(1).max(100),
 }).strict()
 
-type Operation = z.infer<typeof operationSchema>
 type OperationResult = {
   operation_id: string
   status: 'applied' | 'conflict' | 'rejected'
@@ -75,6 +140,58 @@ function operationResult(
   result: Record<string, unknown>,
 ): OperationResult {
   return { operation_id: operationId, status, result }
+}
+
+function stringField(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function nullableNumberField(value: unknown): number | null {
+  return typeof value === 'number' ? value : null
+}
+
+function childFields(child: Record<string, unknown>) {
+  return {
+    firstName: stringField(child.first_name),
+    lastName: stringField(child.last_name),
+    birthYear: nullableNumberField(child.birth_year),
+    birthMonth: nullableNumberField(child.birth_month),
+    birthDay: nullableNumberField(child.birth_day),
+    country: stringField(child.country),
+    dateJoined: typeof child.date_joined === 'string' ? child.date_joined : null,
+    careerAspiration: stringField(child.career_aspiration),
+    favoriteSubject: stringField(child.favorite_subject),
+    hobby: stringField(child.hobby),
+    bio: stringField(child.bio),
+    notes: stringField(child.notes),
+    status: child.status === 'inactive' ? 'inactive' : 'active',
+  }
+}
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
+}
+
+function toWireResult(result: OperationResult) {
+  const child = recordValue(result.result.child)
+  const serverChild = recordValue(result.result.server_child)
+  const source = child ?? serverChild
+
+  return {
+    op_id: result.operation_id,
+    outcome: result.status,
+    child_server_id: typeof source?.id === 'string' ? source.id : undefined,
+    id_rolf: typeof source?.id_rolf === 'string' ? source.id_rolf : undefined,
+    new_sync_version: typeof child?.sync_version === 'number' ? child.sync_version : undefined,
+    server_fields: serverChild ? childFields(serverChild) : undefined,
+    server_sync_version: typeof serverChild?.sync_version === 'number' ? serverChild.sync_version : undefined,
+    reason: typeof result.result.message === 'string'
+      ? result.result.message
+      : typeof result.result.code === 'string'
+        ? result.result.code
+        : undefined,
+  }
 }
 
 function childSnapshot(child: Record<string, unknown>) {
@@ -159,42 +276,37 @@ function buildChildPatch(
   return patch as Database['public']['Tables']['children']['Update']
 }
 
-async function claimReservation(input: {
-  deviceId: string
-  userId: string
-  country: string
-  idRolf: string
-  childId: string
-}) {
-  const admin = createAdminClient()
-  const now = new Date().toISOString()
-  const { data: reservation, error } = await admin
-    .from('rolf_id_reservations')
-    .select('id, child_id')
-    .eq('device_id', input.deviceId)
-    .eq('user_id', input.userId)
-    .eq('country', input.country)
-    .eq('id_rolf', input.idRolf)
-    .gt('expires_at', now)
-    .maybeSingle()
+async function generateNextRolfId(
+  admin: ReturnType<typeof createAdminClient>,
+  country: string,
+): Promise<string> {
+  const { data: countryRecord, error: countryError } = await admin
+    .from('countries')
+    .select('iso_code')
+    .eq('name', country.trim())
+    .single()
 
-  if (error || !reservation) {
-    throw new MobileApiError(422, 'rolf_id_not_reserved', 'This ROLF ID is not reserved for the active device.')
+  if (countryError || !countryRecord) {
+    throw new MobileApiError(422, 'country_not_configured', `Country "${country}" is not configured for ROLF IDs.`)
   }
 
-  if (reservation.child_id && reservation.child_id !== input.childId) {
-    throw new SyncConflict({
-      code: 'rolf_id_already_claimed',
-      id_rolf: input.idRolf,
-    })
+  const prefix = countryRecord.iso_code
+  const { data: siblingRecords, error: siblingError } = await admin
+    .from('children')
+    .select('id_rolf')
+    .like('id_rolf', `${prefix}-%`)
+
+  if (siblingError) throw new Error(`Could not read existing ROLF IDs: ${siblingError.message}`)
+
+  let currentMaxNumber = 0
+  for (const record of siblingRecords ?? []) {
+    const match = record.id_rolf?.match(/^[A-Z]+-(\d+)$/)
+    if (!match) continue
+    const parsedNumber = parseInt(match[1], 10)
+    if (parsedNumber > currentMaxNumber) currentMaxNumber = parsedNumber
   }
 
-  const { error: claimError } = await admin
-    .from('rolf_id_reservations')
-    .update({ child_id: input.childId, claimed_at: now })
-    .eq('id', reservation.id)
-
-  if (claimError) throw new Error(`Could not claim the ROLF ID reservation: ${claimError.message}`)
+  return `${prefix}-${String(currentMaxNumber + 1).padStart(4, '0')}`
 }
 
 async function createChild(
@@ -203,13 +315,12 @@ async function createChild(
 ): Promise<Record<string, unknown>> {
   const { payload } = operation
   if (
-    !payload.id_rolf ||
     !payload.country ||
     !payload.first_name ||
     !payload.last_name ||
     operation.base_sync_version !== null
   ) {
-    throw new MobileApiError(422, 'invalid_create_operation', 'New children require a reserved ROLF ID, country, first name, last name, and a null base sync version.')
+    throw new MobileApiError(422, 'invalid_create_operation', 'New children require country, first name, last name, and a null base sync version. The server assigns the ROLF ID during sync.')
   }
   assertCountryScope(context, payload.country)
 
@@ -223,14 +334,7 @@ async function createChild(
   if (existingError) throw new Error(`Could not check the child being created: ${existingError.message}`)
   if (existing) {
     assertCountryScope(context, existing.country)
-    if (existing.id_rolf === payload.id_rolf && existing.created_by === context.userId) {
-      await claimReservation({
-        deviceId: context.device.id,
-        userId: context.userId,
-        country: payload.country,
-        idRolf: payload.id_rolf,
-        childId: operation.child_id,
-      })
+    if (existing.created_by === context.userId && payloadMatchesChild(payload, existing)) {
       return childSnapshot(existing)
     }
     throw new SyncConflict({
@@ -239,50 +343,49 @@ async function createChild(
     })
   }
 
-  const { data: inserted, error: insertError } = await admin
-    .from('children')
-    .insert({
-      id: operation.child_id,
-      id_rolf: payload.id_rolf,
-      display_name: `${payload.first_name} ${payload.last_name}`.trim(),
-      first_name: payload.first_name,
-      last_name: payload.last_name,
-      birth_year: payload.birth_year ?? null,
-      birth_month: payload.birth_month ?? null,
-      birth_day: payload.birth_day ?? null,
-      country: payload.country,
-      year_joined: payload.year_joined ?? null,
-      date_joined: payload.date_joined ?? null,
-      career_aspiration: payload.career_aspiration ?? null,
-      favorite_subject: payload.favorite_subject ?? null,
-      hobby: payload.hobby ?? null,
-      bio: payload.bio ?? null,
-      notes: payload.notes ?? null,
-      status: payload.status ?? 'active',
-      profile_photo: null,
-      profile_video: null,
-      edit_log: [],
-      created_by: context.userId,
-    })
-    .select('id, id_rolf, country, created_by, sync_version, display_name, first_name, last_name, birth_year, birth_month, birth_day, year_joined, date_joined, career_aspiration, favorite_subject, hobby, bio, notes, status, updated_at')
-    .single()
+  let lastAttemptedRolfId: string | null = null
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const idRolf = await generateNextRolfId(admin, payload.country)
+    lastAttemptedRolfId = idRolf
 
-  if (insertError || !inserted) {
+    const { data: inserted, error: insertError } = await admin
+      .from('children')
+      .insert({
+        id: operation.child_id,
+        id_rolf: idRolf,
+        display_name: `${payload.first_name} ${payload.last_name}`.trim(),
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        birth_year: payload.birth_year ?? null,
+        birth_month: payload.birth_month ?? null,
+        birth_day: payload.birth_day ?? null,
+        country: payload.country,
+        year_joined: payload.year_joined ?? null,
+        date_joined: payload.date_joined ?? null,
+        career_aspiration: payload.career_aspiration ?? null,
+        favorite_subject: payload.favorite_subject ?? null,
+        hobby: payload.hobby ?? null,
+        bio: payload.bio ?? null,
+        notes: payload.notes ?? null,
+        status: payload.status ?? 'active',
+        profile_photo: null,
+        profile_video: null,
+        edit_log: [],
+        created_by: context.userId,
+      })
+      .select('id, id_rolf, country, created_by, sync_version, display_name, first_name, last_name, birth_year, birth_month, birth_day, year_joined, date_joined, career_aspiration, favorite_subject, hobby, bio, notes, status, updated_at')
+      .single()
+
+    if (!insertError && inserted) return childSnapshot(inserted)
+
     if (insertError?.code === '23505') {
-      throw new SyncConflict({ code: 'rolf_id_already_exists', id_rolf: payload.id_rolf })
+      continue
     }
+
     throw new Error(`Could not create child: ${insertError?.message ?? 'No child returned.'}`)
   }
 
-  await claimReservation({
-    deviceId: context.device.id,
-    userId: context.userId,
-    country: payload.country,
-    idRolf: payload.id_rolf,
-    childId: operation.child_id,
-  })
-
-  return childSnapshot(inserted)
+  throw new SyncConflict({ code: 'rolf_id_generation_collision', id_rolf: lastAttemptedRolfId })
 }
 
 async function updateChild(
@@ -439,7 +542,11 @@ export async function POST(request: NextRequest) {
       results.push(await processOperation(operation, context))
     }
 
-    return mobileJson({ server_time: new Date().toISOString(), operations: results })
+    return mobileJson({
+      server_time: new Date().toISOString(),
+      results: results.map(toWireResult),
+      operations: results,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return mobileJson({ error: { code: 'invalid_sync_request', message: 'The sync request is invalid.' } }, { status: 400 })

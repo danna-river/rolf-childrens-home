@@ -17,7 +17,56 @@ const bootstrapSchema = z.object({
 })
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
-const RESERVED_IDS_PER_COUNTRY = 50
+
+type MobileChildRow = {
+  id: string
+  id_rolf: string | null
+  first_name: string | null
+  last_name: string | null
+  birth_year: number | null
+  birth_month: number | null
+  birth_day: number | null
+  country: string | null
+  date_joined: string | null
+  career_aspiration: string | null
+  favorite_subject: string | null
+  hobby: string | null
+  bio: string | null
+  notes: string | null
+  status: string | null
+  created_at: string | null
+  updated_at: string | null
+  sync_version: number | null
+}
+
+function toEpochMillis(value: string | null | undefined, fallback: Date): number {
+  const parsed = value ? Date.parse(value) : Number.NaN
+  return Number.isFinite(parsed) ? parsed : fallback.getTime()
+}
+
+function toMobileChildSnapshot(child: MobileChildRow, fallbackTime: Date) {
+  return {
+    id: child.id,
+    id_rolf: child.id_rolf,
+    fields: {
+      firstName: child.first_name ?? '',
+      lastName: child.last_name ?? '',
+      birthYear: child.birth_year,
+      birthMonth: child.birth_month,
+      birthDay: child.birth_day,
+      country: child.country ?? '',
+      dateJoined: child.date_joined,
+      careerAspiration: child.career_aspiration ?? '',
+      favoriteSubject: child.favorite_subject ?? '',
+      hobby: child.hobby ?? '',
+      bio: child.bio ?? '',
+      notes: child.notes ?? '',
+      status: child.status ?? 'active',
+    },
+    sync_version: child.sync_version ?? 0,
+    updated_at: toEpochMillis(child.updated_at ?? child.created_at, fallbackTime),
+  }
+}
 
 /**
  * Registers/renews one Android handset and returns the staff member's complete
@@ -63,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     const { data: countryRows, error: countryError } = await admin
       .from('countries')
-      .select('name')
+      .select('name, iso_code')
       .order('name')
     if (countryError) throw new Error(`Could not read countries: ${countryError.message}`)
 
@@ -71,40 +120,11 @@ export async function POST(request: NextRequest) {
       ? (countryRows ?? []).map((country) => country.name)
       : staff.assignedCountries
 
-    const { data: existingReservations, error: reservationError } = await admin
-      .from('rolf_id_reservations')
-      .select('id_rolf, country, expires_at')
-      .eq('device_id', device.id)
-      .is('claimed_at', null)
-      .gt('expires_at', now.toISOString())
-      .in('country', assignedCountries)
-
-    if (reservationError) throw new Error(`Could not read ROLF ID reservations: ${reservationError.message}`)
-
-    const reservations = [...(existingReservations ?? [])]
-    for (const country of assignedCountries) {
-      const count = reservations.filter((reservation) => reservation.country === country).length
-      if (count >= RESERVED_IDS_PER_COUNTRY) continue
-
-      const { data: allocated, error: allocationError } = await admin.rpc('reserve_mobile_rolf_ids', {
-        p_device_id: device.id,
-        p_user_id: staff.userId,
-        p_country: country,
-        p_count: RESERVED_IDS_PER_COUNTRY - count,
-      })
-      if (allocationError) throw new Error(`Could not reserve ROLF IDs for ${country}: ${allocationError.message}`)
-
-      reservations.push(...(allocated ?? []).map((reservation) => ({
-        ...reservation,
-        country,
-      })))
-    }
-
     const children = assignedCountries.length === 0
       ? []
       : await admin
         .from('children')
-        .select('id, id_rolf, display_name, first_name, last_name, birth_year, birth_month, birth_day, country, year_joined, date_joined, career_aspiration, favorite_subject, hobby, bio, notes, status, profile_photo, profile_video, created_at, updated_at, sync_version')
+        .select('id, id_rolf, first_name, last_name, birth_year, birth_month, birth_day, country, date_joined, career_aspiration, favorite_subject, hobby, bio, notes, status, created_at, updated_at, sync_version')
         .in('country', assignedCountries)
         .order('display_name')
 
@@ -112,22 +132,19 @@ export async function POST(request: NextRequest) {
       throw new Error(`Could not read children for bootstrap: ${children.error.message}`)
     }
 
-    const childRows = 'data' in children ? children.data ?? [] : []
-    const childIds = childRows.map((child) => child.id)
-    const media = childIds.length === 0
-      ? []
-      : await admin
-        .from('child_media')
-        .select('id, child_id, gdrive_file_id, filename, url, media_type, usage_type, source, created_at')
-        .in('child_id', childIds)
-        .order('created_at')
-
-    if ('error' in media && media.error) {
-      throw new Error(`Could not read media metadata for bootstrap: ${media.error.message}`)
-    }
+    const childRows = ('data' in children ? children.data ?? [] : []) as MobileChildRow[]
 
     return mobileJson({
       server_time: now.toISOString(),
+      device_status: 'active',
+      staff_email: staff.email,
+      staff_countries: assignedCountries,
+      countries: (countryRows ?? []).map((country) => ({
+        name: country.name,
+        iso_code: country.iso_code,
+      })),
+      id_blocks: [],
+      children: childRows.map((child) => toMobileChildSnapshot(child, now)),
       staff: {
         id: staff.userId,
         email: staff.email,
@@ -141,9 +158,6 @@ export async function POST(request: NextRequest) {
         status: 'active',
         offline_access_expires_at: device.offline_access_expires_at,
       },
-      children: childRows,
-      media: 'data' in media ? media.data ?? [] : [],
-      rolf_id_reservations: reservations,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
