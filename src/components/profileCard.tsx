@@ -33,6 +33,7 @@ export type ProfileCardLabels = {
   age: string
   joined: string
   lastUpdated: string
+  missingFields: string
   notRecorded: string
   yearsShort: string
 }
@@ -50,6 +51,7 @@ const DEFAULT_LABELS: ProfileCardLabels = {
   age: "Age",
   joined: "Joined",
   lastUpdated: "Last updated",
+  missingFields: "Missing Fields",
   notRecorded: "Not recorded",
   yearsShort: "{age} yrs",
 }
@@ -144,11 +146,23 @@ function StatusBadge({ isActive, labels }: { isActive: boolean; labels: ProfileC
   )
 }
 
-function MissingFieldsBadge() {
+function MissingFieldsBadge({ compact, label }: { compact?: boolean; label: string }) {
+  if (compact) {
+    return (
+      <span
+        aria-label={label}
+        className="inline-flex size-6 shrink-0 items-center justify-center text-red-600"
+        title={label}
+      >
+        <AlertTriangleIcon className="size-5 stroke-[2.5px]" aria-hidden="true" />
+      </span>
+    )
+  }
+
   return (
     <span className="font-sans inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600 animate-fade-in shadow-3xs shrink-0">
-      <AlertTriangleIcon className="size-3 text-red-500 stroke-[2.5px]" />
-      <span>Missing Fields</span>
+      <AlertTriangleIcon className="size-3 text-red-500 stroke-[2.5px]" aria-hidden="true" />
+      <span>{label}</span>
     </span>
   )
 }
@@ -196,7 +210,7 @@ export default function ProfileCard({
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <div className="flex items-center gap-1.5 justify-end">
-              {isMissingFieldsAlertActive && <MissingFieldsBadge />}
+              {isMissingFieldsAlertActive && <MissingFieldsBadge compact label={labels.missingFields} />}
               <StatusBadge isActive={isActive} labels={labels} />
             </div>
             <Link
@@ -224,7 +238,7 @@ export default function ProfileCard({
       </div>
 
       {/* ── Desktop spreadsheet row (xl+) ── */}
-      <div className="hidden xl:grid xl:grid-cols-[minmax(240px,1.35fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(140px,0.9fr)_minmax(160px,0.8fr)] xl:items-center xl:gap-4 xl:px-5 xl:py-3.5">
+      <div className="hidden xl:grid xl:min-w-[1160px] xl:grid-cols-[minmax(240px,1.2fr)_minmax(120px,0.75fr)_minmax(150px,0.9fr)_minmax(120px,0.75fr)_minmax(150px,0.9fr)_minmax(340px,1.5fr)] xl:items-center xl:gap-4 xl:px-5 xl:py-3.5">
         {/* Child */}
         <div className="flex min-w-0 items-center gap-3">
           <Avatar profile={profile} size="sm" labels={labels} />
@@ -242,12 +256,12 @@ export default function ProfileCard({
         {/* Last Updated */}
         <p className="truncate text-sm text-navy/70">{lastUpdated}</p>
         {/* Status + Edit */}
-        <div className="flex items-center gap-2 justify-start">
-          {isMissingFieldsAlertActive && <MissingFieldsBadge />}
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          {isMissingFieldsAlertActive && <MissingFieldsBadge label={labels.missingFields} />}
           <StatusBadge isActive={isActive} labels={labels} />
           <Link
             href={`/dashboard/children/${profile.id}/edit`}
-            className="relative z-20 inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-navy/60 motion-safe:transition-colors hover:bg-stone hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+            className="relative z-20 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-navy/60 motion-safe:transition-colors hover:bg-stone hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
           >
             <PencilIcon className="size-3" aria-hidden="true" />
             {labels.edit}

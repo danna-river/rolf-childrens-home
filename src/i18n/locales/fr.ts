@@ -159,6 +159,7 @@ export const fr: Messages = {
   'children.card.age': 'Âge',
   'children.card.joined': 'Arrivée',
   'children.card.lastUpdated': 'Dernière mise à jour',
+  'children.card.missingFields': 'Champs manquants',
   'children.card.notRecorded': 'Non renseigné',
   'children.card.yearsShort': '{age} ans',
   'children.detail.backRegistry': 'Retour au registre',

@@ -157,6 +157,7 @@ export const en = {
   'children.card.age': 'Age',
   'children.card.joined': 'Joined',
   'children.card.lastUpdated': 'Last updated',
+  'children.card.missingFields': 'Missing Fields',
   'children.card.notRecorded': 'Not recorded',
   'children.card.yearsShort': '{age} yrs',
   'children.detail.backRegistry': 'Back to Registry',

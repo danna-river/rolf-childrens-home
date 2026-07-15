@@ -233,6 +233,7 @@ export async function StaffView({ assignedCountries, searchParams, messages, loc
                 age: t('children.card.age'),
                 joined: t('children.card.joined'),
                 lastUpdated: t('children.card.lastUpdated'),
+                missingFields: t('children.card.missingFields'),
                 notRecorded: t('children.card.notRecorded'),
                 yearsShort: t('children.card.yearsShort'),
               },
