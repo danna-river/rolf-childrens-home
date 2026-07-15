@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
+import { commitStagedFilesToCountry } from '@/lib/googleDrive'
+import { extractDriveFileId } from '@/lib/childMedia'
 
 export type RegisterChildInput = {
   id_rolf: string
@@ -145,12 +147,27 @@ export async function registerChildAction(
     return { id: null, error: `Identity Collision: The ROLF ID "${targetRolfId}" was claimed by another worker while you filled out the form.` }
   }
 
-  const display_name = `${input.first_name} ${input.last_name}`.trim()
+  // ⚡ 0. COMMIT GOOGLE DRIVE STAGED FILES BEFORE MODIFYING SUPABASE PARAMETERS
+  const stagedFileIds: string[] = []
+  if (input.profile_photo && input.profile_photo.includes('/d/')) {
+    const photoId = extractDriveFileId(input.profile_photo)
+    if (photoId) stagedFileIds.push(photoId)
+  }
+  if (input.profile_video && input.profile_video.includes('/d/')) {
+    const videoId = extractDriveFileId(input.profile_video)
+    if (videoId) stagedFileIds.push(videoId)
+  }
 
-  // Store the bio narrative as written. Age, country, and time at the
-  // Children's Home are intentionally NOT baked in here — they are injected
-  // live at display time (see ensureBioIncludesAgeAndCountry in the views) so
-  // they never go stale as the child ages or time passes.
+  if (stagedFileIds.length > 0) {
+    try {
+      await commitStagedFilesToCountry(input.country || 'all', Array.from(new Set(stagedFileIds)))
+    } catch (err: any) {
+      console.error("❌ REGISTRATION GOOGLE_DRIVE COMMIT FAILURE:", err)
+      return { id: null, error: `Google Drive staging commitment failure: ${err?.message || err}` }
+    }
+  }
+
+  const display_name = `${input.first_name} ${input.last_name}`.trim()
   const normalizedBio = input.bio?.trim() || null
 
   // ⚡ 1. INSERT BASE CHILD PROFILE FIRST (Set media links to null temporarily to bypass FK constraints)
@@ -172,8 +189,8 @@ export async function registerChildAction(
       hobby: input.hobby,
       bio: normalizedBio,
       notes: input.notes ?? null,
-      profile_photo: null,  // 👈 Nullified initial link fields
-      profile_video: null,  // 👈 Nullified initial link fields
+      profile_photo: null,  
+      profile_video: null,  
       status: 'active',
       edit_log: [],
       created_by: user.id
@@ -190,7 +207,7 @@ export async function registerChildAction(
   // ⚡ 2. INJECT ASSETS INTO CHILD_MEDIA NOW THAT WE HAVE A GUARANTEED NON-NULL CHILD_ID
   try {
     if (input.profile_photo && input.profile_photo.startsWith("https://")) {
-      const extractedFileId = input.profile_photo.split('/d/')[1]?.split('/')[0] || `photo-${Date.now()}`
+      const extractedFileId = extractDriveFileId(input.profile_photo) || `photo-${Date.now()}`
       
       const { data: photoMediaRow } = await adminSupabase
         .from('child_media')
@@ -211,7 +228,7 @@ export async function registerChildAction(
     }
 
     if (input.profile_video && input.profile_video.startsWith("https://")) {
-      const extractedFileId = input.profile_video.split('/d/')[1]?.split('/')[0] || `video-${Date.now()}`
+      const extractedFileId = extractDriveFileId(input.profile_video) || `video-${Date.now()}`
       
       const { data: videoMediaRow } = await adminSupabase
         .from('child_media')
