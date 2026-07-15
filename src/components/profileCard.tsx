@@ -1,8 +1,13 @@
 import Link from "next/link"
-import { PencilIcon } from "lucide-react"
+import { PencilIcon, AlertTriangleIcon } from "lucide-react"
 import type { ChildProfile } from "@/types/profile"
 import { resolvePhotoSrc } from "@/lib/childMedia"
 import type { Locale } from "@/i18n/config"
+
+// Extend ChildProfile inline to smoothly accept the server-injected state attribute
+type ExtendedChildProfile = ChildProfile & {
+  hasMissingFields?: boolean
+}
 
 const avatarPalette = [
   "bg-teal text-white",
@@ -49,17 +54,17 @@ const DEFAULT_LABELS: ProfileCardLabels = {
   yearsShort: "{age} yrs",
 }
 
-function childName(profile: ChildProfile, labels: ProfileCardLabels) {
+function childName(profile: ExtendedChildProfile, labels: ProfileCardLabels) {
   return [profile.firstName, profile.lastName].filter(Boolean).join(" ") || labels.unnamed
 }
 
-function initialsFor(profile: ChildProfile) {
+function initialsFor(profile: ExtendedChildProfile) {
   const first = profile.firstName?.[0] ?? ""
   const last = profile.lastName?.[0] ?? ""
   return `${first}${last}`.toUpperCase() || "?"
 }
 
-function avatarClass(profile: ChildProfile) {
+function avatarClass(profile: ExtendedChildProfile) {
   const seed = profile.id.charCodeAt(0) + profile.id.charCodeAt(profile.id.length - 1)
   return avatarPalette[seed % avatarPalette.length]
 }
@@ -92,7 +97,7 @@ function formatLastUpdated(value: string | null, locale: Locale) {
   })
 }
 
-function birthdateLabel(profile: ChildProfile, locale: Locale) {
+function birthdateLabel(profile: ExtendedChildProfile, locale: Locale) {
   if (!profile.birthDay || !profile.birthMonth || !profile.birthYear) return null
   const date = new Date(Date.UTC(profile.birthYear, profile.birthMonth - 1, profile.birthDay))
   if (
@@ -109,11 +114,11 @@ function birthdateLabel(profile: ChildProfile, locale: Locale) {
   })
 }
 
-function joinedLabel(profile: ChildProfile, locale: Locale) {
+function joinedLabel(profile: ExtendedChildProfile, locale: Locale) {
   return formatShortDate(profile.date_joined, locale) ?? (profile.year_joined ? String(profile.year_joined) : null)
 }
 
-function Avatar({ profile, size, labels }: { profile: ChildProfile; size: "sm" | "md"; labels: ProfileCardLabels }) {
+function Avatar({ profile, size, labels }: { profile: ExtendedChildProfile; size: "sm" | "md"; labels: ProfileCardLabels }) {
   const name = childName(profile, labels)
   const cls = size === "sm" ? "size-8" : "size-12 sm:size-16"
   const textCls = size === "sm" ? "text-xs font-bold" : "text-base font-bold sm:text-xl"
@@ -139,17 +144,27 @@ function StatusBadge({ isActive, labels }: { isActive: boolean; labels: ProfileC
   )
 }
 
+function MissingFieldsBadge() {
+  return (
+    <span className="font-sans inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600 animate-fade-in shadow-3xs shrink-0">
+      <AlertTriangleIcon className="size-3 text-red-500 stroke-[2.5px]" />
+      <span>Missing Fields</span>
+    </span>
+  )
+}
+
 export default function ProfileCard({
   profile,
   labels = DEFAULT_LABELS,
   locale = "en",
 }: {
-  profile: ChildProfile
+  profile: ExtendedChildProfile
   labels?: ProfileCardLabels
   locale?: Locale
 }) {
   const name = childName(profile, labels)
   const isActive = profile.status === "active"
+  const isMissingFieldsAlertActive = isActive && !!profile.hasMissingFields
   const birthdate = birthdateLabel(profile, locale)
   const age = typeof profile.age === "number" && profile.age >= 0 ? labels.yearsShort.replace("{age}", String(profile.age)) : labels.unknownAge
   const ageValue = birthdate ? `${age} · ${birthdate}` : age
@@ -180,7 +195,10 @@ export default function ProfileCard({
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
-            <StatusBadge isActive={isActive} labels={labels} />
+            <div className="flex items-center gap-1.5 justify-end">
+              {isMissingFieldsAlertActive && <MissingFieldsBadge />}
+              <StatusBadge isActive={isActive} labels={labels} />
+            </div>
             <Link
               href={`/dashboard/children/${profile.id}/edit`}
               className="relative z-20 inline-flex min-h-8 items-center gap-1.5 rounded-md px-1.5 font-[var(--font-nunito)] text-sm font-semibold text-navy/70 motion-safe:transition-colors hover:bg-ice hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal sm:min-h-9 sm:gap-2 sm:px-2 sm:text-base"
@@ -206,7 +224,7 @@ export default function ProfileCard({
       </div>
 
       {/* ── Desktop spreadsheet row (xl+) ── */}
-      <div className="hidden xl:grid xl:grid-cols-[minmax(240px,1.35fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(140px,0.9fr)_minmax(120px,0.6fr)] xl:items-center xl:gap-4 xl:px-5 xl:py-3.5">
+      <div className="hidden xl:grid xl:grid-cols-[minmax(240px,1.35fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(140px,0.9fr)_minmax(160px,0.8fr)] xl:items-center xl:gap-4 xl:px-5 xl:py-3.5">
         {/* Child */}
         <div className="flex min-w-0 items-center gap-3">
           <Avatar profile={profile} size="sm" labels={labels} />
@@ -224,7 +242,8 @@ export default function ProfileCard({
         {/* Last Updated */}
         <p className="truncate text-sm text-navy/70">{lastUpdated}</p>
         {/* Status + Edit */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-start">
+          {isMissingFieldsAlertActive && <MissingFieldsBadge />}
           <StatusBadge isActive={isActive} labels={labels} />
           <Link
             href={`/dashboard/children/${profile.id}/edit`}
