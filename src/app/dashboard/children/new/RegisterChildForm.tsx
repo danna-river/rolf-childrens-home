@@ -16,7 +16,6 @@ const STEP_KEYS = [
   "children.register.steps.review",
 ] as const
 
-// Brand-styled input (register flow only) — matches the dashboard palette.
 const inputClass = "w-full px-4 py-3 rounded-xl border border-stone text-sm text-navy bg-white placeholder:text-navy/30 focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
 
 type FormData = {
@@ -80,7 +79,6 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  // Real-time sequence preview generator listener hook
   useEffect(() => {
     async function runPreviewSync() {
       if (!form.country) {
@@ -121,17 +119,14 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     if (step > 0) {
       setStep(s => s - 1)
     } else {
-      // Safe navigation: check if there's back history in the current tab context
       if (typeof window !== "undefined" && window.history.length > 1) {
         router.back()
       } else {
-        // Safe fallback for direct entries (e.g., opened straight to a new tab)
         router.push("/dashboard/children")
       }
     }
   }
 
-  // 🌟 ASYNCHRONOUS STEP GATE: Handles live background lookups on Step 0 to block continuation if input errors exist
   const handleStepProgression = async () => {
     setError(null)
 
@@ -143,7 +138,7 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
       if (!isValid) {
         setError(validationError)
         window.scrollTo({ top: 0, behavior: 'smooth' })
-        return // Exits function immediately; blocks moving to Step 1
+        return 
       }
     }
 
@@ -180,24 +175,25 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
     const { id: newChildId, error: actionError } = await registerChildAction(input)
     if (actionError) {
       setError(actionError)
-      setSubmitting(false) // 🌟 Essential: Unlock button state on failure!
+      setSubmitting(false) 
 
-      // If the code sequence failed at the final table write, kick them back to step 0
-      // but force a state reset so the code immediately fetches the fresh, correct index preview string.
       setForm(f => ({ ...f, id_rolf: "" }))
       setStep(0)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
 
-    // Best-effort face-search enrollment for the new profile photo.
     if (newChildId && photoUrl) {
       setIndexingFace(true)
       await enrollChildProfilePhoto(newChildId)
       setIndexingFace(false)
     }
 
-    router.push("/dashboard/children")
+    if (newChildId) {
+      router.push(`/dashboard/children/${newChildId}`)
+    } else {
+      router.push("/dashboard/children")
+    }
   }
 
   const generateBio = async () => {
@@ -348,7 +344,6 @@ export function RegisterChildForm({ assignedCountries, isAdmin }: Props) {
                 />
               )}
 
-              {/* 🌟 Dynamic Inline Notification Banner — Only triggers for Admins when value shifts from default setup pattern */}
               {isAdmin && form.id_rolf && form.id_rolf !== initialGeneratedId && (
                 <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 text-[11px] text-amber-700 rounded-xl leading-normal">
                   <strong>{t('children.register.idNoticeLabel')}</strong> {t('children.register.idNotice')}
