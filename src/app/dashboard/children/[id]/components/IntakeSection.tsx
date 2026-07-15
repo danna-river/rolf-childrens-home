@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { saveIntakeFormAction } from '../intake-actions'
 import { MediaPicker } from '../../components/MediaPicker'
-import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon, PlayCircleIcon, CheckIcon, CircleIcon } from 'lucide-react'
+import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon, PlayCircleIcon, CheckIcon, CircleIcon, PencilIcon } from 'lucide-react'
 import { resolvePhotoSrc, resolveVideoThumbnail } from '@/lib/childMedia'
 import { useTranslations } from '@/i18n/client'
 
@@ -49,6 +49,9 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
   )
 
   const [profileToggles, setProfileToggles] = useState<Record<string, boolean>>({})
+  
+  // Track local unlock states for locked non-media questions
+  const [unlockedFields, setUnlockedFields] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     startTransition(() => {
@@ -90,6 +93,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
     setSaveStatus(null)
     setStagedFileIds({})
     setProfileToggles({})
+    setUnlockedFields({})
   }
 
   const handleInputChange = (questionId: string, value: string, fieldType: string) => {
@@ -133,6 +137,13 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
     }))
   }
 
+  const toggleFieldUnlock = (questionId: string) => {
+    setUnlockedFields(prev => ({
+      ...prev,
+      [questionId]: !prev[questionId]
+    }))
+  }
+
   const handleSaveForm = () => {
     if (!activeForm) return
     if (Object.values(numericErrors).some(err => err)) {
@@ -156,6 +167,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
         setSaveStatus({ type: 'success', msg: t('children.intake.saved') })
         setStagedFileIds(prev => ({ ...prev, [activeForm.id]: [] }))
         setProfileToggles({})
+        setUnlockedFields({})
         setTimeout(() => setSaveStatus(null), 4000)
       }
     })
@@ -232,14 +244,36 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                     : resolveVideoThumbnail(currentResponse, 400)
                 : null
 
-              const isFieldPermanentlyLocked = activeForm?.lockedQuestions?.includes(q.id) || false
+              const isDbLocked = activeForm?.lockedQuestions?.includes(q.id) || false
+              const isFieldUnlockedLocally = unlockedFields[q.id] || false
+              
+              // Only apply pencil unlock bypass rules if the question is NOT a media field
+              const isFieldPermanentlyLocked = isMediaQuestion ? isDbLocked : (isDbLocked && !isFieldUnlockedLocally)
               const isSetAsProfileChecked = profileToggles[q.id] || false
 
               return (
                 <div key={q.id} className="space-y-1.5 bg-ice/40 p-3 rounded-md border border-stone/80">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-navy/70">
-                    <span className="text-teal font-mono mr-1">#{absoluteQuestionNumber}.</span> {q.question_text} {isFieldBlank && <span className="text-rose-600 font-normal lowercase italic">{t('children.intake.required')}</span>}
-                  </label>
+                  <div className="flex items-center justify-between gap-4">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-navy/70">
+                      <span className="text-teal font-mono mr-1">#{absoluteQuestionNumber}.</span> {q.question_text} {isFieldBlank && <span className="text-rose-600 font-normal lowercase italic">{t('children.intake.required')}</span>}
+                    </label>
+
+                    {/* Render Pencil Icon ONLY for locked non-media rows */}
+                    {isDbLocked && !isMediaQuestion && (
+                      <button
+                        type="button"
+                        onClick={() => toggleFieldUnlock(q.id)}
+                        className={`p-1.5 rounded-md border transition-all cursor-pointer ${
+                          isFieldUnlockedLocally 
+                            ? 'bg-teal/10 border-teal/30 text-teal shadow-3xs' 
+                            : 'bg-white border-stone text-navy/40 hover:text-navy hover:bg-ice'
+                        }`}
+                        title={isFieldUnlockedLocally ? "Lock Field Edit Access" : "Unlock Field Edit Access"}
+                      >
+                        <PencilIcon className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
 
                   {q.field_type === 'select' ? (
                     <select

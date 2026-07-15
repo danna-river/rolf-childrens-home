@@ -226,7 +226,6 @@ export async function saveIntakeFormAction(
   const changes: EditLogChange[] = []
   const answersUpsertPayload: Array<{ report_id: string; question_id: string; answer_value: string }> = []
 
-  // Track if we need to apply profile photo or profile video updates to the main child profile row
   let assignedProfilePhotoUuid: string | null = null
   let assignedProfileVideoUuid: string | null = null
 
@@ -243,8 +242,6 @@ export async function saveIntakeFormAction(
       if (clientValue.startsWith('http')) {
         if (clientValue === oldMediaUrl) {
           finalAnswerValue = oldRawValue
-          
-          // If the profile picture toggle is active for an asset already written in Supabase, stage its primary identifier
           if (isToggleSet) {
             if (q.field_type === 'media_photo') assignedProfilePhotoUuid = finalAnswerValue
             if (q.field_type === 'media_video') assignedProfileVideoUuid = finalAnswerValue
@@ -261,7 +258,6 @@ export async function saveIntakeFormAction(
 
           const adminSupabase = await createAdminClient()
 
-          // Insert the intake media record with the standard target designation type parameters
           const { data: mediaRecord } = await (adminSupabase as any)
             .from('child_media')
             .insert({
@@ -281,7 +277,6 @@ export async function saveIntakeFormAction(
 
           if (mediaRecord) {
             finalAnswerValue = mediaRecord.id
-            
             if (isToggleSet) {
               if (determinedType === 'photo') assignedProfilePhotoUuid = mediaRecord.id
               if (determinedType === 'video') assignedProfileVideoUuid = mediaRecord.id
@@ -311,11 +306,8 @@ export async function saveIntakeFormAction(
     })
   }
 
-  // --- TRANSITIONAL TRANSACTION BLOCK: BUMP EXISTING PICTURE TO THE LIBRARY AND ASSIGN NEW GUID REFERENCE ---
   if (assignedProfilePhotoUuid || assignedProfileVideoUuid) {
     const adminSupabase = await createAdminClient()
-    
-    // Explicitly type columns to pass Supabase's generated signature checks
     const childUpdatePayload: { profile_photo?: string | null; profile_video?: string | null } = {}
   
     if (assignedProfilePhotoUuid) {
@@ -344,7 +336,6 @@ export async function saveIntakeFormAction(
       changes.push({ field: 'profile_video', from: childData.profile_video || '—', to: assignedProfileVideoUuid })
     }
   
-    // This will now compile flawlessly
     await adminSupabase.from('children').update(childUpdatePayload).eq('id', childId)
   }
 
