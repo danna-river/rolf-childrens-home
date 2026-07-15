@@ -10,6 +10,7 @@ import { StatusFilter } from '@/components/statusFilter'
 import { CountryFilter } from '@/components/countryFilter'
 import { SortFilter } from '@/components/sortFilter'
 import { YearJoinedFilter } from '@/components/yearJoinedFilter'
+import { LastUpdatedFilter } from '@/components/lastUpdatedFilter'
 import { ProfileList } from '@/components/profileList'
 import { Pagination } from '@/components/pagination'
 import {
@@ -27,6 +28,7 @@ type ChildrenSearchParams = {
   country?: string | string[]
   sort?: string
   yearJoined?: string
+  updated?: string
   page?: string
 }
 
@@ -45,7 +47,7 @@ export async function AdminView({
   locale: Locale
 }) {
   const t = (key: keyof Messages) => messages[key]
-  const { search, status, country, sort, yearJoined, page } = await searchParams
+  const { search, status, country, sort, yearJoined, updated, page } = await searchParams
   const currentPage = Math.max(1, parseInt(page ?? '1'))
   const countries = parseCountryFilter(country)
   const hasFilters = Boolean(
@@ -53,9 +55,10 @@ export async function AdminView({
     || (status && status !== 'all')
     || (countries && countries.length > 0)
     || (yearJoined && yearJoined !== 'all')
+    || (updated && updated !== 'all')
   )
   const [{ profiles, error, total }, countryOptions, joinedYears, stats] = await Promise.all([
-    getChildrenProfiles(countries, search, status, sort, false, yearJoined, currentPage),
+    getChildrenProfiles(countries, search, status, sort, false, yearJoined, currentPage, updated),
     getCountries(),
     getJoinedYears(),
     getChildrenRegistryStats(countries, false),
@@ -93,6 +96,7 @@ export async function AdminView({
               <StatusFilter />
               <CountryFilter countries={countryOptions} />
               <YearJoinedFilter years={joinedYears} />
+              <LastUpdatedFilter />
               <SortFilter />
             </div>
           </div>

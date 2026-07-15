@@ -2,34 +2,34 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { useTranslations } from "@/i18n/client"
 
-export function SortFilter() {
+/** Option values map to date ranges in getChildrenProfiles: recent windows to
+ *  see fresh edits, plus "over a year ago" to surface stale profiles. */
+export function LastUpdatedFilter() {
   const t = useTranslations()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const current = searchParams.get("sort") ?? "name_asc"
+  const current = searchParams.get("updated") ?? "all"
 
   const set = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    params.set("sort", value)
+    if (value === "all") params.delete("updated")
+    else params.set("updated", value)
     params.delete("page")
     router.replace(`${pathname}?${params.toString()}`)
   }
 
   const options = [
-    { value: "name_asc", label: t("children.filters.nameAsc") },
-    { value: "name_desc", label: t("children.filters.nameDesc") },
-    { value: "age_asc", label: t("children.filters.youngest") },
-    { value: "age_desc", label: t("children.filters.oldest") },
-    { value: "rolf_id_asc", label: t("children.filters.idAsc") },
-    { value: "rolf_id_desc", label: t("children.filters.idDesc") },
-    { value: "updated_desc", label: t("children.filters.recentlyUpdated") },
-    { value: "updated_asc", label: t("children.filters.leastRecentlyUpdated") },
+    { value: "all", label: t("children.filters.all") },
+    { value: "7d", label: t("children.filters.last7Days") },
+    { value: "30d", label: t("children.filters.last30Days") },
+    { value: "6m", label: t("children.filters.last6Months") },
+    { value: "over1y", label: t("children.filters.overYearAgo") },
   ]
 
   return (
     <div>
-      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">{t("children.filters.sort")}</p>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-navy/40">{t("children.filters.lastUpdated")}</p>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
           <button

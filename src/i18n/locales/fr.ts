@@ -213,6 +213,11 @@ export const fr: Messages = {
   'children.filters.status': 'Statut',
   'children.filters.country': 'Pays',
   'children.filters.yearJoined': 'Année d’arrivée',
+  'children.filters.lastUpdated': 'Dernière mise à jour',
+  'children.filters.last7Days': '7 derniers jours',
+  'children.filters.last30Days': '30 derniers jours',
+  'children.filters.last6Months': '6 derniers mois',
+  'children.filters.overYearAgo': 'Il y a plus d’un an',
   'children.filters.sort': 'Trier',
   'children.filters.all': 'Tous',
   'children.filters.unknown': 'Inconnu',
@@ -222,6 +227,8 @@ export const fr: Messages = {
   'children.filters.oldest': 'Plus âgé',
   'children.filters.idAsc': 'ID ↑',
   'children.filters.idDesc': 'ID ↓',
+  'children.filters.recentlyUpdated': 'Mis à jour récemment',
+  'children.filters.leastRecentlyUpdated': 'Mis à jour le moins récemment',
   'children.register.button': 'Enregistrer un enfant',
 
   // Sponsorships registry

@@ -90,7 +90,76 @@ export interface Child {
   created_by: string | null
   created_at: string
   updated_at: string
+  sync_version: number
   edit_log: EditLogEntry[]
+}
+
+export type MobileOperationStatus =
+  | 'processing'
+  | 'applied'
+  | 'conflict'
+  | 'rejected'
+  | 'failed'
+
+export interface MobileDevice {
+  id: string
+  user_id: string
+  installation_id: string
+  device_label: string
+  app_version: string
+  registered_at: string
+  last_seen_at: string
+  offline_access_expires_at: string
+  revoked_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RolfIdReservation {
+  id: string
+  device_id: string
+  user_id: string
+  country: string
+  id_rolf: string
+  sequence: number
+  reserved_at: string
+  expires_at: string
+  claimed_at: string | null
+  child_id: string | null
+}
+
+export interface MobileSyncOperation {
+  operation_id: string
+  device_id: string
+  user_id: string
+  operation_type: 'create_child' | 'update_child'
+  payload_hash: string
+  status: MobileOperationStatus
+  result: Record<string, unknown> | null
+  attempt_started_at: string
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MobileMediaUpload {
+  id: string
+  device_id: string
+  user_id: string
+  child_id: string
+  filename: string
+  mime_type: string
+  media_type: MediaType
+  usage_type: 'profile_picture' | 'profile_video' | 'library'
+  total_bytes: number
+  uploaded_bytes: number
+  drive_upload_url: string
+  gdrive_file_id: string | null
+  child_media_id: string | null
+  status: 'uploading' | 'uploaded' | 'completed' | 'failed'
+  expires_at: string
+  created_at: string
+  updated_at: string
 }
 
 /** Embedded ref returned when a children row is selected with the child_media FK joins
@@ -243,8 +312,32 @@ export type Database = {
       }
       children: {
         Row: DatabaseRow<Child>
-        Insert: Omit<Child, 'id' | 'created_at' | 'updated_at'>
+        Insert: Omit<Child, 'id' | 'created_at' | 'updated_at' | 'sync_version'> & { id?: string; sync_version?: number }
         Update: Partial<Omit<Child, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      mobile_devices: {
+        Row: DatabaseRow<MobileDevice>
+        Insert: Omit<MobileDevice, 'id' | 'registered_at' | 'last_seen_at' | 'offline_access_expires_at' | 'revoked_at' | 'created_at' | 'updated_at'> & Partial<Pick<MobileDevice, 'last_seen_at' | 'offline_access_expires_at' | 'revoked_at' | 'updated_at'>>
+        Update: Partial<Omit<MobileDevice, 'id' | 'user_id' | 'installation_id' | 'registered_at' | 'created_at'>>
+        Relationships: []
+      }
+      rolf_id_reservations: {
+        Row: DatabaseRow<RolfIdReservation>
+        Insert: Omit<RolfIdReservation, 'id' | 'reserved_at' | 'claimed_at' | 'child_id'> & Partial<Pick<RolfIdReservation, 'claimed_at' | 'child_id'>>
+        Update: Partial<Omit<RolfIdReservation, 'id' | 'device_id' | 'user_id' | 'country' | 'id_rolf' | 'sequence' | 'reserved_at'>>
+        Relationships: []
+      }
+      mobile_sync_operations: {
+        Row: DatabaseRow<MobileSyncOperation>
+        Insert: Omit<MobileSyncOperation, 'attempt_started_at' | 'completed_at' | 'created_at' | 'updated_at'> & Partial<Pick<MobileSyncOperation, 'attempt_started_at' | 'completed_at'>>
+        Update: Partial<Omit<MobileSyncOperation, 'operation_id' | 'device_id' | 'user_id' | 'operation_type' | 'payload_hash' | 'created_at'>>
+        Relationships: []
+      }
+      mobile_media_uploads: {
+        Row: DatabaseRow<MobileMediaUpload>
+        Insert: Omit<MobileMediaUpload, 'id' | 'uploaded_bytes' | 'gdrive_file_id' | 'child_media_id' | 'expires_at' | 'created_at' | 'updated_at'> & Partial<Pick<MobileMediaUpload, 'uploaded_bytes' | 'gdrive_file_id' | 'child_media_id' | 'expires_at'>>
+        Update: Partial<Omit<MobileMediaUpload, 'id' | 'device_id' | 'user_id' | 'child_id' | 'filename' | 'mime_type' | 'media_type' | 'usage_type' | 'total_bytes' | 'created_at'>>
         Relationships: []
       }
       sponsors: {
@@ -420,6 +513,10 @@ export type Database = {
           templates_active: number
           templates_unsearchable: number
         }[]
+      }
+      reserve_mobile_rolf_ids: {
+        Args: { p_device_id: string; p_user_id: string; p_country: string; p_count?: number }
+        Returns: { id_rolf: string; expires_at: string }[]
       }
     }
   }
