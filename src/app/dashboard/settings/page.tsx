@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { isAdminRole } from '@/lib/profiles'
 import { getUserLocale } from '@/i18n/server'
+import { ExportView } from './components/admin/export-view'
 
 // View components imports
 import { AccountApprovalView } from '@/app/dashboard/settings/components/admin/account-approval-view'
@@ -133,7 +134,10 @@ export default async function SettingsTabDispatcherPage({ searchParams }: Settin
     return <SecurityView />
   }
 
-
+  if (targetTab === 'export_data') {
+    if (!isSystemAdmin) redirect('/dashboard/settings?tab=profile') // Anti-tamper role gate
+    return <ExportView />
+  }
 
   // Base Fallback Tab: Renders the default user profile tab view
   return (

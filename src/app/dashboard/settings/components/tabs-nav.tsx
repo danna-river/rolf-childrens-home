@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { isAdminRole } from '@/lib/profiles'
-import { UserIcon, LockIcon, ShieldCheckIcon, GlobeIcon, UsersIcon, FileTextIcon, ScanFaceIcon } from 'lucide-react'
+import { UserIcon, LockIcon, ShieldCheckIcon, GlobeIcon, UsersIcon, FileTextIcon, ScanFaceIcon, DownloadIcon } from 'lucide-react'
 import { useTranslations } from '@/i18n/client'
 
 interface TabsNavProps {
@@ -27,7 +27,8 @@ export function TabsNav({ userRole }: TabsNavProps) {
       { id: 'global_config', label: t('settings.tabs.globalConfig'), icon: GlobeIcon },
       { id: 'manage_users', label: t('settings.tabs.manageUsers'), icon: UsersIcon },
       { id: 'intake_form', label: t('settings.tabs.intakeForms'), icon: FileTextIcon },
-      { id: 'face_search', label: t('settings.tabs.faceSearch'), icon: ScanFaceIcon }
+      { id: 'face_search', label: t('settings.tabs.faceSearch'), icon: ScanFaceIcon },
+      { id: 'export_data', label: "Export Tables", icon: DownloadIcon }
     )
   }
 
