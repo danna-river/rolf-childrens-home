@@ -297,6 +297,42 @@ export async function updateChildAction(
         if (videoMediaRow) finalVideoUuid = videoMediaRow.id
       }
     }
+
+    // --- 🌟 BATCH LIBRARY PORTFOLIO STAGED MEDIA REGISTRY ---
+    if (stagedFileIds && stagedFileIds.length > 0) {
+      for (const stagedId of stagedFileIds) {
+        // Double-check if a database row already tracks this exact Google Drive file token
+        const { data: duplicateCheck } = await adminSupabase
+          .from('child_media')
+          .select('id')
+          .eq('gdrive_file_id', stagedId)
+          .maybeSingle()
+
+        // If it isn't tracked in Supabase yet, populate the asset row secure linkage
+        if (!duplicateCheck) {
+          const generatedFilename = `${sanitize(input.id_rolf || 'asset')}_library_${stagedId.slice(0, 6)}`
+          
+          // Deduce media typing from files safely based on naming context signatures
+          const guessedType = stagedId.toLowerCase().includes('video') ? 'video' : 'photo'
+          const fileExtension = guessedType === 'video' ? 'mp4' : 'jpg'
+
+          await adminSupabase
+            .from('child_media')
+            .insert({
+              child_id: id,
+              gdrive_file_id: stagedId,
+              filename: `${generatedFilename}.${fileExtension}`,
+              // Reconstruct accessible file view URLs native to your active storage ecosystem
+              url: `https://docs.google.com/uc?export=view&id=${stagedId}`,
+              media_type: guessedType,
+              usage_type: 'library',
+              source: 'direct_upload',
+              uploaded_by: actorProfile.id
+            })
+        }
+      }
+    }
+
   } catch (mediaError) {
     console.error("Media registry synchronization failure:", mediaError)
     return { error: `Media alignment error: ${mediaError instanceof Error ? mediaError.message : String(mediaError)}` }
