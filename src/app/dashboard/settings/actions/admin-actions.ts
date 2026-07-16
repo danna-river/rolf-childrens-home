@@ -248,26 +248,3 @@ export async function removeCountryAction(targetCountry: string) {
   revalidatePath('/dashboard/settings')
   return { success: true }
 }
-
-export async function getIntakeFormsAction() {
-  await verifyAdminGate()
-  const adminSupabase = await createAdminClient()
-
-  const { data: templates, error } = await adminSupabase
-    .from('intake_templates')
-    .select('id, title')
-    .order('title', { ascending: true })
-
-  if (error) return { error: error.message }
-  
-  // 2. Explicitly cast the templates array to our type to bypass 'never[]'
-  const typedTemplates = (templates || []) as IntakeTemplateRow[]
-
-  // 3. Map safely over the typed rows
-  const formattedTemplates = typedTemplates.map(t => ({
-    id: t.id,
-    name: t.title || t.id // Fallback to ID string if the title is null
-  }))
-
-  return { success: true, forms: formattedTemplates }
-}

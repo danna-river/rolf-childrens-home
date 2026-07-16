@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { PlusIcon, TrashIcon, ToggleLeftIcon, ToggleRightIcon, PencilIcon, SaveIcon, XIcon, GlobeIcon, AlertCircleIcon, MoveIcon } from "lucide-react"
+import { PlusIcon, TrashIcon, ToggleLeftIcon, ToggleRightIcon, PencilIcon, SaveIcon, XIcon, GlobeIcon, AlertCircleIcon, MoveIcon, LockIcon } from "lucide-react"
 import { useTranslations } from "@/i18n/client"
 import {
     getIntakeTemplates,
@@ -9,7 +9,8 @@ import {
     updateIntakeTemplate,
     toggleTemplateStatus,
     deleteTemplate,
-    getIntakeCountries
+    getIntakeCountries,
+    getLockedQuestionIds
 } from "../../actions/intake-actions"
 import type { QuestionInput, IntakeTemplate } from "../intake-types"
 import type { FieldTypeConstraint } from "../intake-types"
@@ -26,6 +27,9 @@ export function IntakeView() {
     const [formQuestions, setFormQuestions] = useState<QuestionInput[]>([
         { question_text: "", field_type: "text", choices: [""] }
     ])
+
+    // State to track database-locked questions that already have submitted answers
+    const [lockedQuestionIds, setLockedQuestionIds] = useState<string[]>([])
 
     const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
     const [templateDeleteConfirmId, setTemplateDeleteConfirmId] = useState<string | null>(null)
@@ -57,6 +61,14 @@ export function IntakeView() {
     }
 
     const handleRemoveQuestionAttempt = (index: number) => {
+        const question = formQuestions[index]
+        
+        // Safety lock: Prevent client-side UI deletion attempts of answered questions
+        if (question.id && lockedQuestionIds.includes(question.id)) {
+            setTransactionError("Deletion Blocked: This question contains active answers and cannot be removed.")
+            return
+        }
+
         if (deleteConfirmIndex === index) {
             setFormQuestions(formQuestions.filter((_, i) => i !== index))
             setDeleteConfirmIndex(null)
@@ -152,6 +164,7 @@ export function IntakeView() {
         setFormTitle("")
         setFormCountry("all")
         setFormQuestions([{ question_text: "", field_type: "text", choices: [""] }])
+        setLockedQuestionIds([])
         setDeleteConfirmIndex(null)
         setShowSavePrompt(false)
         setTransactionError(null)
@@ -219,28 +232,45 @@ export function IntakeView() {
 
     const handleTemplateDeleteAttempt = async (id: string) => {
         if (templateDeleteConfirmId === id) {
-            await deleteTemplate(id)
+            const res = await deleteTemplate(id)
             setTemplateDeleteConfirmId(null)
-            const updated = await getIntakeTemplates()
-            if (updated.data) setTemplates(updated.data)
+            
+            if (res?.error) {
+                setTransactionError(res.error)
+            } else {
+                setTransactionError(null)
+                const updated = await getIntakeTemplates()
+                if (updated.data) setTemplates(updated.data)
+            }
         } else {
             setTemplateDeleteConfirmId(id)
         }
     }
 
-    const startEdit = (tpl: IntakeTemplate) => {
+    const startEdit = async (tpl: IntakeTemplate) => {
+        setLoading(true)
         setEditingId(tpl.id)
         setFormTitle(tpl.title)
         setFormCountry(tpl.country)
+        
+        // Load locked questions from the database for this specific template
+        const lockRes = await getLockedQuestionIds(tpl.id)
+        if (lockRes.ids) {
+            setLockedQuestionIds(lockRes.ids)
+        }
+
         setFormQuestions(tpl.template_questions?.map(q => ({
+            id: q.id, 
             question_text: q.question_text,
             field_type: q.field_type,
             choices: q.choices && q.choices.length > 0 ? q.choices : [""]
         })) ?? [{ question_text: "", field_type: "text", choices: [""] }])
+        
         setDeleteConfirmIndex(null)
         setShowSavePrompt(false)
         setTransactionError(null)
         setValidationErrors({ title: false, questions: [], choices: [], attempted: false })
+        setLoading(false)
     }
 
     if (loading) return <div className="text-sm p-6 text-navy/50 font-medium">Loading...</div>
@@ -325,11 +355,14 @@ export function IntakeView() {
                             const hasTextError = validationErrors.questions.includes(qIndex)
                             const hasChoiceError = validationErrors.choices.includes(qIndex)
                             const isBeingDragged = draggedIndex === qIndex
+                            
+                            // Check if this specific question has already received answers
+                            const isQuestionLocked = !!(q.id && lockedQuestionIds.includes(q.id))
 
                             return (
                                 <div 
                                     key={qIndex}
-                                    draggable
+                                    draggable={!isQuestionLocked} // Lock position drag order if submitted
                                     onDragStart={() => handleDragStart(qIndex)}
                                     onDragOver={(e) => handleDragOver(e, qIndex)}
                                     onDragEnd={handleDragEnd}
@@ -338,17 +371,23 @@ export function IntakeView() {
                                     } ${
                                         hasTextError || hasChoiceError 
                                             ? "bg-rose-50/30 border-rose-300" 
-                                            : "bg-ice/50 border-stone hover:border-stone/80"
+                                            : isQuestionLocked 
+                                                ? "bg-stone/10 border-stone/60" 
+                                                : "bg-ice/50 border-stone hover:border-stone/80"
                                     }`}
                                 >
                                     <div className="flex flex-col sm:flex-row gap-2.5 sm:items-center">
-                                        <div className="hidden sm:flex items-center justify-center text-navy/30 group-hover/card:text-navy/50 transition-colors cursor-grab active:cursor-grabbing p-1 shrink-0 -ml-1">
-                                            <MoveIcon className="size-4" />
+                                        <div className={`hidden sm:flex items-center justify-center p-1 shrink-0 -ml-1 transition-colors ${
+                                            isQuestionLocked 
+                                                ? "text-navy/20 cursor-not-allowed" 
+                                                : "text-navy/30 group-hover/card:text-navy/50 cursor-grab active:cursor-grabbing"
+                                        }`}>
+                                            {isQuestionLocked ? <LockIcon className="size-3.5" /> : <MoveIcon className="size-4" />}
                                         </div>
 
                                         <div className="w-full sm:flex-1">
                                             <span className="sm:hidden block text-[10px] font-bold uppercase tracking-wider text-navy/40 mb-1">
-                                                Question #{qIndex + 1}
+                                                Question #{qIndex + 1} {isQuestionLocked && "🔒 Locked"}
                                             </span>
                                             <input
                                                 type="text"
@@ -365,8 +404,13 @@ export function IntakeView() {
                                             <div className="flex-1 sm:w-48">
                                                 <select
                                                     value={q.field_type}
+                                                    disabled={isQuestionLocked} // Lock the client-side select dropdown
                                                     onChange={(e) => handleQuestionChange(qIndex, "field_type", e.target.value as FieldTypeConstraint)}
-                                                    className="w-full rounded-md border border-stone bg-white px-2.5 py-2 sm:py-1.5 text-xs font-semibold text-navy outline-none focus:border-teal cursor-pointer"
+                                                    className={`w-full rounded-md border bg-white px-2.5 py-2 sm:py-1.5 text-xs font-semibold text-navy outline-none focus:border-teal ${
+                                                        isQuestionLocked 
+                                                            ? "bg-stone/15 text-navy/40 cursor-not-allowed border-stone" 
+                                                            : "border-stone cursor-pointer"
+                                                    }`}
                                                 >
                                                     <option value="text">Text Answer</option>
                                                     <option value="number">Number</option>
@@ -381,16 +425,21 @@ export function IntakeView() {
                                             {formQuestions.length > 1 && (
                                                 <button
                                                     type="button"
+                                                    disabled={isQuestionLocked}
                                                     onClick={() => handleRemoveQuestionAttempt(qIndex)}
                                                     onMouseLeave={() => setDeleteConfirmIndex(null)}
-                                                    className={`transition-all rounded-md px-3 py-2 sm:py-1.5 font-bold text-xs shrink-0 flex items-center gap-1 outline-none min-w-[70px] justify-center cursor-pointer ${
-                                                        isArmedForDelete 
-                                                        ? "bg-rose-700 text-white animate-pulse shadow-2xs" 
-                                                        : "bg-white sm:bg-transparent border sm:border-transparent border-stone text-navy/60 hover:text-rose-700 hover:border-rose-200"
+                                                    className={`transition-all rounded-md px-3 py-2 sm:py-1.5 font-bold text-xs shrink-0 flex items-center gap-1 outline-none min-w-[70px] justify-center ${
+                                                        isQuestionLocked
+                                                            ? "bg-transparent text-navy/20 cursor-not-allowed border-transparent"
+                                                            : isArmedForDelete 
+                                                                ? "bg-rose-700 text-white animate-pulse shadow-2xs cursor-pointer" 
+                                                                : "bg-white sm:bg-transparent border sm:border-transparent border-stone text-navy/60 hover:text-rose-700 hover:border-rose-200 cursor-pointer"
                                                     }`}
                                                     aria-label="Delete field row element"
                                                 >
-                                                    {isArmedForDelete ? (
+                                                    {isQuestionLocked ? (
+                                                        <LockIcon className="size-3.5 text-navy/30" />
+                                                    ) : isArmedForDelete ? (
                                                         <span>Confirm?</span>
                                                     ) : (
                                                         <>
@@ -402,6 +451,14 @@ export function IntakeView() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Helper lock warning text rendered inline inside the card */}
+                                    {isQuestionLocked && (
+                                        <p className="text-[10px] text-navy/45 font-medium flex items-center gap-1 bg-stone/5 px-2.5 py-1 rounded border border-stone/20 w-fit">
+                                            <LockIcon className="size-3 text-teal" /> 
+                                            Field type locked: Responses have already been submitted for this question.
+                                        </p>
+                                    )}
 
                                     {q.field_type === "select" && (
                                         <div className={`bg-white border rounded-md p-3 space-y-2.5 ${hasChoiceError ? 'border-rose-400' : 'border-stone'}`}>
@@ -415,14 +472,19 @@ export function IntakeView() {
                                                             <input
                                                                 type="text"
                                                                 value={choice}
+                                                                disabled={isQuestionLocked} // Lock choices on submitted multi-choice questions
                                                                 onChange={(e) => handleChoiceChange(qIndex, cIndex, e.target.value)}
                                                                 className={`font-medium w-full rounded-md border px-3 py-1.5 text-xs text-navy outline-none focus:border-teal placeholder:text-navy/30 ${
-                                                                    hasChoiceError && !choice.trim() ? "border-rose-300 bg-rose-50/20" : "border-stone"
+                                                                    hasChoiceError && !choice.trim() 
+                                                                        ? "border-rose-300 bg-rose-50/20" 
+                                                                        : isQuestionLocked 
+                                                                            ? "bg-stone/5 text-navy/40 border-stone" 
+                                                                            : "border-stone"
                                                                 }`}
                                                                 placeholder={`Option #${cIndex + 1}`}
                                                             />
                                                         </div>
-                                                        {(q.choices || []).length > 1 && (
+                                                        {(q.choices || []).length > 1 && !isQuestionLocked && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleRemoveChoice(qIndex, cIndex)}
@@ -434,13 +496,15 @@ export function IntakeView() {
                                                     </div>
                                                 ))}
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleAddChoice(qIndex)}
-                                                className="font-bold mt-1 text-[11px] text-teal hover:underline flex items-center gap-0.5 cursor-pointer inline-block"
-                                            >
-                                                + Add Option
-                                            </button>
+                                            {!isQuestionLocked && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddChoice(qIndex)}
+                                                    className="font-bold mt-1 text-[11px] text-teal hover:underline flex items-center gap-0.5 cursor-pointer inline-block"
+                                                >
+                                                    + Add Option
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -448,7 +512,7 @@ export function IntakeView() {
                         })}
                     </div>
 
-                    {/* 🌟 Footer Bar: Confirmation switches inline next to the execution track */}
+                    {/* Footer Bar: Confirmation switches inline next to the execution track */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-stone pt-4">
                         <button
                             type="button"
