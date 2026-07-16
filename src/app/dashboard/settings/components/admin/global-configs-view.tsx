@@ -109,7 +109,7 @@ export function GlobalConfigsView({ currentCountries }: GlobalConfigsViewProps) 
           type="text"
           value={isoCodeVal}
           onChange={(e) => setIsoCodeVal(e.target.value)}
-          placeholder="ISO Code (e.g. BEN)"
+          placeholder="ISO Code (XXX)"
           maxLength={3}
           disabled={loading}
           required
