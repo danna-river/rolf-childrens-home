@@ -2,19 +2,55 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth'
+import { isAdminRole } from '@/lib/profiles'
 import type { QuestionInput, IntakeTemplate } from '../components/intake-types'
 
 // intake_templates / template_questions aren't in the generated Database schema,
 // so these queries need an escape hatch from the typed client.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export async function getIntakeTemplates(): Promise<{ data: IntakeTemplate[] | null; error: string | null }> {
-    const supabase = createAdminClient()
+interface IntakeTemplateRow {
+  id: string
+  title: string | null
+}
 
-    // 🌟 Force the builder to treat this as a generic endpoint query
-    const { data, error } = await (supabase
-        .from('intake_templates' as any)
-        .select(`
+// Security Gate verifying true admin scope
+async function verifyAdminGate() {
+  const { profile } = await requireAuth()
+  if (!isAdminRole(profile.role)) {
+    throw new Error('Unauthorized: Administrative clearance required.')
+  }
+}
+
+export async function getIntakeFormsAction() {
+  await verifyAdminGate()
+  const adminSupabase = await createAdminClient()
+
+  const { data: templates, error } = await adminSupabase
+    .from('intake_templates')
+    .select('id, title')
+    .order('title', { ascending: true })
+
+  if (error) return { error: error.message }
+  
+  const typedTemplates = (templates || []) as IntakeTemplateRow[]
+
+  const formattedTemplates = typedTemplates.map(t => ({
+    id: t.id,
+    name: t.title || t.id
+  }))
+
+  return { success: true, forms: formattedTemplates }
+}
+
+export async function getIntakeTemplates(): Promise<{ data: IntakeTemplate[] | null; error: string | null }> {
+  await verifyAdminGate()
+  const supabase = createAdminClient()
+
+  const { data, error } = await (supabase
+    .from('intake_templates' as any)
+    .select(`
       id,
       title,
       country,
@@ -23,107 +59,259 @@ export async function getIntakeTemplates(): Promise<{ data: IntakeTemplate[] | n
       updated_at,
       template_questions (*)
     `) as any)
-        .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
-    if (error) {
-        return { data: null, error: error.message }
+  if (error) {
+    return { data: null, error: error.message }
+  }
+
+  const typedData = (data as any[])?.map((tpl: any) => {
+    if (Array.isArray(tpl.template_questions)) {
+      tpl.template_questions.sort((a: any, b: any) => a.sort_order - b.sort_order)
     }
+    return tpl as IntakeTemplate
+  }) || []
 
-    const typedData = (data as any[])?.map((tpl: any) => {
-        if (Array.isArray(tpl.template_questions)) {
-            tpl.template_questions.sort((a: any, b: any) => a.sort_order - b.sort_order)
-        }
-        return tpl as IntakeTemplate
-    }) || []
-
-    return { data: typedData, error: null }
+  return { data: typedData, error: null }
 }
 
 export async function createIntakeTemplate(title: string, country: string, questions: QuestionInput[]) {
-    const supabase = createAdminClient()
+  await verifyAdminGate()
+  const supabase = createAdminClient()
 
-    const { data: template, error: tplError } = await (supabase
-        .from('intake_templates' as any)
-        .insert({ title, country, status: 'active' })
-        .select('id')
-        .single() as any)
+  const { data: template, error: tplError } = await (supabase
+    .from('intake_templates' as any)
+    .insert({ title, country, status: 'active' })
+    .select('id')
+    .single() as any)
 
-    if (tplError || !template) return { error: tplError?.message || "Failed to create template blueprint." }
+  if (tplError || !template) return { error: tplError?.message || "Failed to create template blueprint." }
 
-    const questionRows = questions.map((q, index) => ({
-        template_id: template.id,
-        question_text: q.question_text,
-        field_type: q.field_type,
-        sort_order: index,
-        choices: q.field_type === 'select' ? (q.choices?.filter(c => c.trim() !== '') || []) : null
-    }))
+  const questionRows = questions.map((q, index) => ({
+    template_id: template.id,
+    question_text: q.question_text,
+    field_type: q.field_type,
+    sort_order: index,
+    choices: q.field_type === 'select' ? (q.choices?.filter(c => c.trim() !== '') || []) : null
+  }))
 
-    const { error: qError } = await (supabase.from('template_questions' as any).insert(questionRows) as any)
-    if (qError) return { error: qError.message }
+  const { error: qError } = await (supabase.from('template_questions' as any).insert(questionRows) as any)
+  if (qError) return { error: qError.message }
 
-    revalidatePath('/dashboard/settings')
-    return { success: true }
+  revalidatePath('/dashboard/settings')
+  return { success: true }
 }
 
-export async function updateIntakeTemplate(templateId: string, title: string, country: string, questions: QuestionInput[]) {
-    const supabase = createAdminClient()
+export async function updateIntakeTemplate(
+  templateId: string, 
+  title: string, 
+  country: string, 
+  questions: QuestionInput[]
+) {
+  await verifyAdminGate()
+  const supabase = createAdminClient()
 
-    const { error: tplError } = await (supabase
-        .from('intake_templates' as any)
-        .update({ title, country, updated_at: new Date().toISOString() })
-        .eq('id', templateId) as any)
+  // 1. Update the base template details (non-destructively)
+  const { error: tplError } = await (supabase
+    .from('intake_templates' as any)
+    .update({ title, country, updated_at: new Date().toISOString() })
+    .eq('id', templateId) as any)
 
-    if (tplError) return { error: tplError.message }
+  if (tplError) return { error: tplError.message }
 
-    // Clear previous configurations cleanly
-    await (supabase.from('template_questions' as any).delete().eq('template_id', templateId) as any)
+  // 2. Fetch all current questions in the database for this template
+  const { data: existingQs } = await (supabase
+    .from('template_questions' as any)
+    .select('id, question_text, field_type')
+    .eq('template_id', templateId) as any)
 
-    const questionRows = questions.map((q, index) => ({
-        template_id: templateId,
-        question_text: q.question_text,
-        field_type: q.field_type,
-        sort_order: index,
-        choices: q.field_type === 'select' ? (q.choices?.filter(c => c.trim() !== '') || []) : null
-    }))
+  const existingQsMap = new Map<string, any>((existingQs || []).map((q: any) => [q.id, q]))
+  const existingIds = Array.from(existingQsMap.keys())
+  const incomingIds = questions.map(q => q.id).filter(Boolean) as string[]
 
-    const { error: qError } = await (supabase.from('template_questions' as any).insert(questionRows) as any)
-    if (qError) return { error: qError.message }
+  // 3. Prevent Deletion Check of Existing Questions
+  const idsToDelete = existingIds.filter((id: string) => !incomingIds.includes(id))
 
-    revalidatePath('/dashboard/settings')
-    return { success: true }
+  if (idsToDelete.length > 0) {
+    const { data: linkedAnswers, error: checkError } = await (supabase
+      .from('report_answers' as any)
+      .select('question_id')
+      .in('question_id', idsToDelete) as any)
+
+    if (checkError) return { error: checkError.message }
+
+    if (linkedAnswers && linkedAnswers.length > 0) {
+      const blockedId = linkedAnswers[0].question_id
+      const blockedQ = existingQsMap.get(blockedId)
+      const qText = blockedQ ? `"${blockedQ.question_text}"` : "selected questions"
+
+      return { 
+        error: `Deletion Blocked: The question ${qText} cannot be removed because it already has active student/applicant answers.` 
+      }
+    }
+
+    const { error: delError } = await (supabase
+      .from('template_questions' as any)
+      .delete()
+      .in('id', idsToDelete) as any)
+
+    if (delError) return { error: delError.message }
+  }
+
+  // 4. Validate that existing questions with answers do not have their type changed
+  const questionsWithChangedTypes = questions.filter(q => {
+    if (!q.id) return false // New questions are fine
+    const databaseQ = existingQsMap.get(q.id)
+    return databaseQ && databaseQ.field_type !== q.field_type
+  })
+
+  if (questionsWithChangedTypes.length > 0) {
+    const changedIds = questionsWithChangedTypes.map(q => q.id) as string[]
+    
+    // Check if any of these modified questions already have answers in the database
+    const { data: activeAnswers, error: answerCheckError } = await (supabase
+      .from('report_answers' as any)
+      .select('question_id')
+      .in('question_id', changedIds)
+      .limit(1) as any)
+
+    if (answerCheckError) return { error: answerCheckError.message }
+
+    if (activeAnswers && activeAnswers.length > 0) {
+      const blockedId = activeAnswers[0].question_id
+      const blockedQ = existingQsMap.get(blockedId)
+      const qText = blockedQ ? `"${blockedQ.question_text}"` : "selected questions"
+
+      return {
+        error: `Type Lock active: Cannot change the answer type of ${qText} because answers have already been submitted for it.`
+      }
+    }
+  }
+
+  // 5. Save and update questions
+  for (let index = 0; index < questions.length; index++) {
+    const q = questions[index]
+    const row = {
+      template_id: templateId,
+      question_text: q.question_text,
+      field_type: q.field_type,
+      sort_order: index,
+      choices: q.field_type === 'select' ? (q.choices?.filter(c => c.trim() !== '') || []) : null
+    }
+
+    if (q.id) {
+      const { error: upError } = await (supabase
+        .from('template_questions' as any)
+        .update(row)
+        .eq('id', q.id) as any)
+
+      if (upError) return { error: upError.message }
+    } else {
+      const { error: insError } = await (supabase
+        .from('template_questions' as any)
+        .insert(row) as any)
+
+      if (insError) return { error: insError.message }
+    }
+  }
+
+  revalidatePath('/dashboard/settings')
+  return { success: true }
 }
 
 export async function toggleTemplateStatus(id: string, currentStatus: 'active' | 'inactive') {
-    const supabase = createAdminClient()
-    const nextStatus = currentStatus === 'active' ? 'inactive' : 'active'
+  await verifyAdminGate()
+  const supabase = createAdminClient()
+  const nextStatus = currentStatus === 'active' ? 'inactive' : 'active'
 
-    const { error } = await (supabase
-        .from('intake_templates' as any)
-        .update({ status: nextStatus })
-        .eq('id', id) as any)
+  const { error } = await (supabase
+    .from('intake_templates' as any)
+    .update({ status: nextStatus })
+    .eq('id', id) as any)
 
-    revalidatePath('/dashboard/settings')
-    return { error: error?.message || null }
+  revalidatePath('/dashboard/settings')
+  return { error: error?.message || null }
 }
 
 export async function deleteTemplate(id: string) {
-    const supabase = createAdminClient()
-    const { error } = await (supabase.from('intake_templates' as any).delete().eq('id', id) as any)
+  await verifyAdminGate()
+  const supabase = createAdminClient()
 
-    revalidatePath('/dashboard/settings')
-    return { error: error?.message || null }
+  // 1. Find all question IDs belonging to this template
+  const { data: templateQuestions } = await (supabase
+    .from('template_questions' as any)
+    .select('id')
+    .eq('template_id', id) as any)
+
+  const questionIds = (templateQuestions || []).map((q: any) => q.id)
+
+  if (questionIds.length > 0) {
+    // 2. Prevent deletion if any question has entries inside report_answers
+    const { data: linkedAnswers, error: checkError } = await (supabase
+      .from('report_answers' as any)
+      .select('id')
+      .in('question_id', questionIds)
+      .limit(1) as any)
+
+    if (checkError) return { error: checkError.message }
+
+    if (linkedAnswers && linkedAnswers.length > 0) {
+      return { 
+        error: "Deletion Blocked: Cannot delete this form template because it contains submitted student/applicant responses." 
+      }
+    }
+  }
+
+  // 3. Safe to proceed with deletion if no answer relationships exist
+  const { error } = await (supabase
+    .from('intake_templates' as any)
+    .delete()
+    .eq('id', id) as any)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/settings')
+  return { error: null }
 }
 
 export async function getIntakeCountries(): Promise<string[]> {
-    const supabase = createAdminClient()
-    const { data, error } = await supabase
-        .from('countries')
-        .select('name')
-        .order('name', { ascending: true })
+  await verifyAdminGate()
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('countries')
+    .select('name')
+    .order('name', { ascending: true })
 
-    if (error || !data) {
-        console.error('❌ INTAKE COUNTRIES ACTION:', error?.message)
-        return []
-    }
-    return data.map((row) => row.name)
+  if (error || !data) {
+    console.error('❌ INTAKE COUNTRIES ACTION:', error?.message)
+    return []
+  }
+  return data.map((row) => row.name)
+}
+
+export async function getLockedQuestionIds(templateId: string): Promise<{ ids: string[]; error: string | null }> {
+  await verifyAdminGate()
+  const supabase = createAdminClient()
+
+  // 1. Fetch all questions for this template
+  const { data: questions, error: qError } = await (supabase
+    .from('template_questions' as any)
+    .select('id')
+    .eq('template_id', templateId) as any)
+
+  if (qError) return { ids: [], error: qError.message }
+  const qIds = (questions || []).map((q: any) => q.id)
+
+  if (qIds.length === 0) return { ids: [], error: null }
+
+  // 2. Fetch distinct question_ids that have responses in report_answers
+  const { data: answers, error: aError } = await (supabase
+    .from('report_answers' as any)
+    .select('question_id')
+    .in('question_id', qIds) as any)
+
+  if (aError) return { ids: [], error: aError.message }
+
+  const lockedIds = Array.from(new Set((answers || []).map((ans: any) => ans.question_id))) as string[]
+  return { ids: lockedIds, error: null }
 }

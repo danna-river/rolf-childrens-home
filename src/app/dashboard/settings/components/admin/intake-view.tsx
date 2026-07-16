@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { PlusIcon, TrashIcon, ToggleLeftIcon, ToggleRightIcon, PencilIcon, SaveIcon, XIcon, GlobeIcon, AlertCircleIcon, MoveIcon } from "lucide-react"
+import { PlusIcon, TrashIcon, ToggleLeftIcon, ToggleRightIcon, PencilIcon, SaveIcon, XIcon, GlobeIcon, AlertCircleIcon, MoveIcon, LockIcon, EyeIcon, EyeOffIcon } from "lucide-react"
 import { useTranslations } from "@/i18n/client"
 import {
     getIntakeTemplates,
@@ -9,7 +9,8 @@ import {
     updateIntakeTemplate,
     toggleTemplateStatus,
     deleteTemplate,
-    getIntakeCountries
+    getIntakeCountries,
+    getLockedQuestionIds
 } from "../../actions/intake-actions"
 import type { QuestionInput, IntakeTemplate } from "../intake-types"
 import type { FieldTypeConstraint } from "../intake-types"
@@ -20,6 +21,9 @@ export function IntakeView() {
     const [countries, setCountries] = useState<string[]>([])
     const [loading, setLoading] = useState(true)
 
+    // False: Show all templates by default. True: Filter out inactive templates.
+    const [hideInactive, setHideInactive] = useState(false)
+
     const [editingId, setEditingId] = useState<string | null>(null)
     const [formTitle, setFormTitle] = useState("")
     const [formCountry, setFormCountry] = useState("all")
@@ -27,10 +31,15 @@ export function IntakeView() {
         { question_text: "", field_type: "text", choices: [""] }
     ])
 
+    const [lockedQuestionIds, setLockedQuestionIds] = useState<string[]>([])
+
     const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
     const [templateDeleteConfirmId, setTemplateDeleteConfirmId] = useState<string | null>(null)
+    
+    // Two-step confirmation states for Toggle Status & Editing
+    const [templateToggleConfirmId, setTemplateToggleConfirmId] = useState<string | null>(null)
+    const [templateEditConfirmId, setTemplateEditConfirmId] = useState<string | null>(null)
 
-    // Drag tracking state
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
     const [showSavePrompt, setShowSavePrompt] = useState(false)
@@ -57,6 +66,13 @@ export function IntakeView() {
     }
 
     const handleRemoveQuestionAttempt = (index: number) => {
+        const question = formQuestions[index]
+        
+        if (question.id && lockedQuestionIds.includes(question.id)) {
+            setTransactionError("Deletion Blocked: This question contains active answers and cannot be removed.")
+            return
+        }
+
         if (deleteConfirmIndex === index) {
             setFormQuestions(formQuestions.filter((_, i) => i !== index))
             setDeleteConfirmIndex(null)
@@ -152,6 +168,7 @@ export function IntakeView() {
         setFormTitle("")
         setFormCountry("all")
         setFormQuestions([{ question_text: "", field_type: "text", choices: [""] }])
+        setLockedQuestionIds([])
         setDeleteConfirmIndex(null)
         setShowSavePrompt(false)
         setTransactionError(null)
@@ -211,46 +228,88 @@ export function IntakeView() {
         }
     }
 
-    const handleToggleStatus = async (id: string, currentStatus: 'active' | 'inactive') => {
-        await toggleTemplateStatus(id, currentStatus)
-        const updated = await getIntakeTemplates()
-        if (updated.data) setTemplates(updated.data)
+    const handleToggleStatusAttempt = async (id: string, currentStatus: 'active' | 'inactive') => {
+        if (templateToggleConfirmId === id) {
+            await toggleTemplateStatus(id, currentStatus)
+            setTemplateToggleConfirmId(null)
+            const updated = await getIntakeTemplates()
+            if (updated.data) setTemplates(updated.data)
+        } else {
+            setTemplateToggleConfirmId(id)
+            setTemplateEditConfirmId(null)
+            setTemplateDeleteConfirmId(null)
+        }
     }
 
     const handleTemplateDeleteAttempt = async (id: string) => {
         if (templateDeleteConfirmId === id) {
-            await deleteTemplate(id)
+            const res = await deleteTemplate(id)
             setTemplateDeleteConfirmId(null)
-            const updated = await getIntakeTemplates()
-            if (updated.data) setTemplates(updated.data)
+            
+            if (res?.error) {
+                setTransactionError(res.error)
+            } else {
+                setTransactionError(null)
+                const updated = await getIntakeTemplates()
+                if (updated.data) setTemplates(updated.data)
+            }
         } else {
             setTemplateDeleteConfirmId(id)
+            setTemplateToggleConfirmId(null)
+            setTemplateEditConfirmId(null)
         }
     }
 
-    const startEdit = (tpl: IntakeTemplate) => {
-        setEditingId(tpl.id)
-        setFormTitle(tpl.title)
-        setFormCountry(tpl.country)
-        setFormQuestions(tpl.template_questions?.map(q => ({
-            question_text: q.question_text,
-            field_type: q.field_type,
-            choices: q.choices && q.choices.length > 0 ? q.choices : [""]
-        })) ?? [{ question_text: "", field_type: "text", choices: [""] }])
-        setDeleteConfirmIndex(null)
-        setShowSavePrompt(false)
-        setTransactionError(null)
-        setValidationErrors({ title: false, questions: [], choices: [], attempted: false })
+    const startEditAttempt = async (tpl: IntakeTemplate) => {
+        if (templateEditConfirmId === tpl.id) {
+            setTemplateEditConfirmId(null)
+            setLoading(true)
+            setEditingId(tpl.id)
+            setFormTitle(tpl.title)
+            setFormCountry(tpl.country)
+            
+            const lockRes = await getLockedQuestionIds(tpl.id)
+            if (lockRes.ids) {
+                setLockedQuestionIds(lockRes.ids)
+            }
+
+            setFormQuestions(tpl.template_questions?.map(q => ({
+                id: q.id, 
+                question_text: q.question_text,
+                field_type: q.field_type,
+                choices: q.choices && q.choices.length > 0 ? q.choices : [""]
+            })) ?? [{ question_text: "", field_type: "text", choices: [""] }])
+            
+            setDeleteConfirmIndex(null)
+            setShowSavePrompt(false)
+            setTransactionError(null)
+            setValidationErrors({ title: false, questions: [], choices: [], attempted: false })
+            setLoading(false)
+        } else {
+            setTemplateEditConfirmId(tpl.id)
+            setTemplateToggleConfirmId(null)
+            setTemplateDeleteConfirmId(null)
+        }
+    }
+
+    const handleClearConfirmationScopes = () => {
+        setTemplateToggleConfirmId(null)
+        setTemplateEditConfirmId(null)
+        setTemplateDeleteConfirmId(null)
     }
 
     if (loading) return <div className="text-sm p-6 text-navy/50 font-medium">Loading...</div>
 
     const formHasErrors = validationErrors.title || validationErrors.questions.length > 0 || validationErrors.choices.length > 0
 
+    const filteredTemplates = hideInactive 
+        ? templates.filter(t => t.status === 'active') 
+        : templates
+
     return (
         <div className="google-sans-registry grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-            {/* Designer Workspace */}
+            {/* Designer Workspace: Spans exactly 2/3rds (66%) of broad screens */}
             <div className="lg:col-span-2 bg-white rounded-md border border-stone p-4 sm:p-6 shadow-sm space-y-4">
                 {transactionError && (
                     <div className="p-3 bg-rose-50/50 border border-rose-200 text-xs text-rose-700 rounded-md font-bold flex items-center gap-2">
@@ -310,7 +369,8 @@ export function IntakeView() {
                     </div>
 
                     <div className="space-y-3">
-                        <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_12rem] gap-3 items-center px-1">
+                        {/* Header Split narrowed layout to 9rem (sm:grid-cols-[2rem_1fr_9rem]) to stretch the question text field */}
+                        <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_9rem] gap-3 items-center px-1">
                             <div />
                             <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">
                                 Insert Questions ({formQuestions.length})
@@ -325,11 +385,13 @@ export function IntakeView() {
                             const hasTextError = validationErrors.questions.includes(qIndex)
                             const hasChoiceError = validationErrors.choices.includes(qIndex)
                             const isBeingDragged = draggedIndex === qIndex
+                            
+                            const isQuestionLocked = !!(q.id && lockedQuestionIds.includes(q.id))
 
                             return (
                                 <div 
                                     key={qIndex}
-                                    draggable
+                                    draggable={!isQuestionLocked}
                                     onDragStart={() => handleDragStart(qIndex)}
                                     onDragOver={(e) => handleDragOver(e, qIndex)}
                                     onDragEnd={handleDragEnd}
@@ -338,17 +400,23 @@ export function IntakeView() {
                                     } ${
                                         hasTextError || hasChoiceError 
                                             ? "bg-rose-50/30 border-rose-300" 
-                                            : "bg-ice/50 border-stone hover:border-stone/80"
+                                            : isQuestionLocked 
+                                                ? "bg-stone/10 border-stone/60" 
+                                                : "bg-ice/50 border-stone hover:border-stone/80"
                                     }`}
                                 >
                                     <div className="flex flex-col sm:flex-row gap-2.5 sm:items-center">
-                                        <div className="hidden sm:flex items-center justify-center text-navy/30 group-hover/card:text-navy/50 transition-colors cursor-grab active:cursor-grabbing p-1 shrink-0 -ml-1">
-                                            <MoveIcon className="size-4" />
+                                        <div className={`hidden sm:flex items-center justify-center p-1 shrink-0 -ml-1 transition-colors ${
+                                            isQuestionLocked 
+                                                ? "text-navy/20 cursor-not-allowed" 
+                                                : "text-navy/30 group-hover/card:text-navy/50 cursor-grab active:cursor-grabbing"
+                                        }`}>
+                                            {isQuestionLocked ? <LockIcon className="size-3.5" /> : <MoveIcon className="size-4" />}
                                         </div>
 
                                         <div className="w-full sm:flex-1">
                                             <span className="sm:hidden block text-[10px] font-bold uppercase tracking-wider text-navy/40 mb-1">
-                                                Question #{qIndex + 1}
+                                                Question #{qIndex + 1} {isQuestionLocked && "🔒 Locked"}
                                             </span>
                                             <input
                                                 type="text"
@@ -362,17 +430,23 @@ export function IntakeView() {
                                         </div>
 
                                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                                            <div className="flex-1 sm:w-48">
+                                            {/* Narrowed dropdown width selector from sm:w-48 down to sm:w-36 (9rem) */}
+                                            <div className="flex-1 sm:w-36 text-stone">
                                                 <select
                                                     value={q.field_type}
+                                                    disabled={isQuestionLocked}
                                                     onChange={(e) => handleQuestionChange(qIndex, "field_type", e.target.value as FieldTypeConstraint)}
-                                                    className="w-full rounded-md border border-stone bg-white px-2.5 py-2 sm:py-1.5 text-xs font-semibold text-navy outline-none focus:border-teal cursor-pointer"
+                                                    className={`w-full rounded-md border bg-white px-2 py-2 sm:py-1.5 text-xs font-semibold text-navy outline-none focus:border-teal ${
+                                                        isQuestionLocked 
+                                                            ? "bg-stone/15 text-navy/40 cursor-not-allowed border-stone" 
+                                                            : "border-stone cursor-pointer"
+                                                    }`}
                                                 >
                                                     <option value="text">Text Answer</option>
                                                     <option value="number">Number</option>
                                                     <option value="date">Date</option>
                                                     <option value="boolean">Yes / No</option>
-                                                    <option value="select">Multiple Choice</option>
+                                                    <option value="select">Multi Choice</option>
                                                     <option value="media_photo">Image Upload</option>
                                                     <option value="media_video">Video Upload</option>
                                                 </select>
@@ -381,16 +455,21 @@ export function IntakeView() {
                                             {formQuestions.length > 1 && (
                                                 <button
                                                     type="button"
+                                                    disabled={isQuestionLocked}
                                                     onClick={() => handleRemoveQuestionAttempt(qIndex)}
                                                     onMouseLeave={() => setDeleteConfirmIndex(null)}
-                                                    className={`transition-all rounded-md px-3 py-2 sm:py-1.5 font-bold text-xs shrink-0 flex items-center gap-1 outline-none min-w-[70px] justify-center cursor-pointer ${
-                                                        isArmedForDelete 
-                                                        ? "bg-rose-700 text-white animate-pulse shadow-2xs" 
-                                                        : "bg-white sm:bg-transparent border sm:border-transparent border-stone text-navy/60 hover:text-rose-700 hover:border-rose-200"
+                                                    className={`transition-all rounded-md px-3 py-2 sm:py-1.5 font-bold text-xs shrink-0 flex items-center gap-1 outline-none min-w-[70px] justify-center ${
+                                                        isQuestionLocked
+                                                            ? "bg-transparent text-navy/20 cursor-not-allowed border-transparent"
+                                                            : isArmedForDelete 
+                                                                ? "bg-rose-700 text-white animate-pulse shadow-2xs cursor-pointer" 
+                                                                : "bg-white sm:bg-transparent border sm:border-transparent border-stone text-navy/60 hover:text-rose-700 hover:border-rose-200 cursor-pointer"
                                                     }`}
                                                     aria-label="Delete field row element"
                                                 >
-                                                    {isArmedForDelete ? (
+                                                    {isQuestionLocked ? (
+                                                        <LockIcon className="size-3.5" />
+                                                    ) : isArmedForDelete ? (
                                                         <span>Confirm?</span>
                                                     ) : (
                                                         <>
@@ -402,6 +481,13 @@ export function IntakeView() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {isQuestionLocked && (
+                                        <p className="text-[10px] text-navy/45 font-medium flex items-center gap-1 bg-stone/5 px-2.5 py-1 rounded border border-stone/20 w-fit">
+                                            <LockIcon className="size-3 text-teal" /> 
+                                            Field type locked: Responses have already been submitted for this question.
+                                        </p>
+                                    )}
 
                                     {q.field_type === "select" && (
                                         <div className={`bg-white border rounded-md p-3 space-y-2.5 ${hasChoiceError ? 'border-rose-400' : 'border-stone'}`}>
@@ -415,14 +501,19 @@ export function IntakeView() {
                                                             <input
                                                                 type="text"
                                                                 value={choice}
+                                                                disabled={isQuestionLocked}
                                                                 onChange={(e) => handleChoiceChange(qIndex, cIndex, e.target.value)}
                                                                 className={`font-medium w-full rounded-md border px-3 py-1.5 text-xs text-navy outline-none focus:border-teal placeholder:text-navy/30 ${
-                                                                    hasChoiceError && !choice.trim() ? "border-rose-300 bg-rose-50/20" : "border-stone"
+                                                                    hasChoiceError && !choice.trim() 
+                                                                        ? "border-rose-300 bg-rose-50/20" 
+                                                                        : isQuestionLocked 
+                                                                            ? "bg-stone/5 text-navy/40 border-stone" 
+                                                                            : "border-stone"
                                                                 }`}
                                                                 placeholder={`Option #${cIndex + 1}`}
                                                             />
                                                         </div>
-                                                        {(q.choices || []).length > 1 && (
+                                                        {(q.choices || []).length > 1 && !isQuestionLocked && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleRemoveChoice(qIndex, cIndex)}
@@ -434,13 +525,15 @@ export function IntakeView() {
                                                     </div>
                                                 ))}
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleAddChoice(qIndex)}
-                                                className="font-bold mt-1 text-[11px] text-teal hover:underline flex items-center gap-0.5 cursor-pointer inline-block"
-                                            >
-                                                + Add Option
-                                            </button>
+                                            {!isQuestionLocked && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddChoice(qIndex)}
+                                                    className="font-bold mt-1 text-[11px] text-teal hover:underline flex items-center gap-0.5 cursor-pointer inline-block"
+                                                >
+                                                    + Add Option
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -448,7 +541,7 @@ export function IntakeView() {
                         })}
                     </div>
 
-                    {/* 🌟 Footer Bar: Confirmation switches inline next to the execution track */}
+                    {/* Footer Bar */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-stone pt-4">
                         <button
                             type="button"
@@ -507,72 +600,159 @@ export function IntakeView() {
                 </form>
             </div>
 
-            {/* Historical Template Pool */}
-            <div className="bg-white border border-stone rounded-md p-4 sm:p-5 space-y-4 shadow-sm">
-                <h3 className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45 border-b border-stone pb-2.5">
-                    Active Templates Management Pool
-                </h3>
+            {/* Templates Pool Sidebar: Occupies exactly 1/3rd (33%) of grid layouts */}
+            <div className="lg:col-span-1 bg-white border border-stone rounded-md p-4 space-y-3.5 shadow-sm">
+                <div className="flex items-center justify-between border-b border-stone pb-2.5">
+                    <h3 className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">
+                        Form Templates Pool ({filteredTemplates.length})
+                    </h3>
 
-                {templates.length === 0 ? (
-                    <p className="text-xs text-navy/45 italic py-4 text-center font-medium">No custom intake models found.</p>
+                    {/* Filter Toggle Button */}
+                    <button
+                        type="button"
+                        onClick={() => setHideInactive(!hideInactive)}
+                        className={`text-[10px] font-bold inline-flex items-center gap-1 px-2 py-1 rounded-md border transition-all cursor-pointer ${
+                            hideInactive 
+                                ? "bg-white border-stone text-navy/60 hover:bg-ice hover:text-navy"
+                                : "bg-teal/10 border-teal/40 text-teal hover:bg-teal/15"
+                        }`}
+                        title={hideInactive ? "Show all template configurations" : "Show only active template configurations"}
+                    >
+                        {hideInactive ? <EyeIcon className="size-3 shrink-0" /> : <EyeOffIcon className="size-3 shrink-0" />}
+                        {hideInactive ? "Show All" : "Show Active Only"}
+                    </button>
+                </div>
+
+                {filteredTemplates.length === 0 ? (
+                    <p className="text-xs text-navy/45 italic py-6 text-center font-medium">
+                        {hideInactive ? "No active intake models found." : "No custom intake models found."}
+                    </p>
                 ) : (
-                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                        {templates.map((tpl) => {
+                    <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                        {filteredTemplates.map((tpl) => {
                             const isActive = tpl.status === 'active'
+                            
+                            // Check local two-step confirmation focus states
                             const isArmedForTemplateDelete = templateDeleteConfirmId === tpl.id
+                            const isArmedForToggle = templateToggleConfirmId === tpl.id
+                            const isArmedForEdit = templateEditConfirmId === tpl.id
 
                             return (
-                                <div key={tpl.id} className="bg-white border border-stone rounded-md p-4 flex flex-col justify-between gap-3 shadow-2xs hover:border-teal/60 transition-all">
-                                    <div>
-                                        <div className="flex items-center justify-between gap-2">
-                                            <h4 className="text-sm font-bold tracking-tight text-navy truncate flex-1">{tpl.title}</h4>
+                                <div 
+                                    key={tpl.id} 
+                                    onMouseLeave={handleClearConfirmationScopes} // Resets active prompts when leaving mouse hover
+                                    className={`group/item border rounded-md p-2.5 transition-all flex flex-col justify-center gap-2 ${
+                                        editingId === tpl.id 
+                                            ? "border-teal bg-teal/5 shadow-3xs" 
+                                            : !isActive
+                                                ? "border-stone/60 bg-stone/10 opacity-80" // Fully styles card background grey when inactive
+                                                : "border-stone hover:border-navy/20 bg-white"
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between gap-3 min-w-0">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <span 
+                                                    className={`size-1.5 rounded-full shrink-0 ${isActive ? "bg-teal" : "bg-stone-400"}`} 
+                                                    title={isActive ? "Active" : "Inactive"}
+                                                    aria-hidden="true" 
+                                                />
+                                                {/* Text turns dark grey when template is inactive */}
+                                                <h4 
+                                                    className={`text-xs font-bold tracking-tight truncate leading-normal ${
+                                                        isActive ? "text-navy" : "text-stone-500 font-medium"
+                                                    }`} 
+                                                    title={tpl.title}
+                                                >
+                                                    {tpl.title}
+                                                </h4>
+                                            </div>
                                             
-                                            <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                                                isActive ? "border-teal/50 bg-teal/10 text-teal" : "border-stone bg-ice text-navy/55"
+                                            {/* Metadata texts shift style cleanly when deactivated */}
+                                            <div className={`flex items-center gap-3 text-[10px] font-semibold mt-1 ${
+                                                isActive ? "text-navy/45" : "text-stone-400"
                                             }`}>
-                                                <span className={`size-1.5 rounded-full ${isActive ? "bg-teal" : "bg-navy/35"}`} aria-hidden="true" />
-                                                {tpl.status}
-                                            </span>
+                                                <span className="flex items-center gap-0.5 truncate">
+                                                    <GlobeIcon className={`size-2.5 shrink-0 ${isActive ? "text-teal/70" : "text-stone-400"}`} />
+                                                    {tpl.country === 'all' ? 'Global' : tpl.country}
+                                                </span>
+                                                <span className={`shrink-0 font-medium ${isActive ? "text-teal" : "text-stone-400"}`}>
+                                                    {tpl.template_questions?.length || 0} questions
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-xs text-navy/65 mt-2 font-semibold truncate">
-                                            <GlobeIcon className="size-3.5 text-teal shrink-0" />
-                                            Scope: {tpl.country === 'all' ? 'Global' : tpl.country}
-                                        </div>
-                                        <p className="font-mono text-xs text-teal mt-1">{tpl.template_questions?.length || 0} fields configured</p>
+
+                                        {/* Inline Controls: Hidden while multi-step prompts are active */}
+                                        {!isArmedForToggle && !isArmedForEdit && !isArmedForTemplateDelete && (
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button
+                                                    onClick={() => startEditAttempt(tpl)}
+                                                    className={`p-1 rounded transition-colors cursor-pointer ${isActive ? 'text-navy/45 hover:text-teal hover:bg-teal/5' : 'text-stone-400 hover:text-teal'}`}
+                                                    title="Edit Template Layout"
+                                                >
+                                                    <PencilIcon className="size-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleToggleStatusAttempt(tpl.id, tpl.status)}
+                                                    className={`p-1 rounded transition-colors cursor-pointer ${
+                                                        isActive 
+                                                            ? 'text-teal hover:text-teal/80 hover:bg-teal/5'
+                                                            : 'text-amber-600 hover:text-amber-800 hover:bg-amber-50' 
+                                                    }`}
+                                                    title={isActive ? "Deactivate Template" : "Activate Template"}
+                                                >
+                                                    {isActive ? <ToggleLeftIcon className="size-4" /> : <ToggleRightIcon className="size-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleTemplateDeleteAttempt(tpl.id)}
+                                                    className={`p-1 rounded transition-colors cursor-pointer ${isActive ? 'text-rose-600 hover:text-rose-800 hover:bg-rose-50' : 'text-stone-400 hover:text-rose-600'}`}
+                                                    title="Delete Template"
+                                                >
+                                                    <TrashIcon className="size-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 border-t border-stone pt-2.5 mt-1">
-                                        <button
-                                            onClick={() => startEdit(tpl)}
-                                            className="text-xs text-navy hover:text-teal font-bold inline-flex items-center gap-1 cursor-pointer transition-colors px-1"
-                                        >
-                                            <PencilIcon className="size-3 text-navy/60" /> Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleToggleStatus(tpl.id, tpl.status)}
-                                            className={`text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors px-1 ${isActive ? 'text-amber-700 hover:text-amber-900' : 'text-teal hover:text-teal/80'}`}
-                                        >
-                                            {isActive ? <ToggleLeftIcon className="size-3.5" /> : <ToggleRightIcon className="size-3.5" />}
-                                            {isActive ? "Deactivate" : "Activate"}
-                                        </button>
-                                        <button
-                                            onClick={() => handleTemplateDeleteAttempt(tpl.id)}
-                                            onMouseLeave={() => setTemplateDeleteConfirmId(null)}
-                                            className={`text-xs font-bold inline-flex items-center gap-1 transition-all rounded-md px-2 py-1 cursor-pointer ${
-                                                isArmedForTemplateDelete 
-                                                ? "bg-rose-700 text-white animate-pulse" 
-                                                : "text-rose-700 hover:text-rose-900 hover:bg-rose-50"
-                                            }`}
-                                        >
-                                            {isArmedForTemplateDelete ? (
-                                                <span>Confirm?</span>
-                                            ) : (
-                                                <>
-                                                    <TrashIcon className="size-3" /> Delete
-                                                </>
+                                    {/* Action Confirmation Prompts (Edit?, Activate?, Deactivate?, Confirm?) */}
+                                    {(isArmedForToggle || isArmedForEdit || isArmedForTemplateDelete) && (
+                                        <div className="flex items-center justify-end gap-1.5 mt-0.5 pt-1.5 border-t border-stone/50 animate-fade-in shrink-0">
+                                            {isArmedForEdit && (
+                                                <button
+                                                    onClick={() => startEditAttempt(tpl)}
+                                                    className="bg-teal hover:bg-teal/90 text-white font-bold text-[10px] px-2.5 py-1 rounded cursor-pointer transition-all shadow-3xs"
+                                                >
+                                                    Edit?
+                                                </button>
                                             )}
-                                        </button>
-                                    </div>
+                                            {isArmedForToggle && (
+                                                <button
+                                                    onClick={() => handleToggleStatusAttempt(tpl.id, tpl.status)}
+                                                    className={`${
+                                                        isActive 
+                                                            ? 'bg-amber-600 hover:bg-amber-700' 
+                                                            : 'bg-teal hover:bg-teal/90'
+                                                    } text-white font-bold text-[10px] px-2.5 py-1 rounded cursor-pointer transition-all shadow-3xs`}
+                                                >
+                                                    {isActive ? "Deactivate?" : "Activate?"}
+                                                </button>
+                                            )}
+                                            {isArmedForTemplateDelete && (
+                                                <button
+                                                    onClick={() => handleTemplateDeleteAttempt(tpl.id)}
+                                                    className="bg-rose-700 hover:bg-rose-800 text-white font-bold text-[10px] px-2.5 py-1 rounded cursor-pointer transition-all shadow-3xs"
+                                                >
+                                                    Delete?
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={handleClearConfirmationScopes}
+                                                className="bg-stone text-navy/60 hover:bg-stone/20 font-semibold text-[10px] px-2.5 py-1 rounded cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })}
