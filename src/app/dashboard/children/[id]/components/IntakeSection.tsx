@@ -73,8 +73,8 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
 
   if (eligibleForms.length === 0) {
     return (
-      <div className="bg-white rounded-md border border-stone p-6 text-center shadow-2xs">
-        <p className="text-xs text-navy/45 italic font-medium">{t('children.intake.empty')}</p>
+      <div className="rounded-xl border border-stone bg-white p-8 text-center shadow-2xs">
+        <p className="text-base font-medium italic text-navy/45">{t('children.intake.empty')}</p>
       </div>
     )
   }
@@ -174,27 +174,27 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
   }
 
   return (
-    <div className="google-sans-registry bg-white rounded-md border border-stone p-5 sm:p-6 space-y-5 shadow-sm">
+    <div className="google-sans-registry space-y-6 rounded-xl border border-stone bg-white p-6 shadow-[0_8px_22px_rgba(21,44,75,0.08)] sm:p-8">
       
       {/* Structural Headers */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone pb-4">
+      <div className="space-y-5 border-b border-stone pb-6">
         <div>
-          <h3 className="text-base font-bold tracking-tight text-navy">{t('children.intake.title')}</h3>
-          <p className="text-xs text-navy/55 mt-0.5 font-medium">{t('children.intake.subtitle')}</p>
-          <p className="mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-700">
+          <h3 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">{t('children.intake.title')}</h3>
+          <p className="mt-2 text-base font-medium leading-snug text-navy/55 sm:text-lg">{t('children.intake.subtitle')}</p>
+          <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-base font-medium leading-relaxed text-amber-700">
             {t('children.intake.englishOnlyHelp')}
           </p>
         </div>
         
-        <div className="self-start sm:self-center">
+        <div>
           {latestCompleted ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide bg-teal/10 text-teal px-3 py-1 rounded-full border border-teal/20">
-              <CheckCircle2Icon className="size-3.5" />
+            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-teal/30 bg-teal/10 px-5 py-2 text-sm font-bold uppercase tracking-wide text-teal">
+              <CheckCircle2Icon className="size-4 shrink-0" />
               <span>{t('children.intake.latestCompleted')}</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide bg-rose-50 text-rose-700 px-3 py-1 rounded-full border border-rose-200 animate-pulse">
-              <AlertCircleIcon className="size-3.5" />
+            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-5 py-2 text-sm font-bold uppercase tracking-wide text-rose-700">
+              <AlertCircleIcon className="size-4 shrink-0" />
               <span>{t('children.intake.latestPending')}</span>
             </span>
           )}
@@ -206,7 +206,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
         <select
           value={selectedFormId}
           onChange={(e) => handleFormSelectChange(e.target.value)}
-          className="w-full appearance-none rounded-md border border-stone bg-ice px-3.5 py-2.5 text-xs font-bold text-navy outline-none focus:border-teal transition-all cursor-pointer pr-10"
+          className="w-full cursor-pointer appearance-none rounded-xl border border-stone bg-ice px-5 py-4 pr-12 text-base font-bold text-navy outline-none transition-all focus:border-teal"
         >
           <option value="choose_form">{t('children.intake.chooseForm')}</option>
           {eligibleForms.map((form) => (
@@ -215,16 +215,16 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
             </option>
           ))}
         </select>
-        <div className="absolute right-3.5 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-          <ChevronDownIcon className="size-4 text-navy/40" />
+        <div className="pointer-events-none absolute bottom-0 right-5 top-0 flex items-center justify-center">
+          <ChevronDownIcon className="size-5 text-navy/40" />
         </div>
       </div>
 
       {/* Viewport Render logic */}
       {selectedFormId === 'choose_form' || !activeForm ? (
-        <div className="py-8 text-center border-t border-stone mt-4 space-y-2">
-          <FileTextIcon className="size-8 text-navy/20 mx-auto" aria-hidden="true" />
-          <p className="text-xs text-navy/60 font-medium">{t('children.intake.selectHelp')}</p>
+        <div className="mt-4 space-y-3 border-t border-stone py-10 text-center">
+          <FileTextIcon className="mx-auto size-10 text-navy/20" aria-hidden="true" />
+          <p className="text-base font-medium text-navy/60">{t('children.intake.selectHelp')}</p>
         </div>
       ) : (
         <div key={`${activeForm.id}-${activeForm.lockedQuestions?.length || 0}`} className="space-y-5 pt-1 animate-fade-in">
@@ -252,10 +252,10 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
               const isSetAsProfileChecked = profileToggles[q.id] || false
 
               return (
-                <div key={q.id} className="space-y-1.5 bg-ice/40 p-3 rounded-md border border-stone/80">
+                <div key={q.id} className="space-y-4 rounded-xl border border-stone/80 bg-ice/40 p-5 sm:p-6">
                   <div className="flex items-center justify-between gap-4">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-navy/70">
-                      <span className="text-teal font-mono mr-1">#{absoluteQuestionNumber}.</span> {q.question_text} {isFieldBlank && <span className="text-rose-600 font-normal lowercase italic">{t('children.intake.required')}</span>}
+                    <label className="block text-base font-bold uppercase tracking-wide text-navy/70">
+                      <span className="mr-2 font-mono text-teal">#{absoluteQuestionNumber}.</span> {q.question_text} {isFieldBlank && <span className="font-normal lowercase italic text-rose-600">{t('children.intake.required')}</span>}
                     </label>
 
                     {/* Render Pencil Icon ONLY for locked non-media rows */}
@@ -263,14 +263,14 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                       <button
                         type="button"
                         onClick={() => toggleFieldUnlock(q.id)}
-                        className={`p-1.5 rounded-md border transition-all cursor-pointer ${
+                        className={`cursor-pointer rounded-lg border p-2 transition-all ${
                           isFieldUnlockedLocally 
                             ? 'bg-teal/10 border-teal/30 text-teal shadow-3xs' 
                             : 'bg-white border-stone text-navy/40 hover:text-navy hover:bg-ice'
                         }`}
                         title={isFieldUnlockedLocally ? "Lock Field Edit Access" : "Unlock Field Edit Access"}
                       >
-                        <PencilIcon className="size-3.5" />
+                        <PencilIcon className="size-4" />
                       </button>
                     )}
                   </div>
@@ -280,7 +280,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                       value={currentResponse}
                       disabled={isFieldPermanentlyLocked}
                       onChange={(e) => handleInputChange(q.id, e.target.value, q.field_type)}
-                      className="font-semibold w-full rounded-md border border-stone bg-white px-3 py-2 text-xs text-navy outline-none focus:border-teal transition-all cursor-pointer disabled:opacity-60"
+                      className="w-full cursor-pointer rounded-xl border border-stone bg-white px-4 py-3 text-base font-semibold text-navy outline-none transition-all focus:border-teal disabled:opacity-60"
                     >
                       <option value="">{t('children.intake.chooseOption')}</option>
                       {(q.choices || []).map((choice: string, cIdx: number) => (
@@ -288,7 +288,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                       ))}
                     </select>
                   ) : q.field_type === 'boolean' ? (
-                    <div className="flex gap-2 pt-0.5">
+                    <div className="flex gap-3 pt-0.5">
                       {[
                         { value: 'Yes', label: t('children.intake.yes') },
                         { value: 'No', label: t('children.intake.no') },
@@ -298,7 +298,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                           type="button"
                           disabled={isFieldPermanentlyLocked}
                           onClick={() => handleInputChange(q.id, option.value, q.field_type)}
-                          className={`px-6 py-1.5 text-xs font-bold rounded-md border transition-all disabled:opacity-50 ${
+                          className={`rounded-lg border px-7 py-2.5 text-base font-bold transition-all disabled:opacity-50 ${
                             currentResponse === option.value
                               ? 'bg-teal/15 border-teal/40 text-teal shadow-2xs' 
                               : 'bg-white border-stone text-navy/65 hover:bg-ice'
@@ -311,7 +311,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                   ) : (q.field_type === 'media_photo' || q.field_type === 'media_video') ? (
                     <div className="pt-1.5 space-y-2">
                       {isFieldPermanentlyLocked ? (
-                        <div className="bg-white border border-stone rounded-md p-4 flex flex-col sm:flex-row items-center gap-4 shadow-3xs animate-fade-in">
+                        <div className="flex animate-fade-in flex-col items-center gap-5 rounded-xl border border-stone bg-white p-5 shadow-3xs sm:flex-row">
                           <div className="shrink-0">
                             {lockedMediaThumbnail ? (
                               <div className="relative">
@@ -319,7 +319,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                                 <img
                                   src={lockedMediaThumbnail}
                                   alt="Intake asset file"
-                                  className="h-24 w-24 rounded-md object-cover border border-stone"
+                                  className="h-32 w-32 rounded-xl border border-stone object-cover"
                                 />
                                 {q.field_type === 'media_video' && (
                                   <PlayCircleIcon className="absolute inset-0 m-auto size-8 text-white drop-shadow" />
@@ -327,28 +327,28 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                               </div>
                             ) : q.field_type === 'media_photo' ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img 
+                              <img
                                 src={currentResponse || undefined} 
                                 alt="Intake asset file" 
-                                className="h-24 w-24 rounded-md object-cover border border-stone"
+                                className="h-32 w-32 rounded-xl border border-stone object-cover"
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
                               <video 
                                 src={currentResponse || undefined} 
                                 controls 
-                                className="h-24 aspect-video rounded-md bg-stone border border-stone" 
+                                className="aspect-video h-32 rounded-xl border border-stone bg-stone"
                               />
                             )}
                           </div>
-                          <div className="flex-1 text-center sm:text-left space-y-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-navy/5 text-navy/70 px-2 py-0.5 rounded border border-stone/50">
+                          <div className="flex-1 space-y-2 text-center sm:text-left">
+                            <span className="inline-flex items-center gap-1 rounded border border-stone/50 bg-navy/5 px-3 py-1 text-xs font-bold uppercase text-navy/70">
                               🔒 Field Locked
                             </span>
-                            <p className="text-xs font-semibold text-navy/80">
+                            <p className="text-base font-semibold text-navy/80">
                               An answer has already been submitted for this field.
                             </p>
-                            <p className="text-[11px] text-navy/50 leading-relaxed">
+                            <p className="text-sm leading-relaxed text-navy/50">
                               To replace this file, it must first be removed from the child&apos;s central Media Library Portfolio grid panel.
                             </p>
                           </div>
@@ -371,16 +371,16 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                               <button
                                 type="button"
                                 onClick={() => toggleProfilePictureSetting(q.id)}
-                                className={`w-full max-w-xs flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border font-bold text-xs transition-all duration-150 shadow-2xs cursor-pointer ${
+                                className={`flex w-full max-w-sm cursor-pointer items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold shadow-2xs transition-all duration-150 ${
                                   isSetAsProfileChecked
                                     ? 'bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700'
                                     : 'bg-stone/15 border-stone/30 text-navy/80 hover:bg-stone/25'
                                 }`}
                               >
                                 {isSetAsProfileChecked ? (
-                                  <CheckIcon className="size-3.5 text-white stroke-[3px]" />
+                                  <CheckIcon className="size-4 text-white stroke-[3px]" />
                                 ) : (
-                                  <CircleIcon className="size-3.5 text-navy/50 stroke-[2.5px]" />
+                                  <CircleIcon className="size-4 text-navy/50 stroke-[2.5px]" />
                                 )}
                                 <span>
                                   {q.field_type === 'media_video' ? 'Set as New Profile Video' : 'Set as New Profile Picture'}
@@ -400,15 +400,15 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                         value={currentResponse}
                         onChange={(e) => handleInputChange(q.id, e.target.value, q.field_type)}
                         placeholder={t('children.intake.placeholder').replace('{type}', q.field_type)}
-                        className={`font-semibold w-full rounded-md border px-3 py-2 text-xs bg-white outline-none transition-all disabled:opacity-60 disabled:bg-stone/10 ${
+                        className={`w-full rounded-xl border bg-white px-4 py-3 text-base font-semibold outline-none transition-all disabled:bg-stone/10 disabled:opacity-60 ${
                           numericErrors[q.id] 
                             ? 'border-rose-400 bg-rose-50/20 text-rose-900' 
                             : 'border-stone text-navy placeholder:text-navy/30 focus:border-teal'
                         }`}
                       />
                       {numericErrors[q.id] && (
-                        <p className="text-[10px] font-bold text-rose-700 flex items-center gap-1">
-                          <AlertCircleIcon className="size-3" /> {t('children.intake.digitsOnly')}
+                        <p className="flex items-center gap-1 text-xs font-bold text-rose-700">
+                          <AlertCircleIcon className="size-3.5" /> {t('children.intake.digitsOnly')}
                         </p>
                       )}
                     </div>
@@ -420,16 +420,16 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
 
           {/* Pagination Page Flipper Bar */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between py-2.5 px-1 border-t border-b border-stone text-xs font-bold text-navy/70">
+            <div className="flex items-center justify-between border-y border-stone px-1 py-3 text-sm font-bold text-navy/70">
               <button
                 type="button"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                className="px-3 py-1.5 rounded-md border border-stone bg-white hover:bg-ice disabled:opacity-30 cursor-pointer shadow-3xs transition-colors"
+                className="cursor-pointer rounded-lg border border-stone bg-white px-4 py-2 shadow-3xs transition-colors hover:bg-ice disabled:opacity-30"
               >
                 {t('children.intake.prev')}
               </button>
-              <span className="font-mono text-[11px] uppercase tracking-wider text-navy/50">
+              <span className="font-mono text-xs uppercase tracking-wider text-navy/50">
                 {t('pagination.pageOf')
                   .replace('{page}', String(currentPage))
                   .replace('{totalPages}', String(totalPages))}
@@ -438,7 +438,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
                 type="button"
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                className="px-3 py-1.5 rounded-md border border-stone bg-white hover:bg-ice disabled:opacity-30 cursor-pointer shadow-3xs transition-colors"
+                className="cursor-pointer rounded-lg border border-stone bg-white px-4 py-2 shadow-3xs transition-colors hover:bg-ice disabled:opacity-30"
               >
                 {t('children.intake.next')}
               </button>
@@ -446,8 +446,8 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
           )}
 
           {/* Docked Global Save Footer */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-[11px] font-bold flex-1 pr-4">
+          <div className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex-1 pr-4 text-sm font-bold">
               {saveStatus?.type === 'success' && <p className="text-teal animate-fade-in">{saveStatus.msg}</p>}
               {saveStatus?.type === 'error' && <p className="text-rose-700 animate-fade-in">{saveStatus.msg}</p>}
             </div>
@@ -456,9 +456,9 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
               type="button"
               disabled={isPending}
               onClick={handleSaveForm}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold text-white bg-teal hover:bg-teal/90 disabled:opacity-40 rounded-md transition-all shadow-2xs cursor-pointer shrink-0"
+              className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal px-8 py-4 text-base font-bold text-white shadow-2xs transition-all hover:bg-teal/90 disabled:opacity-40"
             >
-              <SaveIcon className="size-3.5" />
+              <SaveIcon className="size-5" />
               <span>{isPending ? t('children.intake.saving') : t('children.intake.saveChoices')}</span>
             </button>
           </div>

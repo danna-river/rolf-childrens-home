@@ -1,14 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { PhotoViewer } from './components/PhotoViewer'
+import { ProfileMediaViewer } from './components/ProfileMediaViewer'
 import { AuditLogSection } from './components/AuditLogSection'
 import { IntakeSection } from './components/IntakeSection'
 import { PenPalSection } from './components/PenPalSection'
 import { LibraryViewer, type MediaItem } from './components/LibraryViewer'
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
-import { ArrowLeftIcon, VideoIcon } from 'lucide-react'
+import { ArrowLeftIcon } from 'lucide-react'
 import { ensureBioIncludesAgeAndCountry, homeDurationFromDate, splitBioClosing } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 import type { Child, ChildWithMediaRefs, SponsorshipFrequency } from '@/lib/types'
@@ -33,9 +33,13 @@ function DetailRow({
   emptyLabel: string
 }) {
   return (
-    <div className="py-3 border-b border-stone last:border-0 flex flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">{label}</span>
-      <span className={`text-xs font-semibold ${value ? 'text-navy' : 'text-navy/40 italic'}`}>{value || emptyLabel}</span>
+    <div className="flex flex-col gap-2 border-b border-stone py-4 last:border-0 sm:py-5">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 sm:text-sm">
+        {label}
+      </span>
+      <span className={`text-base font-bold leading-relaxed sm:text-lg ${value ? 'text-navy' : 'text-navy/40 italic'}`}>
+        {value || emptyLabel}
+      </span>
     </div>
   )
 }
@@ -412,7 +416,6 @@ export default async function ChildProfilePage({
   const dynamicAge = calculateAge(child.birth_year, child.birth_month, child.birth_day)
   const name = [child.first_name, child.last_name].filter(Boolean).join(' ') || t(messages, 'children.card.unnamed')
   const isActive = child.status === 'active'
-  const video = resolveVideo(child.profile_video)
   const statusLabel = isActive ? t(messages, 'children.registry.active') : t(messages, 'children.registry.inactive')
   const notRecorded = t(messages, 'children.card.notRecorded')
   const detailBio = child.bio?.trim()
@@ -432,55 +435,59 @@ export default async function ChildProfilePage({
     : child.year_joined ? `${child.year_joined}` : null
 
   return (
-    <div className="google-sans-registry min-h-[calc(100svh_-_4rem)] bg-ice/40 flex flex-col">
-      <div className="sticky top-0 z-10 bg-white border-b border-stone px-4 py-3.5 flex items-center gap-3 shadow-2xs">
-        <Link href="/dashboard/children" className="inline-flex items-center gap-1.5 text-navy/60 hover:text-navy text-xs font-bold uppercase tracking-wider transition-colors">
-          <ArrowLeftIcon className="size-3.5" />
+    <div className="google-sans-registry flex min-h-[calc(100svh_-_4rem)] flex-col bg-ice/40">
+      <div className="flex items-center gap-3 border-b border-stone bg-white px-5 py-4 shadow-2xs sm:px-8 sm:py-5">
+        <Link href="/dashboard/children" className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-navy/60 transition-colors hover:text-navy sm:text-base">
+          <ArrowLeftIcon className="size-4 sm:size-5" />
           <span>{t(messages, 'children.detail.backRegistry')}</span>
         </Link>
         <div className="flex-1" />
         <Link
           href={`/dashboard/children/${id}/edit`}
-          className="text-xs font-bold text-white bg-teal hover:bg-teal/90 rounded-md px-3.5 py-1.5 transition-all shadow-2xs"
+          className="rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white shadow-2xs transition-all hover:bg-teal/90 sm:px-5 sm:py-2.5 sm:text-base"
         >
           {t(messages, 'children.detail.editProfile')}
         </Link>
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 py-8 space-y-6">
-        <div className="flex flex-col items-center gap-3 pt-1">
-          <PhotoViewer
-            src={child.profile_photo ?? ""}
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-7 px-5 py-9 sm:gap-8 sm:px-6 sm:py-12">
+        <div className="flex flex-col items-center gap-4 pt-1 text-center sm:gap-5">
+          <ProfileMediaViewer
+            photoSrc={child.profile_photo ?? ""}
+            videoSrc={child.profile_video ?? ""}
             alt={name}
             fallbackInitial={child.first_name?.[0] ?? '?'}
+            videoTitle={t(messages, 'children.detail.videoTitle').replace('{name}', name)}
           />
-          <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight text-navy">{name}</h1>
-            <p className={`text-xs font-mono mt-0.5 ${child.id_rolf ? 'text-teal font-semibold' : 'text-navy/30'}`}>{child.id_rolf || t(messages, 'children.card.rolfIdUnknown')}</p>
+          <div>
+            <h1 className="text-4xl font-bold leading-tight tracking-tight text-navy sm:text-5xl">{name}</h1>
+            <p className={`mt-1 font-mono text-base ${child.id_rolf ? 'font-semibold text-teal' : 'text-navy/30'}`}>
+              {child.id_rolf || t(messages, 'children.card.rolfIdUnknown')}
+            </p>
             
-            <span className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+            <span className={`mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-base font-bold ${
               isActive ? "border-teal/50 bg-teal/10 text-teal" : "border-stone bg-ice text-navy/55"
             }`}>
-              <span className={`size-1.5 rounded-full ${isActive ? "bg-teal" : "bg-navy/35"}`} aria-hidden="true" />
+              <span className={`size-2 rounded-full ${isActive ? "bg-teal" : "bg-navy/35"}`} aria-hidden="true" />
               {statusLabel}
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-md border border-stone p-3.5 flex flex-col items-center justify-center text-center shadow-2xs">
-            <p className="text-lg font-bold text-navy">{dynamicAge}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">{t(messages, 'children.detail.yearsOld')}</p>
+        <div className="grid grid-cols-3 gap-3 sm:gap-5">
+          <div className="flex min-h-28 flex-col items-center justify-center rounded-xl border border-stone bg-white p-4 text-center shadow-2xs sm:min-h-32 sm:p-5">
+            <p className="text-3xl font-bold text-navy sm:text-4xl">{dynamicAge}</p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-navy/45 sm:text-sm">{t(messages, 'children.detail.yearsOld')}</p>
           </div>
-          <div className="bg-white rounded-md border border-stone p-3.5 flex flex-col items-center justify-center text-center shadow-2xs">
-            <p className={`text-xs font-bold truncate w-full ${child.country ? 'text-navy' : 'text-navy/30'}`}>{child.country || '—'}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">{t(messages, 'children.card.country')}</p>
+          <div className="flex min-h-28 flex-col items-center justify-center rounded-xl border border-stone bg-white p-4 text-center shadow-2xs sm:min-h-32 sm:p-5">
+            <p className={`w-full whitespace-nowrap text-sm font-bold leading-tight sm:text-xl ${child.country ? 'text-navy' : 'text-navy/30'}`}>{child.country || '—'}</p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-navy/45 sm:text-sm">{t(messages, 'children.card.country')}</p>
           </div>
-          <div className="bg-white rounded-md border border-stone p-3.5 flex flex-col items-center justify-center text-center shadow-2xs">
-            <p className={`text-lg font-bold ${child.date_joined || child.year_joined ? 'text-navy font-mono' : 'text-navy/30'}`}>
+          <div className="flex min-h-28 flex-col items-center justify-center rounded-xl border border-stone bg-white p-4 text-center shadow-2xs sm:min-h-32 sm:p-5">
+            <p className={`text-3xl font-bold sm:text-4xl ${child.date_joined || child.year_joined ? 'font-mono text-navy' : 'text-navy/30'}`}>
               {child.date_joined ? new Date(child.date_joined).getFullYear() : child.year_joined || '—'}
             </p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-navy/45 mt-0.5">{t(messages, 'children.card.joined')}</p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-navy/45 sm:text-sm">{t(messages, 'children.card.joined')}</p>
           </div>
         </div>
 
@@ -490,34 +497,7 @@ export default async function ChildProfilePage({
           latestCompleted={latestCompleted} 
         />
 
-        {/* ⚡ INTEGRATE SEAMLESS STAFF REGISTRY VIEW COMPONENT GRID */}
-        {libraryItems.length > 0 && (
-          <div className="bg-white rounded-md border border-stone p-5 shadow-2xs">
-            {/* Fixed: Passed id as childId prop */}
-            <LibraryViewer childId={id} mediaLibrary={libraryItems} />
-          </div>
-        )}
-
-        <div className="bg-white rounded-md border border-stone overflow-hidden shadow-2xs">
-          {video.kind === "file" ? (
-            <video src={video.src} controls className="w-full aspect-video object-cover" />
-          ) : video.kind === "drive" ? (
-            <iframe
-              src={video.src}
-              allow="autoplay"
-              allowFullScreen
-              className="w-full aspect-video border-0"
-              title={t(messages, 'children.detail.videoTitle').replace('{name}', name)}
-            />
-          ) : (
-            <div className="aspect-video bg-ice flex flex-col items-center justify-center gap-2 p-4 text-center">
-              <VideoIcon className="size-8 text-navy/25" aria-hidden="true" />
-              <p className="text-xs font-semibold text-navy/45">{t(messages, 'children.detail.noVideo')}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-md border border-stone px-5 shadow-2xs">
+        <div className="rounded-xl border border-stone bg-white px-6 shadow-2xs sm:px-8">
           <DetailRow label={t(messages, 'children.detail.dateOfBirth')} value={birthdate} emptyLabel={notRecorded} />
           <DetailRow label={t(messages, 'children.detail.dateJoined')} value={dateJoined} emptyLabel={notRecorded} />
           <DetailRow label={t(messages, 'children.detail.careerAspiration')} value={child.career_aspiration} emptyLabel={notRecorded} />
@@ -526,14 +506,22 @@ export default async function ChildProfilePage({
           <DetailRow label={t(messages, 'children.detail.bio')} value={detailBio} emptyLabel={notRecorded} />
         </div>
 
-        <div className="bg-amber-50/60 border border-amber-200/80 rounded-md px-5 py-4 shadow-2xs space-y-1.5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-amber-900">{t(messages, 'children.detail.internalNotes')}</p>
+        <div className="space-y-4 rounded-xl border border-amber-200/80 bg-amber-50/60 px-6 py-6 shadow-2xs sm:px-8">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-900">{t(messages, 'children.detail.internalNotes')}</p>
           {child.notes?.trim() ? (
-            <p className="text-xs text-amber-950 font-medium whitespace-pre-wrap leading-relaxed">{child.notes}</p>
+            <p className="whitespace-pre-wrap text-lg font-medium leading-relaxed text-amber-950">{child.notes}</p>
           ) : (
-            <p className="text-xs text-amber-900/50 italic font-medium">{t(messages, 'children.detail.noInternalNotes')}</p>
+            <p className="text-base font-medium italic text-amber-900/50">{t(messages, 'children.detail.noInternalNotes')}</p>
           )}
         </div>
+
+        {/* ⚡ INTEGRATE SEAMLESS STAFF REGISTRY VIEW COMPONENT GRID */}
+        {libraryItems.length > 0 && (
+          <div className="rounded-xl border border-stone bg-white p-6 shadow-2xs sm:p-8">
+            {/* Fixed: Passed id as childId prop */}
+            <LibraryViewer childId={id} mediaLibrary={libraryItems} />
+          </div>
+        )}
 
         {profile.role === 'admin' && (
           <AuditLogSection

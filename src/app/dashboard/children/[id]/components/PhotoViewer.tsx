@@ -17,13 +17,22 @@ export function PhotoViewer({ src, alt, fallbackInitial }: Props) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="focus:outline-none">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-full focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal"
+      >
         {thumbSrc ? (
           // eslint-disable-next-line @next/next/no-img-element -- child media can be S3 or Google Drive URLs that are resolved at runtime.
-          <img src={thumbSrc} alt={alt} referrerPolicy="no-referrer" className="h-36 w-36 rounded-full object-cover border-4 border-white shadow cursor-pointer hover:opacity-90 transition-opacity" />
+          <img
+            src={thumbSrc}
+            alt={alt}
+            referrerPolicy="no-referrer"
+            className="h-60 w-60 cursor-pointer rounded-full border-8 border-white object-cover shadow-[0_12px_28px_rgba(21,44,75,0.12)] transition-opacity hover:opacity-90 sm:h-72 sm:w-72"
+          />
         ) : (
-          <div className="h-36 w-36 rounded-full bg-gray-200 flex items-center justify-center shadow">
-            <span className="text-gray-500 text-4xl font-semibold">{fallbackInitial}</span>
+          <div className="flex h-60 w-60 items-center justify-center rounded-full border-8 border-white bg-navy/10 shadow-[0_12px_28px_rgba(21,44,75,0.12)] sm:h-72 sm:w-72">
+            <span className="text-7xl font-semibold text-navy/50 sm:text-8xl">{fallbackInitial}</span>
           </div>
         )}
       </button>

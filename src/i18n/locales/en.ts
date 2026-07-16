@@ -162,6 +162,8 @@ export const en = {
   'children.card.yearsShort': '{age} yrs',
   'children.detail.backRegistry': 'Back to Registry',
   'children.detail.editProfile': 'Edit Profile',
+  'children.detail.pictureTab': 'Picture',
+  'children.detail.videoTab': 'Video',
   'children.detail.yearsOld': 'Years Old',
   'children.detail.noVideo': 'No profile video uploaded yet',
   'children.detail.dateOfBirth': 'Date of Birth',
@@ -188,8 +190,7 @@ export const en = {
   'children.intake.yes': 'Yes',
   'children.intake.no': 'No',
   'children.intake.placeholder': 'Provide {type} answer in English...',
-  'children.intake.englishOnlyHelp':
-    'Please enter intake answers in English. Saved intake records are stored in English for staff review and reporting.',
+  'children.intake.englishOnlyHelp': 'Please enter intake answers in English.',
   'children.intake.digitsOnly': 'Please enter digits only.',
   'children.intake.prev': '← Prev 8',
   'children.intake.next': 'Next 8 →',

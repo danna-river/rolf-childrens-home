@@ -66,22 +66,22 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
   }
 
   return (
-    <div className="google-sans-registry bg-white rounded-md border border-stone p-4 space-y-3 shadow-sm">
+    <div className="google-sans-registry space-y-5 rounded-xl border border-stone bg-white p-6 shadow-[0_8px_22px_rgba(21,44,75,0.08)] sm:p-8">
       {/* Log Header Row */}
-      <div className="flex items-center justify-between border-b border-stone pb-2.5">
+      <div className="flex items-start justify-between gap-4 border-b border-stone pb-5">
         <div>
-          <h3 className="text-sm font-bold tracking-tight text-navy">System Activity Log</h3>
-          <p className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45 mt-0.5">Showing {totalItems > 0 ? startIndex + 1 : 0}–{Math.min(endIndex, totalItems)} of {totalItems} entries</p>
+          <h3 className="text-2xl font-bold tracking-tight text-navy">System Activity Log</h3>
+          <p className="mt-1 text-sm font-semibold uppercase tracking-[0.18em] text-navy/45">Showing {totalItems > 0 ? startIndex + 1 : 0}–{Math.min(endIndex, totalItems)} of {totalItems} entries</p>
         </div>
-        <span className="text-[10px] bg-teal/10 text-teal border border-teal/30 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+        <span className="shrink-0 rounded-full border border-teal/30 bg-teal/10 px-4 py-2 text-sm font-bold uppercase tracking-wide text-teal">
           Pages: {totalPages}
         </span>
       </div>
 
       {totalItems === 0 ? (
-        <p className="text-xs text-navy/45 italic py-4 text-center font-medium">No data records found for this child profile parameter.</p>
+        <p className="py-6 text-center text-base font-medium italic text-navy/45">No data records found for this child profile parameter.</p>
       ) : (
-        <div className="divide-y divide-stone max-h-[550px] overflow-y-auto pr-1">
+        <div className="max-h-[550px] divide-y divide-stone overflow-y-auto pr-1">
           {paginatedLogs.map((log, logIdx) => {
             const name = log.profile?.full_name || 'System'
             const role = log.profile?.role ? log.profile.role.charAt(0).toUpperCase() + log.profile.role.slice(1) : 'Admin'
@@ -108,35 +108,35 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
               : "—"
 
             return (
-              <div key={logIdx} className="py-2.5 first:pt-0 last:pb-0 flex flex-col gap-1 text-[11px] leading-tight">
+              <div key={logIdx} className="flex flex-col gap-1 py-4 text-base leading-tight first:pt-0 last:pb-0">
 
                 {/* Clickable Row Layer */}
                 <div
-                  className="group cursor-pointer hover:bg-ice p-1.5 rounded-md transition-colors -mx-1"
+                  className="group -mx-2 cursor-pointer rounded-lg p-2 transition-colors hover:bg-ice"
                   onClick={() => setActiveModalIdx(logIdx)}
                 >
                   <div className="flex items-baseline justify-between gap-4 text-navy/65">
-                    <span className="font-semibold text-navy group-hover:text-teal transition-colors truncate max-w-[280px]">
-                      {metaString} <span className="text-[10px] text-teal font-medium opacity-0 group-hover:opacity-100 pl-1">🔍 View Full</span>
+                    <span className="max-w-[19rem] truncate font-semibold text-navy transition-colors group-hover:text-teal">
+                      {metaString} <span className="pl-1 text-xs font-medium text-teal opacity-0 group-hover:opacity-100">🔍 View Full</span>
                     </span>
-                    <time className="text-[10px] text-navy/45 font-mono shrink-0 whitespace-nowrap">
+                    <time className="shrink-0 whitespace-nowrap font-mono text-sm text-navy/45">
                       {formattedDate} PT
                     </time>
                   </div>
 
-                  <div className="flex flex-wrap gap-1 mt-1.5 font-mono text-[10px]">
+                  <div className="mt-3 flex flex-wrap gap-2 font-mono text-sm">
                     {log.changes?.map((change, changeIdx) => {
                       const isCreationEntry = change.from === '' && change.to === ''
 
                       return (
-                        <span key={changeIdx} className="bg-white border border-stone rounded px-1.5 py-0.5 text-navy/70 inline-flex items-center max-w-full truncate">
+                        <span key={changeIdx} className="inline-flex max-w-full items-center truncate rounded border border-stone bg-white px-2.5 py-1 text-navy/70">
                           <span className="text-teal font-semibold">{change.field}</span>
                           {!isCreationEntry && (
                             <>
-                              <span className="text-navy/30 mx-0.5">:</span>
-                              <span className="text-rose-700 line-through truncate max-w-[50px] inline-block">{String(change.from)}</span>
-                              <span className="text-navy/30 mx-0.5">→</span>
-                              <span className="text-teal font-bold truncate max-w-[70px] inline-block">{String(change.to)}</span>
+                              <span className="mx-1 text-navy/30">:</span>
+                              <span className="inline-block max-w-[4rem] truncate text-rose-700 line-through">{String(change.from)}</span>
+                              <span className="mx-1 text-navy/30">→</span>
+                              <span className="inline-block max-w-[5.5rem] truncate font-bold text-teal">{String(change.to)}</span>
                             </>
                           )}
                         </span>
@@ -152,11 +152,11 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
                     <div className="absolute inset-0 bg-navy/40 backdrop-blur-xs" onClick={() => setActiveModalIdx(null)} />
 
                     {/* Modal Content Card */}
-                    <div className="bg-white rounded-md p-5 border border-stone shadow-xl max-w-md w-full relative z-10 space-y-4 max-h-[90vh] flex flex-col animate-fade-in">
-                      <div className="border-b border-stone pb-2.5 shrink-0">
+                    <div className="relative z-10 flex max-h-[90vh] w-full max-w-md animate-fade-in flex-col space-y-4 rounded-xl border border-stone bg-white p-5 shadow-xl">
+                      <div className="shrink-0 border-b border-stone pb-3">
                         <div className="flex justify-between items-start gap-4">
-                          <h4 className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">Complete Change Ledger</h4>
-                          <button onClick={() => setActiveModalIdx(null)} className="text-navy/40 hover:text-navy font-bold text-sm cursor-pointer">✕</button>
+                          <h4 className="text-xs font-medium uppercase tracking-[0.13em] text-navy/45">Complete Change Ledger</h4>
+                          <button onClick={() => setActiveModalIdx(null)} className="cursor-pointer text-sm font-bold text-navy/40 hover:text-navy">✕</button>
                         </div>
                         <p className="text-base font-bold text-navy mt-1">{name}</p>
                         <p className="text-[11px] text-teal font-mono mt-0.5">{role} | Region(s): {countries || "Global"} | {formattedDate} PT</p>
@@ -167,30 +167,30 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
                           const isCreationEntry = change.from === '' && change.to === ''
 
                           return (
-                            <div key={changeIdx} className="bg-ice border border-stone rounded-md p-3 space-y-1.5 font-mono text-[11px]">
-                              <div className="text-teal font-bold border-b border-stone pb-0.5 uppercase text-[10px]">
+                            <div key={changeIdx} className="space-y-1.5 rounded-lg border border-stone bg-ice p-3 font-mono text-xs">
+                              <div className="border-b border-stone pb-0.5 text-xs font-bold uppercase text-teal">
                                 Field: {change.field}
                               </div>
                               {!isCreationEntry ? (
                                 <>
                                   <div className="pt-1">
-                                    <span className="text-navy/45 block font-sans text-[10px] uppercase font-bold tracking-wide">Before Change:</span>
+                                    <span className="block font-sans text-xs font-bold uppercase tracking-wide text-navy/45">Before Change:</span>
                                     <p className="text-rose-800 line-through bg-rose-50/40 p-1.5 rounded border border-rose-200/40 whitespace-pre-wrap break-words">{String(change.from)}</p>
                                   </div>
                                   <div className="pt-1">
-                                    <span className="text-navy/45 block font-sans text-[10px] uppercase font-bold tracking-wide">After Change:</span>
+                                    <span className="block font-sans text-xs font-bold uppercase tracking-wide text-navy/45">After Change:</span>
                                     <p className="text-teal bg-white p-1.5 rounded border border-teal/20 whitespace-pre-wrap break-words font-bold">{String(change.to)}</p>
                                   </div>
                                 </>
                               ) : (
-                                <p className="text-navy/40 italic text-[10px] pt-1">Initial registration record created and saved.</p>
+                                <p className="pt-1 text-xs italic text-navy/40">Initial registration record created and saved.</p>
                               )}
                             </div>
                           )
                         })}
                       </div>
 
-                      <button onClick={() => setActiveModalIdx(null)} className="w-full py-2 bg-ice border border-stone text-navy/70 hover:bg-stone hover:text-navy font-bold rounded-md text-xs transition-colors cursor-pointer shrink-0">
+                      <button onClick={() => setActiveModalIdx(null)} className="w-full shrink-0 cursor-pointer rounded-lg border border-stone bg-ice py-2 text-xs font-bold text-navy/70 transition-colors hover:bg-stone hover:text-navy">
                         Close Details View
                       </button>
                     </div>
@@ -205,11 +205,11 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
 
       {/* Selectable Pagination Footer Row */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-3 border-t border-stone text-[11px]">
+        <div className="flex items-center justify-between border-t border-stone pt-4 text-sm">
           <button
             disabled={currentPage === 1}
             onClick={() => goToPage(Math.max(currentPage - 1, 1))}
-            className="px-2.5 py-1.5 rounded-md border border-stone text-navy/65 bg-white hover:bg-ice disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold tracking-wide transition-colors cursor-pointer shrink-0 shadow-3xs"
+            className="shrink-0 cursor-pointer rounded-lg border border-stone bg-white px-3 py-2 text-xs font-bold tracking-wide text-navy/65 shadow-3xs transition-colors hover:bg-ice disabled:cursor-not-allowed disabled:opacity-30"
           >
             ← Prev
           </button>
@@ -224,7 +224,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
               value={inputPage}
               onChange={(e) => setInputPage(e.target.value)}
               onBlur={() => setInputPage(currentPage.toString())}
-              className="w-10 text-center py-0.5 px-1 border border-stone text-navy rounded-md font-mono text-[11px] focus:border-teal focus:outline-none bg-white font-semibold"
+              className="w-12 rounded-lg border border-stone bg-white px-1 py-1 text-center font-mono text-sm font-semibold text-navy focus:border-teal focus:outline-none"
             />
             <span>of <span className="font-mono font-bold text-navy/70">{totalPages}</span></span>
           </form>
@@ -232,7 +232,7 @@ export function AuditLogSection({ editLog, createdAt, creatorName, creatorRole }
           <button
             disabled={currentPage === totalPages}
             onClick={() => goToPage(Math.min(currentPage + 1, totalPages))}
-            className="px-2.5 py-1.5 rounded-md border border-stone text-navy/65 bg-white hover:bg-ice disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold tracking-wide transition-colors cursor-pointer shrink-0 shadow-3xs"
+            className="shrink-0 cursor-pointer rounded-lg border border-stone bg-white px-3 py-2 text-xs font-bold tracking-wide text-navy/65 shadow-3xs transition-colors hover:bg-ice disabled:cursor-not-allowed disabled:opacity-30"
           >
             Next →
           </button>

@@ -164,6 +164,8 @@ export const fr: Messages = {
   'children.card.yearsShort': '{age} ans',
   'children.detail.backRegistry': 'Retour au registre',
   'children.detail.editProfile': 'Modifier le profil',
+  'children.detail.pictureTab': 'Photo',
+  'children.detail.videoTab': 'Vidéo',
   'children.detail.yearsOld': 'Ans',
   'children.detail.noVideo': 'Aucune vidéo de profil téléversée pour le moment',
   'children.detail.dateOfBirth': 'Date de naissance',
@@ -190,8 +192,7 @@ export const fr: Messages = {
   'children.intake.yes': 'Oui',
   'children.intake.no': 'Non',
   'children.intake.placeholder': 'Saisissez une réponse en anglais ({type})...',
-  'children.intake.englishOnlyHelp':
-    'Veuillez saisir les réponses d’admission en anglais. Les dossiers d’admission enregistrés sont stockés en anglais pour la revue du personnel et les rapports.',
+  'children.intake.englishOnlyHelp': 'Veuillez saisir les réponses d’admission en anglais.',
   'children.intake.digitsOnly': 'Veuillez saisir uniquement des chiffres.',
   'children.intake.prev': '← Préc. 8',
   'children.intake.next': 'Suiv. 8 →',

@@ -31,13 +31,29 @@ export function LibraryViewer({ childId, mediaLibrary }: Props) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!activeItem) return
-            if (e.key === "Escape") closeTheater()
-            if (e.key === "ArrowLeft") handlePrev()
-            if (e.key === "ArrowRight") handleNext()
+            if (e.key === "Escape") {
+                setActiveItem(null)
+                return
+            }
+
+            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return
+
+            const sortedItems = mediaLibrary
+                .filter(item => item.media_type === activeItem.media_type)
+                .sort((a, b) => {
+                    if (!a.created_at || !b.created_at) return 0
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                })
+            const activeIndex = sortedItems.findIndex(item => item.id === activeItem.id)
+            const nextIndex = e.key === "ArrowLeft" ? activeIndex - 1 : activeIndex + 1
+
+            if (nextIndex >= 0 && nextIndex < sortedItems.length) {
+                setActiveItem(sortedItems[nextIndex])
+            }
         }
         window.addEventListener("keydown", handleKeyDown)
         return () => window.removeEventListener("keydown", handleKeyDown)
-    }, [activeItem])
+    }, [activeItem, mediaLibrary])
 
     if (!mediaLibrary || mediaLibrary.length === 0) return null
 
@@ -96,22 +112,22 @@ export function LibraryViewer({ childId, mediaLibrary }: Props) {
 
     return (
         <div className="space-y-5">
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-teal border-b border-stone pb-2">
+            <h3 className="border-b border-stone pb-4 text-xl font-bold uppercase tracking-[0.22em] text-teal sm:text-2xl">
                 Media Portfolio Library ({mediaLibrary.length})
             </h3>
 
             {/* --- PHOTOS --- */}
             {photos.length > 0 && (
-                <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))]">
                     {photos.map((item) => (
-                        <button key={item.id} onClick={() => setActiveItem(item)} className="relative flex-none w-32 aspect-square rounded-xl overflow-hidden border border-stone bg-white shadow-2xs snap-start cursor-pointer hover:opacity-90 transition-opacity">
+                        <button key={item.id} onClick={() => setActiveItem(item)} className="relative aspect-square cursor-pointer overflow-hidden rounded-xl border border-stone bg-white shadow-2xs transition-opacity hover:opacity-90">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="w-full h-full object-cover" />
+                            <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="h-full w-full object-cover" />
                             
                             {/* Indicator if already profile picture */}
                             {item.usage_type === 'profile_picture' && (
-                                <div className="absolute top-1.5 right-1.5 bg-teal text-white rounded-full p-1 shadow-sm">
-                                    <UserCircleIcon className="size-3.5" />
+                                <div className="absolute right-2 top-2 rounded-full bg-teal p-1.5 text-white shadow-sm">
+                                    <UserCircleIcon className="size-4" />
                                 </div>
                             )}
                         </button>
@@ -121,17 +137,17 @@ export function LibraryViewer({ childId, mediaLibrary }: Props) {
 
             {/* --- VIDEOS --- */}
             {videos.length > 0 && (
-                <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))]">
                     {videos.map((item) => (
-                        <button key={item.id} onClick={() => setActiveItem(item)} className="relative flex-none w-32 aspect-square rounded-xl overflow-hidden border border-stone bg-slate-900 shadow-2xs snap-start flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity">
+                        <button key={item.id} onClick={() => setActiveItem(item)} className="relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-stone bg-slate-900 shadow-2xs transition-opacity hover:opacity-90">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="w-full h-full object-cover opacity-60" />
-                            <PlayCircleIcon className="absolute size-8 text-white/90" />
+                            <img src={mediaThumbnailUrl(item.id)} alt={item.filename} className="h-full w-full object-cover opacity-60" />
+                            <PlayCircleIcon className="absolute size-12 text-white/90" />
 
                             {/* Indicator if already profile video */}
                             {item.usage_type === 'profile_video' && (
-                                <div className="absolute top-1.5 right-1.5 bg-teal text-white rounded-full p-1 shadow-sm z-10">
-                                    <UserCircleIcon className="size-3.5" />
+                                <div className="absolute right-2 top-2 z-10 rounded-full bg-teal p-1.5 text-white shadow-sm">
+                                    <UserCircleIcon className="size-4" />
                                 </div>
                             )}
                         </button>
