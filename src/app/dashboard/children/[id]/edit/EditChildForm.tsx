@@ -42,6 +42,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
   const [submitting, setSubmitting] = useState(false)
   const [indexingFace, setIndexingFace] = useState(false)
   const [loadingPreview, setLoadingPreview] = useState(false)
+  const [generatingBio, setGeneratingBio] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [stagedDriveFileIds, setStagedDriveFileIds] = useState<string[]>([])
@@ -69,6 +70,7 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
   const [photoUrl, setPhotoUrl] = useState<string | null>(child.profile_photo ?? null)
   const [videoUrl, setVideoUrl] = useState<string | null>(child.profile_video ?? null)
   const [initialGeneratedId, setInitialGeneratedId] = useState<string>(child.id_rolf ?? "")
+  const [bioGenerated, setBioGenerated] = useState(false)
 
   useEffect(() => {
     if (form.country === child.country) {
@@ -207,6 +209,59 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
       form.favorite_subject.trim() &&
       form.hobby.trim()
     )
+  }
+
+  const canGenerateBio = () => {
+    return !!(
+      form.first_name.trim() &&
+      form.last_name.trim() &&
+      form.birthdate &&
+      form.year_joined &&
+      form.country &&
+      form.career_aspiration.trim() &&
+      form.favorite_subject.trim() &&
+      form.hobby.trim()
+    )
+  }
+
+  const generateBio = async () => {
+    setError(null)
+    setGeneratingBio(true)
+
+    try {
+      const res = await fetch('/api/generate-bio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          hobby: form.hobby,
+          career_aspiration: form.career_aspiration,
+          favorite_subject: form.favorite_subject,
+          country: form.country,
+          birthdate: form.birthdate,
+          date_joined: form.year_joined,
+        })
+      })
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: null }))
+        throw new Error(error || t('children.register.error.bioGeneration'))
+      }
+
+      const data = await res.json()
+      if (data?.bio) {
+        set("bio", data.bio)
+        setBioGenerated(true)
+      } else {
+        throw new Error(t('children.register.error.noBio'))
+      }
+    } catch (err: unknown) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : typeof err === 'string' ? err : t('children.register.error.failedBio'))
+    } finally {
+      setGeneratingBio(false)
+    }
   }
 
   const handleSubmit = async () => {
@@ -515,15 +570,39 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
               />
             </Field>
 
-            <Field label={t('children.edit.bioOptional')} htmlFor="bio">
-              <textarea
-                id="bio"
-                value={form.bio}
-                onChange={e => set("bio", e.target.value)}
-                placeholder={t('children.edit.bioPlaceholder')}
-                rows={4}
-                className={inputClass + " resize-none"}
-              />
+            <Field label={t('children.edit.bioOptional')} htmlFor={child.bio?.trim() || bioGenerated ? "bio" : "generate-bio"}>
+              {!child.bio?.trim() && !bioGenerated ? (
+                <div className="rounded-xl border border-sky bg-sky/40 p-4">
+                  <p className="text-xs font-medium leading-relaxed text-navy/80">
+                    {t('children.register.bioOneTry')}
+                  </p>
+                  <button
+                    id="generate-bio"
+                    type="button"
+                    onClick={generateBio}
+                    disabled={generatingBio || !canGenerateBio()}
+                    className="mt-3 w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-navy/90 disabled:bg-stone disabled:text-navy/35 disabled:cursor-not-allowed"
+                  >
+                    {generatingBio ? t('children.register.generating') : t('children.register.generateBio')}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    id="bio"
+                    value={form.bio}
+                    onChange={e => set("bio", e.target.value)}
+                    placeholder={t('children.edit.bioPlaceholder')}
+                    rows={4}
+                    className={inputClass + " resize-none"}
+                  />
+                  {bioGenerated && (
+                    <p className="mt-2 text-xs font-medium leading-relaxed text-amber-700">
+                      {t('children.register.bioReviewNote')}
+                    </p>
+                  )}
+                </>
+              )}
             </Field>
           </div>
         </section>

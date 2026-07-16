@@ -338,7 +338,7 @@ export const en = {
   'children.edit.header': 'Modifying Profile Records',
   'children.edit.basicInfo': 'Basic Info',
   'children.edit.aboutThem': 'About Them',
-  'children.edit.bioOptional': 'Bio (Optional)',
+  'children.edit.bioOptional': 'Bio',
   'children.edit.photoVideo': 'Photo & Video',
   'children.edit.status': 'Status',
   'children.edit.childStatus': 'Child Status',

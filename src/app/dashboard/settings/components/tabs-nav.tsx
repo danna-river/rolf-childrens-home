@@ -38,11 +38,11 @@ export function TabsNav({ userRole }: TabsNavProps) {
         const isCurrent = activeTab === tab.id
         const Icon = tab.icon
         
-        let linkClass = "flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold rounded-md text-navy/65 hover:text-navy hover:bg-ice/80 transition-all cursor-pointer whitespace-normal break-words"
+        let linkClass = "flex items-center google-sans-registry gap-2.5 px-3.5 py-2.5 text-xs font-semibold rounded-md text-navy/65 hover:text-navy hover:bg-ice/80 transition-all cursor-pointer whitespace-normal break-words"
         let iconClass = "size-4 text-navy/40 shrink-0"
 
         if (isCurrent) {
-          linkClass = "flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold rounded-md bg-teal/15 text-teal border border-teal/30 shadow-2xs transition-all cursor-pointer whitespace-normal break-words"
+          linkClass = "flex items-center google-sans-registry gap-2.5 px-3.5 py-2.5 text-xs font-bold rounded-md bg-teal/15 text-teal border border-teal/30 shadow-2xs transition-all cursor-pointer whitespace-normal break-words"
           iconClass = "size-4 text-teal shrink-0"
         }
 

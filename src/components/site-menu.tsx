@@ -90,7 +90,7 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
           </DialogPrimitive.Title>
 
           {/* Page links — each closes the menu on navigation */}
-          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+          <nav className="flex flex-1 google-sans-registry flex-col gap-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-7">
             {links.map(({ href, labelKey, icon: Icon }) => (
               <DialogPrimitive.Close
                 key={labelKey}
@@ -114,12 +114,14 @@ export function SiteMenu({ email, role }: SiteMenuProps) {
 
           {/* Footer: identity + sign out */}
           <div className="shrink-0 border-t border-white/15 px-4 py-5 sm:px-6 lg:px-8">
-            <p className="truncate text-sm font-medium">{email}</p>
-            <p className="text-xs text-white/60">{t(roleLabelKey(role))}</p>
+            <p className="truncate text-sm font-medium google-sans-registry">{email}</p>
+            <p className="text-xs text-white/60 google-sans-registry">
+              {t(roleLabelKey(role))}
+            </p>
             <form action={signOutAction} className="mt-4">
               <button
                 type="submit"
-                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
+                className="flex w-full google-sans-registry items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
               >
                 <LogOutIcon className="size-5" aria-hidden="true" />
                 {t("menu.signOut")}

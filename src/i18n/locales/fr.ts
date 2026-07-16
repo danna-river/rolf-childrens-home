@@ -340,7 +340,7 @@ export const fr: Messages = {
   'children.edit.header': 'Modification du dossier de profil',
   'children.edit.basicInfo': 'Informations de base',
   'children.edit.aboutThem': 'À propos de l’enfant',
-  'children.edit.bioOptional': 'Bio (facultatif)',
+  'children.edit.bioOptional': 'Bio',
   'children.edit.photoVideo': 'Photo et vidéo',
   'children.edit.status': 'Statut',
   'children.edit.childStatus': 'Statut de l’enfant',
