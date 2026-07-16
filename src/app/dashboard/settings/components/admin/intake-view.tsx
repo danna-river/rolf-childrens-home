@@ -21,7 +21,7 @@ export function IntakeView() {
     const [countries, setCountries] = useState<string[]>([])
     const [loading, setLoading] = useState(true)
 
-    // Toggle to filter out inactive forms from the list view
+    // False: Show all templates by default. True: Filter out inactive templates.
     const [hideInactive, setHideInactive] = useState(false)
 
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -307,10 +307,9 @@ export function IntakeView() {
         : templates
 
     return (
-        /* 🌟 Balanced 66/33 ratio layout setup */
         <div className="google-sans-registry grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-            {/* Designer Workspace: Occupies exactly 2/3rds (66%) of broad layouts */}
+            {/* Designer Workspace: Spans exactly 2/3rds (66%) of broad screens */}
             <div className="lg:col-span-2 bg-white rounded-md border border-stone p-4 sm:p-6 shadow-sm space-y-4">
                 {transactionError && (
                     <div className="p-3 bg-rose-50/50 border border-rose-200 text-xs text-rose-700 rounded-md font-bold flex items-center gap-2">
@@ -370,7 +369,7 @@ export function IntakeView() {
                     </div>
 
                     <div className="space-y-3">
-                        {/* 🌟 Header split narrowed down to 9rem (9rem) to widen prompt labels */}
+                        {/* Header Split narrowed layout to 9rem (sm:grid-cols-[2rem_1fr_9rem]) to stretch the question text field */}
                         <div className="hidden sm:grid sm:grid-cols-[2rem_1fr_9rem] gap-3 items-center px-1">
                             <div />
                             <label className="block text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">
@@ -431,7 +430,7 @@ export function IntakeView() {
                                         </div>
 
                                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                                            {/* 🌟 Narrowed container width from sm:w-48 down to sm:w-36 */}
+                                            {/* Narrowed dropdown width selector from sm:w-48 down to sm:w-36 (9rem) */}
                                             <div className="flex-1 sm:w-36 text-stone">
                                                 <select
                                                     value={q.field_type}
@@ -447,7 +446,7 @@ export function IntakeView() {
                                                     <option value="number">Number</option>
                                                     <option value="date">Date</option>
                                                     <option value="boolean">Yes / No</option>
-                                                    <option value="select">Multiple Choice</option>
+                                                    <option value="select">Multi Choice</option>
                                                     <option value="media_photo">Image Upload</option>
                                                     <option value="media_video">Video Upload</option>
                                                 </select>
@@ -601,14 +600,14 @@ export function IntakeView() {
                 </form>
             </div>
 
-            {/* Templates Pool Sidebar: Expanded cleanly to 1/3rd (33%) spacing layout grid */}
+            {/* Templates Pool Sidebar: Occupies exactly 1/3rd (33%) of grid layouts */}
             <div className="lg:col-span-1 bg-white border border-stone rounded-md p-4 space-y-3.5 shadow-sm">
                 <div className="flex items-center justify-between border-b border-stone pb-2.5">
                     <h3 className="text-[11px] font-medium uppercase tracking-[0.13em] text-navy/45">
                         Form Templates Pool ({filteredTemplates.length})
                     </h3>
 
-                    {/* Filter Button */}
+                    {/* Filter Toggle Button */}
                     <button
                         type="button"
                         onClick={() => setHideInactive(!hideInactive)}
@@ -641,43 +640,54 @@ export function IntakeView() {
                             return (
                                 <div 
                                     key={tpl.id} 
-                                    onMouseLeave={handleClearConfirmationScopes}
+                                    onMouseLeave={handleClearConfirmationScopes} // Resets active prompts when leaving mouse hover
                                     className={`group/item border rounded-md p-2.5 transition-all flex flex-col justify-center gap-2 ${
                                         editingId === tpl.id 
                                             ? "border-teal bg-teal/5 shadow-3xs" 
-                                            : "border-stone hover:border-navy/20 bg-white"
+                                            : !isActive
+                                                ? "border-stone/60 bg-stone/10 opacity-80" // Fully styles card background grey when inactive
+                                                : "border-stone hover:border-navy/20 bg-white"
                                     }`}
                                 >
                                     <div className="flex items-center justify-between gap-3 min-w-0">
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-1.5 min-w-0">
                                                 <span 
-                                                    className={`size-1.5 rounded-full shrink-0 ${isActive ? "bg-teal" : "bg-navy/20"}`} 
+                                                    className={`size-1.5 rounded-full shrink-0 ${isActive ? "bg-teal" : "bg-stone-400"}`} 
                                                     title={isActive ? "Active" : "Inactive"}
                                                     aria-hidden="true" 
                                                 />
-                                                <h4 className="text-xs font-bold tracking-tight text-navy truncate leading-normal" title={tpl.title}>
+                                                {/* Text turns dark grey when template is inactive */}
+                                                <h4 
+                                                    className={`text-xs font-bold tracking-tight truncate leading-normal ${
+                                                        isActive ? "text-navy" : "text-stone-500 font-medium"
+                                                    }`} 
+                                                    title={tpl.title}
+                                                >
                                                     {tpl.title}
                                                 </h4>
                                             </div>
                                             
-                                            <div className="flex items-center gap-3 text-[10px] text-navy/45 font-semibold mt-1">
+                                            {/* Metadata texts shift style cleanly when deactivated */}
+                                            <div className={`flex items-center gap-3 text-[10px] font-semibold mt-1 ${
+                                                isActive ? "text-navy/45" : "text-stone-400"
+                                            }`}>
                                                 <span className="flex items-center gap-0.5 truncate">
-                                                    <GlobeIcon className="size-2.5 text-teal/70 shrink-0" />
+                                                    <GlobeIcon className={`size-2.5 shrink-0 ${isActive ? "text-teal/70" : "text-stone-400"}`} />
                                                     {tpl.country === 'all' ? 'Global' : tpl.country}
                                                 </span>
-                                                <span className="shrink-0 text-teal font-medium">
+                                                <span className={`shrink-0 font-medium ${isActive ? "text-teal" : "text-stone-400"}`}>
                                                     {tpl.template_questions?.length || 0} questions
                                                 </span>
                                             </div>
                                         </div>
 
-                                        {/* Inline Controls */}
+                                        {/* Inline Controls: Hidden while multi-step prompts are active */}
                                         {!isArmedForToggle && !isArmedForEdit && !isArmedForTemplateDelete && (
                                             <div className="flex items-center gap-1 shrink-0">
                                                 <button
                                                     onClick={() => startEditAttempt(tpl)}
-                                                    className="p-1 text-navy/45 hover:text-teal hover:bg-teal/5 rounded transition-colors cursor-pointer"
+                                                    className={`p-1 rounded transition-colors cursor-pointer ${isActive ? 'text-navy/45 hover:text-teal hover:bg-teal/5' : 'text-stone-400 hover:text-teal'}`}
                                                     title="Edit Template Layout"
                                                 >
                                                     <PencilIcon className="size-3.5" />
@@ -686,8 +696,8 @@ export function IntakeView() {
                                                     onClick={() => handleToggleStatusAttempt(tpl.id, tpl.status)}
                                                     className={`p-1 rounded transition-colors cursor-pointer ${
                                                         isActive 
-                                                            ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50' 
-                                                            : 'text-teal hover:text-teal/80 hover:bg-teal/5'
+                                                            ? 'text-teal hover:text-teal/80 hover:bg-teal/5'
+                                                            : 'text-amber-600 hover:text-amber-800 hover:bg-amber-50' 
                                                     }`}
                                                     title={isActive ? "Deactivate Template" : "Activate Template"}
                                                 >
@@ -695,7 +705,7 @@ export function IntakeView() {
                                                 </button>
                                                 <button
                                                     onClick={() => handleTemplateDeleteAttempt(tpl.id)}
-                                                    className="p-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                                    className={`p-1 rounded transition-colors cursor-pointer ${isActive ? 'text-rose-600 hover:text-rose-800 hover:bg-rose-50' : 'text-stone-400 hover:text-rose-600'}`}
                                                     title="Delete Template"
                                                 >
                                                     <TrashIcon className="size-3.5" />
@@ -704,7 +714,7 @@ export function IntakeView() {
                                         )}
                                     </div>
 
-                                    {/* Confirmation Action Row */}
+                                    {/* Action Confirmation Prompts (Edit?, Activate?, Deactivate?, Confirm?) */}
                                     {(isArmedForToggle || isArmedForEdit || isArmedForTemplateDelete) && (
                                         <div className="flex items-center justify-end gap-1.5 mt-0.5 pt-1.5 border-t border-stone/50 animate-fade-in shrink-0">
                                             {isArmedForEdit && (
