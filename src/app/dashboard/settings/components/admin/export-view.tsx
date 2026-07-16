@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Download, FileSpreadsheet, AlertCircle } from 'lucide-react'
-import { getIntakeFormsAction } from '../../actions/admin-actions'
+import { getIntakeFormsAction } from '../../actions/intake-actions'
 
 interface FormItem {
   id: string
