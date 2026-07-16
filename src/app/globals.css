@@ -143,6 +143,77 @@
   font-variation-settings: "GRAD" 0;
 }
 
+/* A soft, ink-like ROLF navy surface for the homepage globe section. */
+.homepage-globe-surface {
+  background-color: #152c4b;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    inset 0 24px 80px rgb(255 255 255 / 0.035),
+    inset 0 -48px 112px rgb(0 15 36 / 0.5);
+}
+
+/* Homepage entrance motion. Transform/opacity only (compositor-friendly);
+   `both` fill keeps elements hidden until their delay elapses, then settled.
+   All of these are neutralized by the reduced-motion block below. */
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-hero-zoom {
+  animation: hero-zoom 7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-fade-rise {
+  animation: fade-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-fade-down {
+  animation: fade-down 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-delay-150 {
+  animation-delay: 150ms;
+}
+
+.anim-delay-300 {
+  animation-delay: 300ms;
+}
+
+.anim-delay-450 {
+  animation-delay: 450ms;
+}
+
+.anim-delay-600 {
+  animation-delay: 600ms;
+}
+
 /* Respect users who prefer reduced motion: neutralize entrance/loading/hover
    animations and transitions app-wide while keeping content fully visible. */
 @media (prefers-reduced-motion: reduce) {
@@ -150,8 +221,10 @@
   ::before,
   ::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
