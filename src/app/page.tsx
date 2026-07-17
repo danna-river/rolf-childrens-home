@@ -112,7 +112,7 @@ export default async function Home() {
       <section className="homepage-globe-surface relative isolate flex flex-col items-center gap-8 overflow-hidden px-6 py-16 sm:px-16 sm:py-20 lg:gap-12">
         <AnimateInView className="flex w-full max-w-[720px] flex-col items-center gap-3 text-center" duration={720}>
           <h2 className="google-sans-registry-title text-[clamp(1.75rem,5vw,3.875rem)] font-bold leading-[1.09] tracking-[-0.05em] text-ice">
-            Where We Work
+            Where We Serve
           </h2>
           <p className="m-0 google-sans-page text-[clamp(0.875rem,1.6vw,1.25rem)] leading-[1.4] text-sky">
             Our children&apos;s homes serve communities{" "}
