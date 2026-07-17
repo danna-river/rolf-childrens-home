@@ -87,6 +87,7 @@ export interface Child {
   bio: string | null
   notes: string | null
   status: ChildStatus
+  profile_complete: boolean // ⚡ ADDED: Declares boolean presence natively for components and grid mapping
   created_by: string | null
   created_at: string
   updated_at: string
@@ -486,9 +487,16 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
-      /** Face lookup RPCs (see supabase/migrations/20260709120000_create_face_lookup.sql).
-       *  All are SECURITY DEFINER and re-check the caller's role and country
-       *  scope internally; embeddings are write-only from the app's side. */
+      // ⚡ ADDED: Registers single-child recomputations to type checking
+      recalculate_profile_complete: {
+        Args: { target_child_id: string }
+        Returns: undefined
+      }
+      // ⚡ ADDED: Registers administrative bulk recomputations to type checking
+      bulk_recalculate_profile_complete: {
+        Args: { target_country: string }
+        Returns: undefined
+      }
       match_child_face: {
         Args: { query_embedding: number[]; query_model_version: string }
         Returns: { child_id: string; distance: number }[]

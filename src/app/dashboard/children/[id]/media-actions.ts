@@ -1,12 +1,13 @@
 "use server"
 
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin' // ⚡ IMPORT ADMIN
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { recalculateProfileComplete } from './intake-actions'
 
 export async function setProfileMediaAction(childId: string, mediaId: string, mediaType: 'photo' | 'video') {
     const supabase = await createClient()
-    const adminSupabase = await createAdminClient() // ⚡ USE ADMIN CLIENT FOR MEDIA
+    const adminSupabase = await createAdminClient()
 
     const { data: childData, error: childErr } = await supabase
         .from('children')
@@ -39,7 +40,7 @@ export async function setProfileMediaAction(childId: string, mediaId: string, me
 
         if (promoteErr) throw new Error(`Promote fail: ${promoteErr.message}`)
 
-        // 3. Update children table (User client is fine here if they have RLS for this)
+        // 3. Update children table 
         const updatePayload = isPhoto ? { profile_photo: mediaId } : { profile_video: mediaId }
         const { error: updateErr } = await supabase
             .from('children')
@@ -47,6 +48,8 @@ export async function setProfileMediaAction(childId: string, mediaId: string, me
             .eq('id', childId)
 
         if (updateErr) throw new Error(`Children update fail: ${updateErr.message}`)
+
+        await recalculateProfileComplete(childId)
 
         revalidatePath(`/dashboard/children/${childId}`)
         return { error: null }
