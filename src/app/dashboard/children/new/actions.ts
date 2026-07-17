@@ -7,6 +7,8 @@ import { isAdminRole } from '@/lib/profiles'
 import { revalidatePath } from 'next/cache'
 import { commitStagedFilesToCountry } from '@/lib/googleDrive'
 import { extractDriveFileId } from '@/lib/childMedia'
+// ⚡ NEW: Imported from your intake actions file
+import { recalculateProfileComplete } from '../[id]/intake-actions'
 
 export type RegisterChildInput = {
   id_rolf: string
@@ -191,6 +193,7 @@ export async function registerChildAction(
       notes: input.notes ?? null,
       profile_photo: null,  
       profile_video: null,  
+      profile_complete: false,
       status: 'active',
       edit_log: [],
       created_by: user.id
@@ -261,6 +264,9 @@ export async function registerChildAction(
   } catch (mediaError) {
     console.error("Failed to commit secondary registration media dependencies:", mediaError)
   }
+
+  // ⚡ MASTER EVALUATION ENGINE RUN: Automatically updates the new child profile_complete column layout natively 
+  await recalculateProfileComplete(childId)
 
   revalidatePath('/dashboard/children')
 

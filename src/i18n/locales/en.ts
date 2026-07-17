@@ -133,6 +133,7 @@ export const en = {
   'children.registry.totalChildren': 'Total children',
   'children.registry.active': 'Active',
   'children.registry.inactive': 'Inactive',
+  'children.registry.missingFields': 'Missing Fields',
   'children.registry.countries': 'Countries',
   'children.registry.showing': 'Showing',
   'children.registry.showingAll': 'Showing all',
