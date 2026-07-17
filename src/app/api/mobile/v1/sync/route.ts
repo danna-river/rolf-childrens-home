@@ -370,6 +370,7 @@ async function createChild(
         status: payload.status ?? 'active',
         profile_photo: null,
         profile_video: null,
+        profile_complete: false as unknown as never,
         edit_log: [],
         created_by: context.userId,
       })

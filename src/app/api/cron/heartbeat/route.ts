@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+export const dynamic = "force-dynamic"
+
 // Daily keep-alive for the Supabase free tier, which pauses projects after
 // ~7 days without API activity. A write is unambiguous activity; the table
 // holds a single row that gets updated in place, so it never grows.
@@ -8,6 +10,13 @@ export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
   if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json(
+      { error: "Missing Supabase admin environment variables" },
+      { status: 500 },
+    )
   }
 
   const admin = createAdminClient()

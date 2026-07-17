@@ -3,7 +3,6 @@ import {
   getChildrenRegistryStats,
   getJoinedYears,
 } from '@/components/actions'
-import { getEligibleIntakeForms } from '@/app/dashboard/children/[id]/intake-actions'
 import { SearchBar } from '@/components/searchBar'
 import { FaceSearchButton } from '@/app/dashboard/children/components/FaceSearchButton'
 import { StatusFilter } from '@/components/statusFilter'
@@ -13,7 +12,6 @@ import { YearJoinedFilter } from '@/components/yearJoinedFilter'
 import { LastUpdatedFilter } from '@/components/lastUpdatedFilter'
 import { ProfileList } from '@/components/profileList'
 import { Pagination } from '@/components/pagination'
-import { createClient } from '@/lib/supabase/server'
 import { StaffLayout } from '@/app/dashboard/children/components/staff-layout'
 import {
   RegistryHeader,
@@ -81,74 +79,11 @@ export async function StaffView({ assignedCountries, searchParams, messages, loc
     getChildrenRegistryStats(countryQueryScope, true),
   ])
 
-  // ⚡ Live Verification Matrix: Compute Missing Fields Status across Children + Intake Templates
-  const augmentedProfiles = await (async () => {
-    if (!profiles || profiles.length === 0) return []
-    const supabase = await createClient()
-    const childIds = profiles.map((p) => p.id)
-
-    // Side-load custom parameters to handle key drops natively
-    const { data: rawChildrenFields } = await supabase
-      .from('children')
-      .select('id, bio, hobby, career_aspiration, favorite_subject, profile_video')
-      .in('id', childIds)
-
-    // Execute matching validation pipelines concurrently across all children in the batch slice
-    const formsEvaluations = await Promise.all(
-      profiles.map(async (profile) => {
-        if (profile.status === 'inactive') return { id: profile.id, latestCompleted: true }
-        try {
-          const { latestCompleted } = await getEligibleIntakeForms(
-            profile.id,
-            profile.country || '',
-            profile.date_joined ? String(profile.date_joined) : null,
-            profile.year_joined ? Number(profile.year_joined) : null
-          )
-          return { id: profile.id, latestCompleted }
-        } catch (e) {
-          console.error(`❌ Intake analysis engine crash for child ${profile.id}:`, e)
-          return { id: profile.id, latestCompleted: true }
-        }
-      })
-    )
-
-    return profiles.map((profile) => {
-      if (profile.status === 'inactive') {
-        return { ...profile, hasMissingFields: false }
-      }
-
-      const dbRow = rawChildrenFields?.find(r => r.id === profile.id)
-      const intakeEvaluation = formsEvaluations.find(f => f.id === profile.id)
-
-      const isBaseFieldMissing = [
-        profile.id_rolf,
-        profile.firstName,
-        profile.lastName,
-        profile.birthYear,
-        profile.birthMonth,
-        profile.birthDay,
-        profile.country,
-        profile.date_joined,
-        profile.year_joined,
-        profile.profilePictureURL
-      ].some(val => val === null || val === undefined || val.toString().trim() === '' || val === 0)
-
-      const isCustomFieldMissing = !dbRow || [
-        dbRow.bio,
-        dbRow.hobby,
-        dbRow.career_aspiration,
-        dbRow.favorite_subject,
-        dbRow.profile_video
-      ].some(val => val === null || val === undefined || val.toString().trim() === '')
-
-      const isIntakeMissing = intakeEvaluation ? !intakeEvaluation.latestCompleted : false
-
-      return { 
-        ...profile, 
-        hasMissingFields: isBaseFieldMissing || isCustomFieldMissing || isIntakeMissing 
-      }
-    })
-  })()
+  // ⚡ Directly map the cached database flag into your ProfileList layout
+  const augmentedProfiles = (profiles ?? []).map((profile: any) => ({
+    ...profile,
+    hasMissingFields: profile.status === 'inactive' ? false : !profile.profile_complete && !profile.profileComplete
+  }))
 
   return (
     <StaffLayout>

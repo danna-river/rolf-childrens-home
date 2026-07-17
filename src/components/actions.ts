@@ -19,6 +19,7 @@ interface DBChildRow {
   profile_photo: string | null
   profile_video: string | null
   status: string
+  profile_complete: boolean // ⚡ ADDED
 }
 
 /** Registry query shape: the media columns arrive as embedded child_media refs. */
@@ -164,8 +165,13 @@ export async function getChildrenProfiles(
     }
   }
 
+  // ⚡ UPDATED: Intercept status query metadata extensions to proxy database compliance flags
   if (status === 'active' || status === 'inactive') {
     query = query.eq('status', status)
+  } else if (status === 'complete') {
+    query = query.eq('profile_complete', true).eq('status', 'active')
+  } else if (status === 'incomplete') {
+    query = query.eq('profile_complete', false).eq('status', 'active')
   }
 
   if (yearJoined === 'unknown') {
@@ -238,6 +244,7 @@ export async function getChildrenProfiles(
     date_joined: row.date_joined || null,
     profilePictureURL: row.profile_photo?.url || '', // 👈 Pulls the nested url path cleanly!
     status: row.status || 'active',
+    profile_complete: row.profile_complete, // ⚡ ADDED
   }))
 
   return { profiles: formattedProfiles, error: null, total: count ?? 0 }

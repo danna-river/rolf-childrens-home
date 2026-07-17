@@ -8,6 +8,7 @@ import { isAdminRole } from '@/lib/profiles'
 import type { Child, ChildWithMediaRefs, EditLogChange } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 import { commitStagedFilesToCountry } from '@/lib/googleDrive'
+import { recalculateProfileComplete } from '../intake-actions'
 
 export type UpdateChildInput = {
   id_rolf: string
@@ -390,6 +391,9 @@ export async function updateChildAction(
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  // ⚡ NEW: Recalculate completeness flags on the spot right before path revalidations clear
+  await recalculateProfileComplete(id)
 
   revalidatePath('/dashboard/children')
   revalidatePath(`/dashboard/children/${id}`)
