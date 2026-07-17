@@ -1,4 +1,15 @@
-export type FieldTypeConstraint = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'media_photo' | 'media_video'
+export type FieldTypeConstraint =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'boolean'
+  | 'select'
+  // Media uploads that go to the child's library only
+  | 'media_photo'
+  | 'media_video'
+  // Media uploads that also become the child's profile photo / video on save
+  | 'profile_photo'
+  | 'profile_video'
 
 export interface QuestionInput {
   id?: string

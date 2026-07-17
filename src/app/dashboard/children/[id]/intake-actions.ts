@@ -13,6 +13,20 @@ function sanitize(str: string): string {
   return str.trim().replace(/[^a-zA-Z0-9]/g, "_")
 }
 
+// Media field types: `media_*` uploads go to the child's library only;
+// `profile_*` uploads additionally become the child's profile photo / video.
+function isMediaFieldType(fieldType: string): boolean {
+  return ['media_photo', 'media_video', 'profile_photo', 'profile_video'].includes(fieldType)
+}
+
+function isProfileFieldType(fieldType: string): boolean {
+  return fieldType === 'profile_photo' || fieldType === 'profile_video'
+}
+
+function isVideoFieldType(fieldType: string): boolean {
+  return fieldType === 'media_video' || fieldType === 'profile_video'
+}
+
 function buildServerFilename(childData: any, type: "photo" | "video", ext: string): string {
   const now = new Date()
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "")
@@ -53,12 +67,34 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     `)
     .eq('child_id', childId)
 
-  const { data: childMediaData } = await supabase.from('child_media').select('id, url').eq('child_id', childId)
+  const { data: childMediaData } = await supabase
+    .from('child_media')
+    .select('id, url, usage_type, created_at')
+    .eq('child_id', childId)
   const mediaMap: Record<string, { id: string; url: string }> = {}
   const mediaByUrl: Record<string, { id: string; url: string }> = {}
   childMediaData?.forEach((m: any) => {
     mediaMap[m.id] = m
     mediaByUrl[m.url] = m
+  })
+
+  // Recent-profile-media suggestions: if the child's current profile photo /
+  // video was uploaded within the last month (e.g. at registration),
+  // pre-fill blank intake media questions with it so staff aren't asked to
+  // re-upload something they just provided. Staff can still remove/replace it.
+  const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30
+  const recentProfileMedia: Record<'photo' | 'video', { id: string; url: string; createdAt: string } | null> = {
+    photo: null,
+    video: null,
+  }
+  childMediaData?.forEach((m: any) => {
+    if (m.usage_type !== 'profile_picture' && m.usage_type !== 'profile_video') return
+    if (!m.created_at || Date.now() - new Date(m.created_at).getTime() > ONE_MONTH_MS) return
+    const kind: 'photo' | 'video' = m.usage_type === 'profile_picture' ? 'photo' : 'video'
+    const current = recentProfileMedia[kind]
+    if (!current || new Date(m.created_at) > new Date(current.createdAt)) {
+      recentProfileMedia[kind] = { id: m.id, url: m.url, createdAt: m.created_at }
+    }
   })
 
   const submissionMap: Record<string, Record<string, { value: string; url: string; mediaId: string }>> = {}
@@ -98,17 +134,31 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     const componentViewAnswers: Record<string, string> = {}
     const componentMediaIds: Record<string, string> = {}
     const lockedQuestionsList: string[] = []
+    const suggestedMediaMap: Record<string, string> = {}
 
     questionsList.forEach((q: any) => {
       const savedData = savedQuestionAnswers[q.id]
-      
+
       if (savedData && savedData.value && savedData.value.trim() !== "") {
         lockedQuestionsList.push(q.id)
       }
 
-      if (q.field_type === 'media_photo' || q.field_type === 'media_video') {
+      if (isMediaFieldType(q.field_type)) {
         componentViewAnswers[q.id] = savedData?.url || savedData?.value || ""
         if (savedData?.mediaId) componentMediaIds[q.id] = savedData.mediaId
+
+        // Profile-update questions with no saved answer yet → offer the recent
+        // profile upload as the answer. Library questions ("photo of the child
+        // playing", etc.) always start blank — the profile photo would be a
+        // wrong suggestion there.
+        if (!componentViewAnswers[q.id] && isProfileFieldType(q.field_type)) {
+          const suggestion = q.field_type === 'profile_photo' ? recentProfileMedia.photo : recentProfileMedia.video
+          if (suggestion) {
+            componentViewAnswers[q.id] = suggestion.url
+            componentMediaIds[q.id] = suggestion.id
+            suggestedMediaMap[q.id] = suggestion.createdAt
+          }
+        }
       } else {
         componentViewAnswers[q.id] = savedData?.value || ""
       }
@@ -128,6 +178,7 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
       answers: componentViewAnswers,
       mediaIds: componentMediaIds,
       lockedQuestions: lockedQuestionsList,
+      suggestedMedia: suggestedMediaMap,
       isCompleted: isFinished,
       isLatest: false
     }
@@ -154,8 +205,7 @@ export async function saveIntakeFormAction(
   templateId: string,
   formTitle: string,
   newAnswers: Record<string, string>,
-  stagedDriveFileIds?: string[],
-  profileToggles?: Record<string, boolean>
+  stagedDriveFileIds?: string[]
 ) {
   const supabase = await createClient()
 
@@ -220,8 +270,10 @@ export async function saveIntakeFormAction(
 
   const { data: childMediaData } = await supabase.from('child_media').select('id, url').eq('child_id', childId)
   const mediaMap: Record<string, string> = {}
+  const mediaIdByUrl: Record<string, string> = {}
   childMediaData?.forEach((m: any) => {
     mediaMap[m.id] = m.url
+    mediaIdByUrl[m.url] = m.id
   })
 
   const priorAnswersMap: Record<string, string> = {}
@@ -245,19 +297,31 @@ export async function saveIntakeFormAction(
     const oldMediaUrl = priorMediaUrlsMap[q.id] || ""
 
     let finalAnswerValue = clientValue
-    const isMediaField = q.field_type === 'media_photo' || q.field_type === 'media_video'
-    const isToggleSet = profileToggles?.[q.id] || false
+    const isMediaField = isMediaFieldType(q.field_type)
+    // Profile-update question types assign the media as the child's profile
+    // photo / video on save; library media types never touch the profile.
+    const isProfileField = isProfileFieldType(q.field_type)
+    const determinedType = isVideoFieldType(q.field_type) ? 'video' : 'photo'
+
+    const markProfileAssignment = (mediaUuid: string) => {
+      if (!isProfileField) return
+      if (determinedType === 'photo') assignedProfilePhotoUuid = mediaUuid
+      if (determinedType === 'video') assignedProfileVideoUuid = mediaUuid
+    }
 
     if (isMediaField) {
       if (clientValue.startsWith('http')) {
         if (clientValue === oldMediaUrl) {
           finalAnswerValue = oldRawValue
-          if (isToggleSet) {
-            if (q.field_type === 'media_photo') assignedProfilePhotoUuid = finalAnswerValue
-            if (q.field_type === 'media_video') assignedProfileVideoUuid = finalAnswerValue
-          }
+          markProfileAssignment(finalAnswerValue)
+        } else if (mediaIdByUrl[clientValue]) {
+          // The URL already belongs to a catalogued media record for this child
+          // (e.g. a pre-filled recent profile upload) — link it instead of
+          // inserting a duplicate, which would violate the unique
+          // gdrive_file_id constraint anyway.
+          finalAnswerValue = mediaIdByUrl[clientValue]
+          markProfileAssignment(finalAnswerValue)
         } else {
-          const determinedType = q.field_type === 'media_video' ? 'video' : 'photo'
           const isGoogleDrive = clientValue.includes('drive.google.com')
 
           const urlWithoutParams = clientValue.split('?')[0]
@@ -276,8 +340,8 @@ export async function saveIntakeFormAction(
               gdrive_file_id: isGoogleDrive ? extractDriveFileId(clientValue) : null,
               source: isGoogleDrive ? 'google_drive' : 'supabase',
               media_type: determinedType,
-              usage_type: isToggleSet 
-                ? (determinedType === 'video' ? 'profile_video' : 'profile_picture') 
+              usage_type: isProfileField
+                ? (determinedType === 'video' ? 'profile_video' : 'profile_picture')
                 : 'intake',
               filename: generatedFilename,
               uploaded_by: user.id
@@ -287,10 +351,7 @@ export async function saveIntakeFormAction(
 
           if (mediaRecord) {
             finalAnswerValue = mediaRecord.id
-            if (isToggleSet) {
-              if (determinedType === 'photo') assignedProfilePhotoUuid = mediaRecord.id
-              if (determinedType === 'video') assignedProfileVideoUuid = mediaRecord.id
-            }
+            markProfileAssignment(mediaRecord.id)
           }
         }
       } else if (clientValue === "") {

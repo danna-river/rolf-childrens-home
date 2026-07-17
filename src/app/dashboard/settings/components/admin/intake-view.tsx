@@ -442,13 +442,15 @@ export function IntakeView() {
                                                             : "border-stone cursor-pointer"
                                                     }`}
                                                 >
+                                                    <option value="profile_photo">Image Upload (Update Profile Picture)</option>
+                                                    <option value="profile_video">Video Upload (Update Profile Video)</option>
+                                                    <option value="media_photo">Image Upload (Library)</option>
+                                                    <option value="media_video">Video Upload (Library)</option>
                                                     <option value="text">Text Answer</option>
                                                     <option value="number">Number</option>
                                                     <option value="date">Date</option>
                                                     <option value="boolean">Yes / No</option>
                                                     <option value="select">Multi Choice</option>
-                                                    <option value="media_photo">Image Upload</option>
-                                                    <option value="media_video">Video Upload</option>
                                                 </select>
                                             </div>
 

@@ -480,7 +480,7 @@ export default async function ChildProfilePage({
             <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-navy/45 sm:text-sm">{t(messages, 'children.detail.yearsOld')}</p>
           </div>
           <div className="flex min-h-28 flex-col items-center justify-center rounded-xl border border-stone bg-white p-4 text-center shadow-2xs sm:min-h-32 sm:p-5">
-            <p className={`w-full whitespace-nowrap text-sm font-bold leading-tight sm:text-xl ${child.country ? 'text-navy' : 'text-navy/30'}`}>{child.country || '—'}</p>
+            <p className={`w-full break-words text-sm font-bold leading-tight sm:text-xl ${child.country ? 'text-navy' : 'text-navy/30'}`}>{child.country || '—'}</p>
             <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-navy/45 sm:text-sm">{t(messages, 'children.card.country')}</p>
           </div>
           <div className="flex min-h-28 flex-col items-center justify-center rounded-xl border border-stone bg-white p-4 text-center shadow-2xs sm:min-h-32 sm:p-5">

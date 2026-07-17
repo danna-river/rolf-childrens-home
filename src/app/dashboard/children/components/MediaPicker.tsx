@@ -1,5 +1,6 @@
 "use client"
 import { useRef, useState } from "react"
+import { CameraIcon, ImageIcon, UploadIcon, VideoIcon } from "lucide-react"
 import {
   extractDriveFileId,
   getDriveVideoPreview,
@@ -45,6 +46,8 @@ export function MediaPicker({
   const [showDrive, setShowDrive] = useState(false)
   const [driveInput, setDriveInput] = useState("")
   const isPhoto = type === "photo"
+  const CaptureIcon = isPhoto ? CameraIcon : VideoIcon
+  const UploadChoiceIcon = isPhoto ? ImageIcon : UploadIcon
 
   const previewSrc = localPreview ?? value
   const isDriveValue = !localPreview && isGoogleDriveUrl(value)
@@ -230,16 +233,20 @@ export function MediaPicker({
           )}
           <div className="grid grid-cols-2 gap-3">
             <button type="button" onClick={() => cameraRef.current?.click()}
-              className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
-              <span className="text-2xl">{isPhoto ? "📷" : "🎥"}</span>
-              <span className="text-xs font-medium text-gray-600">
+              className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-sky bg-sky/30 py-5 transition-colors hover:border-teal/55 hover:bg-sky/45">
+              <span className="flex size-9 items-center justify-center rounded-full bg-white/75 text-teal shadow-3xs">
+                <CaptureIcon className="size-5" aria-hidden="true" />
+              </span>
+              <span className="text-xs font-semibold text-navy/65">
                 {isPhoto ? (existingUrl ? t("children.media.retakePhoto") : t("children.media.takePhoto")) : t("children.media.recordVideo")}
               </span>
             </button>
             <button type="button" onClick={() => uploadRef.current?.click()}
-              className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-blue-300 transition-colors">
-              <span className="text-2xl">{isPhoto ? "🖼️" : "📁"}</span>
-              <span className="text-xs font-medium text-gray-600">
+              className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-sky bg-sky/30 py-5 transition-colors hover:border-teal/55 hover:bg-sky/45">
+              <span className="flex size-9 items-center justify-center rounded-full bg-white/75 text-navy/65 shadow-3xs">
+                <UploadChoiceIcon className="size-5" aria-hidden="true" />
+              </span>
+              <span className="text-xs font-semibold text-navy/65">
                 {isPhoto ? (existingUrl ? t("children.media.replaceFile") : t("children.media.uploadFile")) : t("children.media.uploadFile")}
               </span>
             </button>
