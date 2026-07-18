@@ -7,6 +7,7 @@ import { isAdminRole } from '@/lib/profiles'
 interface TemplateQuestion {
   id: string
   question_text: string
+  field_type: string // 🌟 Added field_type to identify media questions
 }
 
 interface JoinedChild {
@@ -52,10 +53,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 1. Fetch questions and assert the correct structural type
+    // 1. Fetch questions (🌟 Now including field_type)
     const { data: rawQuestions, error: questionsError } = await supabase
       .from('template_questions')
-      .select('id, question_text')
+      .select('id, question_text, field_type')
       .eq('template_id', formId)
       .order('sort_order', { ascending: true })
 
@@ -69,7 +70,14 @@ export async function GET(request: NextRequest) {
       return new Response('No questions found for this intake template.', { status: 404 })
     }
 
-    // 2. Fetch submissions with inner joins and assert structural layout
+    // 🌟 Identify which question IDs correspond to media uploads
+    const mediaQuestionIds = new Set(
+      questions
+        .filter(q => q.field_type === 'media_photo' || q.field_type === 'media_video')
+        .map(q => q.id)
+    )
+
+    // 2. Fetch submissions with inner joins
     const { data: rawReports, error: reportsError } = await supabase
       .from('progress_reports')
       .select(`
@@ -96,20 +104,48 @@ export async function GET(request: NextRequest) {
       return new Response('No submissions found for this template.', { status: 404 })
     }
 
-    // 3. Build CSV Headers
+    // 🌟 3. Bulk fetch media URLs to replace UUIDs
+    const mediaUuidsToFetch = new Set<string>()
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+    // Scan all answers to find UUIDs that belong to media questions
+    for (const report of reports) {
+      for (const ans of (report.report_answers || [])) {
+        if (mediaQuestionIds.has(ans.question_id) && ans.answer_value && uuidRegex.test(ans.answer_value)) {
+          mediaUuidsToFetch.add(ans.answer_value)
+        }
+      }
+    }
+
+    // Dictionary to map Media UUID -> Drive URL
+    const mediaUrlLookup = new Map<string, string>()
+
+    if (mediaUuidsToFetch.size > 0) {
+      // Execute a single batch query instead of querying per row
+      const { data: mediaData } = await supabase
+        .from('child_media')
+        .select('id, url')
+        .in('id', Array.from(mediaUuidsToFetch))
+
+      if (mediaData) {
+        for (const media of mediaData) {
+          if (media.url) mediaUrlLookup.set(media.id, media.url)
+        }
+      }
+    }
+
+    // 4. Build CSV Headers
     const dynamicHeaders = questions.map((q) => q.question_text)
     const csvHeaders = ['ROLF ID', 'First Name', 'Last Name', ...dynamicHeaders]
     
     const csvRows = [csvHeaders.join(',')]
 
-    // 4. Map each submission to a row with complete type-safety
+    // 5. Map each submission to a row with complete type-safety
     for (const report of reports) {
-      // Handle potential single object vs. array from Supabase join structures
       const childData = Array.isArray(report.children) 
         ? report.children[0] 
         : report.children
       
-      // Explicitly typed as Partial<JoinedChild> to allow safe, warning-free fallback access
       const child: Partial<JoinedChild> = childData || {}
       
       const rolfId = child.id_rolf || ''
@@ -124,7 +160,13 @@ export async function GET(request: NextRequest) {
 
       // Map dynamic values safely mapping via the question id matching
       const dynamicValues = questions.map((q) => {
-        const value = answerLookup.get(q.id) || ''
+        let value = answerLookup.get(q.id) || ''
+        
+        // 🌟 If this question is a media type, swap the UUID for the actual Drive URL
+        if (mediaQuestionIds.has(q.id) && mediaUrlLookup.has(value)) {
+          value = mediaUrlLookup.get(value)!
+        }
+
         return escapeCSVValue(value)
       })
 
@@ -138,7 +180,7 @@ export async function GET(request: NextRequest) {
       csvRows.push(rowValues.join(','))
     }
 
-    const csvContent = csvRows.join('\n')
+    const csvContent = '\ufeff' + csvRows.join('\n')
 
     return new Response(csvContent, {
       status: 200,

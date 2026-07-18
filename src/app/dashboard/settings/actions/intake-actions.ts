@@ -98,6 +98,15 @@ export async function createIntakeTemplate(title: string, country: string, quest
   const { error: qError } = await (supabase.from('template_questions' as any).insert(questionRows) as any)
   if (qError) return { error: qError.message }
 
+  // ⚡ COMPUTE RECOVERY GATE: Creating a new form means everyone in this target country is instantly incomplete.
+  // We use a blind update here which uses near-zero CPU and RAM.
+  const matchQuery = country !== 'all' ? { country } : {}
+  await (supabase
+    .from('children' as any)
+    .update({ profile_complete: false })
+    .eq('status', 'active')
+    .match(matchQuery) as any)
+
   revalidatePath('/dashboard/settings')
   return { success: true }
 }
@@ -110,6 +119,16 @@ export async function updateIntakeTemplate(
 ) {
   await verifyAdminGate()
   const supabase = createAdminClient()
+
+  // 0. Fetch the existing template configuration to detect scope changes
+  const { data: existingTpl } = await (supabase
+    .from('intake_templates' as any)
+    .select('country')
+    .eq('id', templateId)
+    .single() as any)
+
+  const oldCountry = existingTpl?.country || 'all'
+  const countryScopeChanged = oldCountry !== country
 
   // 1. Update the base template details (non-destructively)
   const { error: tplError } = await (supabase
@@ -129,10 +148,13 @@ export async function updateIntakeTemplate(
   const existingIds = Array.from(existingQsMap.keys())
   const incomingIds = questions.map(q => q.id).filter(Boolean) as string[]
 
-  // 3. Prevent Deletion Check of Existing Questions
+  // Determine modification scope for compute optimizations
+  const hasNewQuestions = questions.some(q => !q.id)
   const idsToDelete = existingIds.filter((id: string) => !incomingIds.includes(id))
+  const hasDeletedQuestions = idsToDelete.length > 0
 
-  if (idsToDelete.length > 0) {
+  // 3. Prevent Deletion Check of Existing Questions
+  if (hasDeletedQuestions) {
     const { data: linkedAnswers, error: checkError } = await (supabase
       .from('report_answers' as any)
       .select('question_id')
@@ -215,6 +237,34 @@ export async function updateIntakeTemplate(
     }
   }
 
+  // ⚡ COMPUTE RECOVERY GATES: Evaluate the exact criteria to protect quotas
+  const needsBlindReset = hasNewQuestions
+  const needsFullRecompute = hasDeletedQuestions || countryScopeChanged
+
+  if (needsBlindReset) {
+    // 🟢 OPTIMIZATION 1: A blind write of FALSE takes 1-2ms and virtually 0 compute.
+    const matchQuery = country !== 'all' ? { country } : {}
+    await (supabase
+      .from('children' as any)
+      .update({ profile_complete: false })
+      .eq('status', 'active')
+      .match(matchQuery) as any)
+    
+    // If the country scope changed simultaneously, we still need to heal the OLD country
+    if (countryScopeChanged) {
+      await supabase.rpc('bulk_recalculate_profile_complete', { target_country: oldCountry })
+    }
+  } else if (needsFullRecompute) {
+    // 🟡 OPTIMIZATION 2: Heavy evaluation engine for deletes/scope changes
+    await supabase.rpc('bulk_recalculate_profile_complete', { target_country: country })
+
+    if (countryScopeChanged) {
+      await supabase.rpc('bulk_recalculate_profile_complete', { target_country: oldCountry })
+    }
+  }
+  // 🔵 OPTIMIZATION 3: If they just edited question text, choices, types, or order, 
+  // both IF blocks are skipped entirely. Compute impact = Absolute Zero.
+
   revalidatePath('/dashboard/settings')
   return { success: true }
 }
@@ -224,10 +274,21 @@ export async function toggleTemplateStatus(id: string, currentStatus: 'active' |
   const supabase = createAdminClient()
   const nextStatus = currentStatus === 'active' ? 'inactive' : 'active'
 
+  const { data: tpl } = await (supabase
+    .from('intake_templates' as any)
+    .select('country')
+    .eq('id', id)
+    .single() as any)
+
   const { error } = await (supabase
     .from('intake_templates' as any)
     .update({ status: nextStatus })
     .eq('id', id) as any)
+
+  // ⚡ Activating or deactivating a form immediately triggers a bulk recompute for its target scope
+  if (!error && tpl) {
+    await supabase.rpc('bulk_recalculate_profile_complete', { target_country: tpl.country })
+  }
 
   revalidatePath('/dashboard/settings')
   return { error: error?.message || null }
@@ -237,7 +298,14 @@ export async function deleteTemplate(id: string) {
   await verifyAdminGate()
   const supabase = createAdminClient()
 
-  // 1. Find all question IDs belonging to this template
+  // 1. Fetch the target country before deleting to handle cache recalculation
+  const { data: tpl } = await (supabase
+    .from('intake_templates' as any)
+    .select('country')
+    .eq('id', id)
+    .single() as any)
+
+  // 2. Find all question IDs belonging to this template
   const { data: templateQuestions } = await (supabase
     .from('template_questions' as any)
     .select('id')
@@ -246,7 +314,7 @@ export async function deleteTemplate(id: string) {
   const questionIds = (templateQuestions || []).map((q: any) => q.id)
 
   if (questionIds.length > 0) {
-    // 2. Prevent deletion if any question has entries inside report_answers
+    // 3. Prevent deletion if any question has entries inside report_answers
     const { data: linkedAnswers, error: checkError } = await (supabase
       .from('report_answers' as any)
       .select('id')
@@ -262,11 +330,16 @@ export async function deleteTemplate(id: string) {
     }
   }
 
-  // 3. Safe to proceed with deletion if no answer relationships exist
+  // 4. Safe to proceed with deletion if no answer relationships exist
   const { error } = await (supabase
     .from('intake_templates' as any)
     .delete()
     .eq('id', id) as any)
+
+  // ⚡ 5. Deleting a form removes requirements, triggering a healing recomputation for that scope
+  if (!error && tpl) {
+    await supabase.rpc('bulk_recalculate_profile_complete', { target_country: tpl.country })
+  }
 
   if (error) return { error: error.message }
 

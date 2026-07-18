@@ -135,6 +135,7 @@ export const fr: Messages = {
   'children.registry.totalChildren': 'Total des enfants',
   'children.registry.active': 'Actif',
   'children.registry.inactive': 'Inactif',
+  'children.registry.missingFields': 'Champs manquants',
   'children.registry.countries': 'Pays',
   'children.registry.showing': 'Affichage',
   'children.registry.showingAll': 'Affichage de tous',

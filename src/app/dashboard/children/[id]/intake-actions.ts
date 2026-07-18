@@ -35,6 +35,20 @@ function buildServerFilename(childData: any, type: "photo" | "video", ext: strin
   return `${childData.id_rolf ? sanitize(childData.id_rolf) : "unknown"}_${childData.last_name ? sanitize(childData.last_name) : ""}_${childData.first_name ? sanitize(childData.first_name) : ""}_${type}_${dateStr}-${ms}${microfraction}.${ext.toLowerCase()}`
 }
 
+// ⚡ NEW: The highly optimized single-child RPC Evaluator
+export async function recalculateProfileComplete(childId: string) {
+  const supabase = await createClient()
+  
+  // Executes entirely inside the Supabase cluster (Zero network egress)
+  const { error } = await supabase.rpc('recalculate_profile_complete', {
+    target_child_id: childId
+  })
+
+  if (error) {
+    console.error("❌ Database RPC performance crash (recalculateProfileComplete):", error.message)
+  }
+}
+
 export async function getEligibleIntakeForms(childId: string, childCountry: string, dateJoinedStr: string | null, yearJoinedNum: number | null) {
   const supabase = await createClient()
 
@@ -78,10 +92,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     mediaByUrl[m.url] = m
   })
 
-  // Recent-profile-media suggestions: if the child's current profile photo /
-  // video was uploaded within the last month (e.g. at registration),
-  // pre-fill blank intake media questions with it so staff aren't asked to
-  // re-upload something they just provided. Staff can still remove/replace it.
   const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30
   const recentProfileMedia: Record<'photo' | 'video', { id: string; url: string; createdAt: string } | null> = {
     photo: null,
@@ -116,12 +126,10 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
   const previousYear = currentYear - 1
 
   const eligibleForms = templates.map((tpl: any) => {
-    // ⚡ Status Gate: Inactive forms are explicitly discarded
     if (tpl.status === 'inactive') return null
 
     const isTargetRegion = tpl.country === 'all' || tpl.country === childCountry
     
-    // ⚡ Timeline Gate: Evaluate strictly using calendar year comparison from year_joined
     const templateCreatedAt = new Date(tpl.created_at)
     const templateYear = templateCreatedAt.getFullYear()
     const isTimelineEligible = !yearJoinedNum || templateYear >= yearJoinedNum
@@ -147,10 +155,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
         componentViewAnswers[q.id] = savedData?.url || savedData?.value || ""
         if (savedData?.mediaId) componentMediaIds[q.id] = savedData.mediaId
 
-        // Profile-update questions with no saved answer yet → offer the recent
-        // profile upload as the answer. Library questions ("photo of the child
-        // playing", etc.) always start blank — the profile photo would be a
-        // wrong suggestion there.
         if (!componentViewAnswers[q.id] && isProfileFieldType(q.field_type)) {
           const suggestion = q.field_type === 'profile_photo' ? recentProfileMedia.photo : recentProfileMedia.video
           if (suggestion) {
@@ -188,7 +192,6 @@ export async function getEligibleIntakeForms(childId: string, childCountry: stri
     eligibleForms[0].isLatest = true
   }
 
-  // ⚡ Target Window Completeness Verification: Ensure ALL forms within the current year and previous calendar year are fully finished
   const targetWindowForms = eligibleForms.filter(
     (form: any) => form.templateYear === currentYear || form.templateYear === previousYear
   )
@@ -298,8 +301,6 @@ export async function saveIntakeFormAction(
 
     let finalAnswerValue = clientValue
     const isMediaField = isMediaFieldType(q.field_type)
-    // Profile-update question types assign the media as the child's profile
-    // photo / video on save; library media types never touch the profile.
     const isProfileField = isProfileFieldType(q.field_type)
     const determinedType = isVideoFieldType(q.field_type) ? 'video' : 'photo'
 
@@ -315,10 +316,6 @@ export async function saveIntakeFormAction(
           finalAnswerValue = oldRawValue
           markProfileAssignment(finalAnswerValue)
         } else if (mediaIdByUrl[clientValue]) {
-          // The URL already belongs to a catalogued media record for this child
-          // (e.g. a pre-filled recent profile upload) — link it instead of
-          // inserting a duplicate, which would violate the unique
-          // gdrive_file_id constraint anyway.
           finalAnswerValue = mediaIdByUrl[clientValue]
           markProfileAssignment(finalAnswerValue)
         } else {
@@ -438,6 +435,9 @@ export async function saveIntakeFormAction(
 
     if (upsertErr) return { error: `Failed saving sub-answers ledger: ${upsertErr.message}` }
   }
+
+  // ⚡ NEW: Heal the profile cache right before path revalidation
+  await recalculateProfileComplete(childId)
 
   revalidatePath(`/dashboard/children/${childId}`)
   return { error: null }

@@ -21,6 +21,7 @@ export function StatusFilter() {
     { value: "all", label: t("children.filters.all") },
     { value: "active", label: t("children.registry.active") },
     { value: "inactive", label: t("children.registry.inactive") },
+    { value: "incomplete", label: t("children.registry.missingFields") },
   ]
 
   return (
