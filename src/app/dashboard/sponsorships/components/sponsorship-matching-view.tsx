@@ -64,7 +64,8 @@ export function SponsorshipMatchingView({
   sponsors,
   currentSponsorships,
   pool,
-}: SponsorshipMatchingViewProps) {
+  countries, // ⚡ ADDED: Receives master country array from server page wrapper
+}: SponsorshipMatchingViewProps & { countries: string[] }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -91,9 +92,9 @@ export function SponsorshipMatchingView({
   }, [sponsors])
 
   const childById = useMemo(() => new Map(pool.map((child) => [child.id, child])), [pool])
-  const countries = Array.from(
-    new Set(pool.flatMap((child) => (child.country ? [child.country] : []))),
-  ).sort()
+  
+  // ⚡ REMOVED: Static inline extraction array fallback has been dropped to maintain master table sync
+
   const matchedSponsor = contact.email ? sponsorByEmail.get(normalizeEmail(contact.email)) ?? null : null
   const loadedSponsor = prefilledSponsorId ? matchedSponsor : null
   const longestWaitId = sortChildrenForRequest(pool, 'longest_wait')[0]?.id ?? ''
