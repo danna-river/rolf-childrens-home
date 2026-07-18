@@ -4,6 +4,8 @@ import { useState, useEffect, useTransition } from "react"
 import { resolveVideo } from "@/lib/childMedia"
 import { PlayCircleIcon, ChevronLeftIcon, ChevronRightIcon, XIcon, UserCircleIcon, CheckCircle2Icon } from "lucide-react"
 import { setProfileMediaAction } from "../media-actions"
+import { enrollChildProfilePhoto } from "@/lib/face/enroll"
+import { useTranslations } from "@/i18n/client"
 
 export interface MediaItem {
     id: string
@@ -24,8 +26,10 @@ function mediaThumbnailUrl(mediaId: string): string {
 }
 
 export function LibraryViewer({ childId, mediaLibrary }: Props) {
+    const t = useTranslations()
     const [activeItem, setActiveItem] = useState<MediaItem | null>(null)
     const [isPending, startTransition] = useTransition()
+    const [indexingFace, setIndexingFace] = useState(false)
 
     // Handle keyboard navigation
     useEffect(() => {
@@ -93,20 +97,30 @@ export function LibraryViewer({ childId, mediaLibrary }: Props) {
 
         startTransition(async () => {
             const res = await setProfileMediaAction(
-                childId, 
-                activeItem.id, 
+                childId,
+                activeItem.id,
                 activeItem.media_type as 'photo' | 'video'
             )
-            
+
             if (res.error) {
                 alert(res.error)
-            } else {
-                // Optimistically update UI so it snaps to "Current" instantly
-                setActiveItem({ 
-                    ...activeItem, 
-                    usage_type: activeItem.media_type === 'photo' ? 'profile_picture' : 'profile_video' 
-                })
+                return
             }
+
+            // Swapping the profile photo dropped the old face template (DB
+            // trigger), so index the new one now; a failure here just leaves
+            // the child in the admin backfill queue.
+            if (activeItem.media_type === 'photo') {
+                setIndexingFace(true)
+                await enrollChildProfilePhoto(childId)
+                setIndexingFace(false)
+            }
+
+            // Optimistically update UI so it snaps to "Current" instantly
+            setActiveItem({
+                ...activeItem,
+                usage_type: activeItem.media_type === 'photo' ? 'profile_picture' : 'profile_video'
+            })
         })
     }
 
@@ -175,7 +189,7 @@ export function LibraryViewer({ childId, mediaLibrary }: Props) {
                                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold tracking-wide transition-all cursor-pointer disabled:opacity-50"
                             >
                                 <UserCircleIcon className="size-4" />
-                                {isPending ? 'Updating...' : `Set as Profile ${activeItem.media_type === 'photo' ? 'Picture' : 'Video'}`}
+                                {indexingFace ? t('children.faceSearch.indexing') : isPending ? 'Updating...' : `Set as Profile ${activeItem.media_type === 'photo' ? 'Picture' : 'Video'}`}
                             </button>
                         )}
                     </div>

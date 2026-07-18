@@ -522,6 +522,11 @@ export type Database = {
           templates_unsearchable: number
         }[]
       }
+      // Service-role only (admin digest cron); browser roles cannot execute it.
+      get_face_enrollment_pending_count: {
+        Args: { expected_model_version: string }
+        Returns: number
+      }
       reserve_mobile_rolf_ids: {
         Args: { p_device_id: string; p_user_id: string; p_country: string; p_count?: number }
         Returns: { id_rolf: string; expires_at: string }[]

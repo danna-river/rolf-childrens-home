@@ -9,6 +9,7 @@ create table if not exists public.heartbeat (
 
 -- RLS on with no policies: only the service role (used by the cron) can touch it.
 alter table public.heartbeat enable row level security;
+grant select, insert, update on table public.heartbeat to service_role;
 
 insert into public.heartbeat (id, beat_at)
 values (1, now())

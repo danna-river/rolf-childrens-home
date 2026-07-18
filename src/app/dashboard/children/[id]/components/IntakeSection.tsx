@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { saveIntakeFormAction } from '../intake-actions'
+import { enrollChildProfilePhoto } from '@/lib/face/enroll'
 import { MediaPicker } from '../../components/MediaPicker'
 import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, ChevronDownIcon, FileTextIcon, PlayCircleIcon, CheckIcon, CircleUserRoundIcon, PencilIcon, LockIcon, ClockIcon, TriangleAlertIcon } from 'lucide-react'
 import { resolvePhotoSrc, resolveVideoThumbnail } from '@/lib/childMedia'
@@ -98,6 +99,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
   const QUESTIONS_PER_PAGE = 8
 
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [indexingFace, setIndexingFace] = useState(false)
   const [numericErrors, setNumericErrors] = useState<Record<string, boolean>>({})
 
   if (eligibleForms.length === 0) {
@@ -220,6 +222,15 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
         setStagedFileIds(prev => ({ ...prev, [activeForm.id]: [] }))
         setUnlockedFields({})
         setTimeout(() => setSaveStatus(null), 4000)
+
+        // The save assigned a new profile photo, which dropped the old face
+        // template (DB trigger) — index the new photo on this device. A failure
+        // just leaves the child in the admin backfill queue.
+        if (res.profilePhotoChanged) {
+          setIndexingFace(true)
+          await enrollChildProfilePhoto(childId)
+          setIndexingFace(false)
+        }
       }
     })
   }
@@ -636,7 +647,7 @@ export function IntakeSection({ childId, eligibleForms, latestCompleted }: Intak
               className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal px-8 py-3.5 text-base font-bold text-white shadow-2xs transition-all hover:bg-teal/90 disabled:opacity-40"
             >
               <SaveIcon className="size-5" />
-              <span>{isPending ? t('children.intake.saving') : t('children.intake.saveChoices')}</span>
+              <span>{indexingFace ? t('children.faceSearch.indexing') : isPending ? t('children.intake.saving') : t('children.intake.saveChoices')}</span>
             </button>
           </div>
 
