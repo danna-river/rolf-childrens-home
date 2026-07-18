@@ -7,6 +7,7 @@ import type { Locale } from "@/i18n/config"
 // Extend ChildProfile inline to smoothly accept the server-injected state attribute
 type ExtendedChildProfile = ChildProfile & {
   hasMissingFields?: boolean
+  isAdult?: boolean
 }
 
 const avatarPalette = [
@@ -167,6 +168,26 @@ function MissingFieldsBadge({ compact, label }: { compact?: boolean; label: stri
   )
 }
 
+function AdultBadge({ compact }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <span
+        aria-label="18+"
+        className="inline-flex size-6 shrink-0 items-center justify-center font-[var(--font-nunito)] text-sm font-extrabold text-amber-600"
+        title="18+"
+      >
+        18+
+      </span>
+    )
+  }
+
+  return (
+    <span className="font-sans inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700 animate-fade-in shadow-3xs shrink-0">
+      <span>18+</span>
+    </span>
+  )
+}
+
 export default function ProfileCard({
   profile,
   labels = DEFAULT_LABELS,
@@ -179,6 +200,7 @@ export default function ProfileCard({
   const name = childName(profile, labels)
   const isActive = profile.status === "active"
   const isMissingFieldsAlertActive = isActive && !!profile.hasMissingFields
+  const isAdultActive = !!profile.isAdult
   const birthdate = birthdateLabel(profile, locale)
   const age = typeof profile.age === "number" && profile.age >= 0 ? labels.yearsShort.replace("{age}", String(profile.age)) : labels.unknownAge
   const ageValue = birthdate ? `${age} · ${birthdate}` : age
@@ -210,6 +232,7 @@ export default function ProfileCard({
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <div className="flex items-center gap-1.5 justify-end">
+              {isAdultActive && <AdultBadge compact />}
               {isMissingFieldsAlertActive && <MissingFieldsBadge compact label={labels.missingFields} />}
               <StatusBadge isActive={isActive} labels={labels} />
             </div>
@@ -257,6 +280,7 @@ export default function ProfileCard({
         <p className="truncate text-sm text-navy/70">{lastUpdated}</p>
         {/* Status + Edit */}
         <div className="flex items-center gap-2 whitespace-nowrap">
+          {isAdultActive && <AdultBadge />}
           {isMissingFieldsAlertActive && <MissingFieldsBadge label={labels.missingFields} />}
           <StatusBadge isActive={isActive} labels={labels} />
           <Link

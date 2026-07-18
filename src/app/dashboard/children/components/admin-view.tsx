@@ -67,7 +67,8 @@ export async function AdminView({
   // ⚡ Directly map the cached database flag into your ProfileList layout
   const augmentedProfiles = (profiles ?? []).map((profile: any) => ({
     ...profile,
-    hasMissingFields: profile.status === 'inactive' ? false : !profile.profile_complete && !profile.profileComplete
+    hasMissingFields: profile.status === 'inactive' ? false : !profile.profile_complete && !profile.profileComplete,
+    isAdult: profile.isAdult
   }))
 
   return (

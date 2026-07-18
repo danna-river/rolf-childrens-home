@@ -133,6 +133,33 @@ export async function getChildrenRegistryStats(
   }
 }
 
+function evaluateIsAdult(birthYear: number | null, birthMonth: number | null, birthDay: number | null): boolean {
+  if (!birthYear) return false
+  
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const currentDay = now.getDate()
+  const targetYear = birthYear + 18
+
+  if (birthMonth && birthDay) {
+    if (currentYear > targetYear) return true
+    if (currentYear === targetYear) {
+      if (currentMonth > birthMonth) return true
+      if (currentMonth === birthMonth) return currentDay >= birthDay
+    }
+    return false
+  }
+
+  if (birthMonth) {
+    if (currentYear > targetYear) return true
+    if (currentYear === targetYear) return currentMonth > birthMonth
+    return false
+  }
+
+  return currentYear > targetYear
+}
+
 export async function getChildrenProfiles(
   countries?: string[],
   search?: string,
@@ -150,7 +177,7 @@ export async function getChildrenProfiles(
     *,
     profile_photo:child_media!fk_children_profile_photo(url),
     profile_video:child_media!fk_children_profile_video(url)
-  `, { count: 'exact' })
+  `)
 
   if (countries && countries.length > 0) {
     query = query.in('country', countries)
@@ -172,6 +199,8 @@ export async function getChildrenProfiles(
     query = query.eq('profile_complete', true).eq('status', 'active')
   } else if (status === 'incomplete') {
     query = query.eq('profile_complete', false).eq('status', 'active')
+  } else if (status === 'adults') {
+    query = query.lte('birth_year', new Date().getFullYear() - 18).eq('status', 'active')
   }
 
   if (yearJoined === 'unknown') {
@@ -218,9 +247,7 @@ export async function getChildrenProfiles(
     query = query.order('first_name', { ascending: true })
   }
 
-  const from = (page - 1) * PAGE_SIZE
-  const to = from + PAGE_SIZE - 1
-  const { data, error, count } = await query.range(from, to)
+  const { data, error } = await query
 
   if (error) {
     console.error('❌ FETCH ACTIONS: Failed to query children registry:', error.message)
@@ -245,9 +272,16 @@ export async function getChildrenProfiles(
     profilePictureURL: row.profile_photo?.url || '', // 👈 Pulls the nested url path cleanly!
     status: row.status || 'active',
     profile_complete: row.profile_complete, // ⚡ ADDED
+    isAdult: evaluateIsAdult(row.birth_year, row.birth_month, row.birth_day),
   }))
 
-  return { profiles: formattedProfiles, error: null, total: count ?? 0 }
+  const finalFiltered = status === 'adults' ? formattedProfiles.filter((p: any) => p.isAdult) : formattedProfiles
+
+  const totalCount = finalFiltered.length
+  const startIndex = (page - 1) * PAGE_SIZE
+  const paginatedProfiles = finalFiltered.slice(startIndex, startIndex + PAGE_SIZE)
+
+  return { profiles: paginatedProfiles, error: null, total: totalCount }
 }
 
 export function calculateAge(year: number | null, month: number | null, day: number | null): number {
