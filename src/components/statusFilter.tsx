@@ -22,6 +22,7 @@ export function StatusFilter() {
     { value: "active", label: t("children.registry.active") },
     { value: "inactive", label: t("children.registry.inactive") },
     { value: "incomplete", label: t("children.registry.missingFields") },
+    { value: "adults", label: "Active 18+" },
   ]
 
   return (
