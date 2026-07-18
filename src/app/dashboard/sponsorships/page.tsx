@@ -14,7 +14,7 @@ import type {
   SponsorshipPoolChild,
   UnmatchedSinceSource,
 } from '@/app/dashboard/sponsorships/components/sponsorship-matching-types'
-import { calculateAge } from '@/components/actions'
+import { calculateAge, getCountries } from '@/components/actions'
 
 type SponsorshipHistoryRow = {
   child_id: string | null
@@ -36,7 +36,7 @@ export default async function SponsorshipsPage() {
     .eq('status', 'active')
     .lt('end_date', today)
 
-  const [sponsorsResult, sponsorshipsResult, childrenResult, historyResult] = await Promise.all([
+  const [sponsorsResult, sponsorshipsResult, childrenResult, historyResult, staticCountries] = await Promise.all([
     adminSupabase
       .from('sponsors')
       .select('id, full_name, email, phone, contact_type, receipt_preference, notes, profile_id, created_at')
@@ -67,6 +67,7 @@ export default async function SponsorshipsPage() {
       .select('child_id, start_date, end_date')
       .eq('status', 'ended')
       .not('child_id', 'is', null),
+    getCountries(),
   ])
 
   const sponsors = (sponsorsResult.data ?? []) as Sponsor[]
@@ -131,6 +132,7 @@ export default async function SponsorshipsPage() {
         sponsors={sponsors}
         currentSponsorships={currentSponsorships}
         pool={pool}
+        countries={staticCountries}
       />
     </main>
   )
