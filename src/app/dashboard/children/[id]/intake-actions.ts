@@ -209,7 +209,9 @@ export async function saveIntakeFormAction(
   formTitle: string,
   newAnswers: Record<string, string>,
   stagedDriveFileIds?: string[]
-) {
+  // profilePhotoChanged tells the caller to run face enrollment on its device:
+  // the profile-photo DB trigger just dropped the old face template.
+): Promise<{ error: string | null; profilePhotoChanged?: boolean }> {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -374,6 +376,9 @@ export async function saveIntakeFormAction(
     })
   }
 
+  const profilePhotoChanged =
+    Boolean(assignedProfilePhotoUuid) && assignedProfilePhotoUuid !== childData.profile_photo
+
   if (assignedProfilePhotoUuid || assignedProfileVideoUuid) {
     const adminSupabase = await createAdminClient()
     const childUpdatePayload: { profile_photo?: string | null; profile_video?: string | null } = {}
@@ -440,5 +445,5 @@ export async function saveIntakeFormAction(
   await recalculateProfileComplete(childId)
 
   revalidatePath(`/dashboard/children/${childId}`)
-  return { error: null }
+  return { error: null, profilePhotoChanged }
 }

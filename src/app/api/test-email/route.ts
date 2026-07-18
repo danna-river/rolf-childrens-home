@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   const results = await Promise.allSettled([
     sendRegistrationReceivedEmail(to, "Test User"),
-    sendPendingAccountsDigest([to], 2, appUrl),
+    sendPendingAccountsDigest([to], 2, 3, appUrl),
     sendAccountApprovedEmail(to, "Test User", "staff", appUrl),
     sendAccountDeniedEmail(to, "Test User"),
     sendPasswordChangedEmail(to, "Test User"),

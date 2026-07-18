@@ -8,7 +8,7 @@ import { PenPalSection } from './components/PenPalSection'
 import { LibraryViewer, type MediaItem } from './components/LibraryViewer'
 import { getEligibleIntakeForms } from './intake-actions'
 import { calculateAge } from '@/components/actions'
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowLeftIcon, PrinterIcon } from 'lucide-react'
 import { ensureBioIncludesAgeAndCountry, homeDurationFromDate, splitBioClosing } from '@/lib/bio'
 import { resolvePhotoSrc, resolveVideo } from '@/lib/childMedia'
 import type { Child, ChildWithMediaRefs, SponsorshipFrequency } from '@/lib/types'
@@ -442,6 +442,15 @@ export default async function ChildProfilePage({
           <span>{t(messages, 'children.detail.backRegistry')}</span>
         </Link>
         <div className="flex-1" />
+        {profile.role === 'admin' && (
+          <Link
+            href={`/print/children/${id}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-stone bg-white px-4 py-2 text-sm font-bold text-navy shadow-2xs transition-all hover:bg-ice sm:px-5 sm:py-2.5 sm:text-base"
+          >
+            <PrinterIcon className="size-4 sm:size-5" aria-hidden="true" />
+            {t(messages, 'children.detail.printTemplate')}
+          </Link>
+        )}
         <Link
           href={`/dashboard/children/${id}/edit`}
           className="rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white shadow-2xs transition-all hover:bg-teal/90 sm:px-5 sm:py-2.5 sm:text-base"

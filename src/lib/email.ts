@@ -98,26 +98,46 @@ export async function sendRegistrationReceivedEmail(to: string, fullName: string
 }
 
 // ---------------------------------------------------------------------------
-// 2. Daily digest of accounts awaiting approval → admins
-//    Sent once a day (only when count > 0) instead of one email per signup.
+// 2. Daily digest of items awaiting admin action → admins
+//    Sent once a day (only when something is pending) instead of one email per
+//    event. Covers accounts awaiting approval and profile photos awaiting face
+//    enrollment (photos set server-side — e.g. mobile sync — are only indexed
+//    by the manual backfill in Settings, so admins must be told it has work).
 // ---------------------------------------------------------------------------
 
 export async function sendPendingAccountsDigest(
   adminEmails: string[],
-  count: number,
+  pendingAccounts: number,
+  pendingFacePhotos: number,
   appUrl: string,
 ) {
-  if (adminEmails.length === 0 || count < 1) return
-  const isOne = count === 1
+  if (adminEmails.length === 0 || (pendingAccounts < 1 && pendingFacePhotos < 1)) return
+
+  const parts: string[] = []
+  const sections: string[] = []
+  if (pendingAccounts > 0) {
+    const isOne = pendingAccounts === 1
+    parts.push(`${pendingAccounts} account${isOne ? "" : "s"} awaiting approval`)
+    sections.push(
+      `<p><strong>${pendingAccounts}</strong> ${isOne ? "account is" : "accounts are"} waiting for your review. Approve or deny access from the settings page.</p>`,
+    )
+  }
+  if (pendingFacePhotos > 0) {
+    const isOne = pendingFacePhotos === 1
+    parts.push(`${pendingFacePhotos} photo${isOne ? "" : "s"} awaiting face indexing`)
+    sections.push(
+      `<p><strong>${pendingFacePhotos}</strong> profile photo${isOne ? "" : "s"} ${isOne ? "is" : "are"} not yet indexed for face search. Run the enrollment backfill under Settings &rarr; Face Search so ${isOne ? "this child stays" : "these children stay"} findable by photo.</p>`,
+    )
+  }
+
   const body = `
-    <p><strong>${count}</strong> ${isOne ? "account is" : "accounts are"} waiting for your review.</p>
-    <p>Visit the settings page to approve or deny access.</p>
+    ${sections.join("\n")}
     ${btn(`${appUrl}/dashboard/settings`, "Review in Dashboard")}
   `
   return deliver({
     to: adminEmails,
-    subject: `${count} account${isOne ? "" : "s"} awaiting approval`,
-    html: layout("Accounts Awaiting Approval", body),
+    subject: parts.join(" · "),
+    html: layout("Awaiting Admin Review", body),
   })
 }
 
