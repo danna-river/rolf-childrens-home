@@ -6,6 +6,7 @@ grant select, insert, update, delete on table public.child_media to authenticate
 grant select, insert, update, delete on table public.child_media to service_role;
 
 drop policy if exists "child_media: admin all" on public.child_media;
+drop policy if exists "Allow authenticated users read access to child_media" on public.child_media;
 drop policy if exists "child_media: donor assigned approved read" on public.child_media;
 drop policy if exists "child_media: donor assigned profile media read" on public.child_media;
 drop policy if exists "child_media: staff country" on public.child_media;

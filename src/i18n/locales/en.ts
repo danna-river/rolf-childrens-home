@@ -6,6 +6,7 @@ export const en = {
   'nav.sponsorships': 'Sponsorships',
   'nav.matches': 'Matches',
   'nav.messages': 'Messages',
+  'nav.androidApp': 'Android App',
   'nav.settings': 'Settings',
   'menu.open': 'Open menu',
   'menu.close': 'Close menu',
@@ -40,6 +41,28 @@ export const en = {
   'dashboard.unapproved.subtitle': 'Awaiting administrator authorization',
   'dashboard.unapproved.description':
     'Your credentials were registered successfully. An administrator must assign you a role before you can access the dashboard.',
+
+  // Staff/admin Android app download
+  'mobileApp.badge': 'Staff mobile tools',
+  'mobileApp.title': 'Android App',
+  'mobileApp.blurb':
+    'The ROLF Field app is for Android phones only; it does not work on iPhone. Downloads are limited, so each country should use one approved field phone unless an administrator approves another device.',
+  'mobileApp.latestVersion': 'Latest version',
+  'mobileApp.releaseDate': 'Release date',
+  'mobileApp.requirement': 'Requirement',
+  'mobileApp.connection': 'Connection',
+  'mobileApp.wifiRequired': 'Wi-Fi required',
+  'mobileApp.build': 'build',
+  'mobileApp.notConfigured': 'Not configured',
+  'mobileApp.download': 'Download Android App',
+  'mobileApp.installTitle': 'Install instructions',
+  'mobileApp.installStep1': 'Open this page on the approved Android phone for your country.',
+  'mobileApp.installStep2': 'Tap Download Android App and wait for the APK file to finish downloading.',
+  'mobileApp.installStep3': 'If Android asks, allow installs from this browser for this one installation.',
+  'mobileApp.installStep4': 'Open ROLF Field, sign in with your approved staff account, and sync only when connected to Wi-Fi.',
+  'mobileApp.syncTitle': 'How sync works',
+  'mobileApp.syncDescription':
+    'The phone saves field changes locally first. To prevent conflicts during data uploads, use only one Android phone per country and sync only when connected to Wi-Fi. Sync sends updates securely to the web dashboard and brings down the latest child records for the staff member’s assigned countries.',
 
   // Settings → Interface language switcher
   'settings.language.title': 'Interface Language',

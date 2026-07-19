@@ -8,6 +8,7 @@ export const fr: Messages = {
   'nav.sponsorships': 'Parrainages',
   'nav.matches': 'Jumelages',
   'nav.messages': 'Messages',
+  'nav.androidApp': 'Application Android',
   'nav.settings': 'Paramètres',
   'menu.open': 'Ouvrir le menu',
   'menu.close': 'Fermer le menu',
@@ -42,6 +43,28 @@ export const fr: Messages = {
   'dashboard.unapproved.subtitle': 'En attente de l’autorisation d’un administrateur',
   'dashboard.unapproved.description':
     'Vos identifiants ont bien été enregistrés. Un administrateur doit vous attribuer un rôle avant que vous puissiez accéder au tableau de bord.',
+
+  // Staff/admin Android app download
+  'mobileApp.badge': 'Outils mobiles du personnel',
+  'mobileApp.title': 'Application Android',
+  'mobileApp.blurb':
+    "L'application ROLF Field est réservée aux téléphones Android; elle ne fonctionne pas sur iPhone. Les téléchargements sont limités; chaque pays doit donc utiliser un seul téléphone de terrain approuvé, sauf accord d'un administrateur.",
+  'mobileApp.latestVersion': 'Dernière version',
+  'mobileApp.releaseDate': 'Date de publication',
+  'mobileApp.requirement': 'Configuration requise',
+  'mobileApp.connection': 'Connexion',
+  'mobileApp.wifiRequired': 'Wi-Fi requis',
+  'mobileApp.build': 'build',
+  'mobileApp.notConfigured': 'Non configuré',
+  'mobileApp.download': "Télécharger l'application Android",
+  'mobileApp.installTitle': "Instructions d'installation",
+  'mobileApp.installStep1': 'Ouvrez cette page sur le téléphone Android approuvé pour votre pays.',
+  'mobileApp.installStep2': "Touchez Télécharger l'application Android et attendez la fin du téléchargement du fichier APK.",
+  'mobileApp.installStep3': "Si Android le demande, autorisez les installations depuis ce navigateur pour cette installation.",
+  'mobileApp.installStep4': 'Ouvrez ROLF Field, connectez-vous avec votre compte personnel approuvé, puis synchronisez seulement quand vous êtes connecté au Wi-Fi.',
+  'mobileApp.syncTitle': 'Fonctionnement de la synchronisation',
+  'mobileApp.syncDescription':
+    "Le téléphone enregistre d'abord les changements localement. Pour éviter les conflits lors de l'envoi des données, utilisez un seul téléphone Android par pays et synchronisez seulement quand vous êtes connecté au Wi-Fi. La synchronisation envoie les mises à jour au tableau de bord de façon sécurisée et récupère les derniers dossiers des enfants pour les pays assignés au membre du personnel.",
 
   // Settings → Interface language switcher
   'settings.language.title': "Langue de l'interface",
