@@ -12,7 +12,11 @@ export async function GET(request: NextRequest) {
   // Vercel Cron includes `Authorization: Bearer ${CRON_SECRET}` when CRON_SECRET
   // is set. Reject anything else so the endpoint can't be triggered publicly.
   const secret = process.env.CRON_SECRET
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret) {
+    console.error("[digest] CRON_SECRET is not configured; refusing cron request.")
+    return NextResponse.json({ error: "Cron secret is not configured" }, { status: 500 })
+  }
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

@@ -4,7 +4,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
-import { isAdminRole } from '@/lib/profiles'
+import { isAdminRole, isStaffRole } from '@/lib/profiles'
 import type { Child, ChildWithMediaRefs, EditLogChange } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 import { commitStagedFilesToCountry } from '@/lib/googleDrive'
@@ -52,6 +52,11 @@ function buildActionFilename(
   ].filter(Boolean)
 
   return `${parts.join("_")}.${ext.toLowerCase()}`
+}
+
+function canManageChildCountry(profile: { role: string; country: string[] | null }, country: string | null): boolean {
+  if (isAdminRole(profile.role)) return true
+  return isStaffRole(profile.role) && Boolean(country && (profile.country ?? []).includes(country))
 }
 
 export async function getLatestIdPreviewForEdit(countryName: string): Promise<{ previewId: string | null }> {
@@ -403,7 +408,11 @@ export async function updateChildAction(
 
 export async function deleteLibraryItemAction(mediaId: string): Promise<{ error: string | null }> {
   try {
-    await requireAuth()
+    const { profile } = await requireAuth()
+    if (!isAdminRole(profile.role) && !isStaffRole(profile.role)) {
+      return { error: "Unauthorized" }
+    }
+
     const adminSupabase = await createAdminClient()
 
     const { data: mediaRow } = await adminSupabase
@@ -414,6 +423,18 @@ export async function deleteLibraryItemAction(mediaId: string): Promise<{ error:
 
     if (!mediaRow) return { error: "Media item could not be found." }
 
+    const { data: child } = await adminSupabase
+      .from('children')
+      .select('id, country, profile_photo, profile_video')
+      .eq('id', mediaRow.child_id)
+      .maybeSingle()
+
+    if (!child) return { error: "Media item could not be found." }
+    if (!canManageChildCountry(profile, child.country)) {
+      return { error: "Unauthorized" }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- report_answers is not in the generated Database schema yet.
     const { error: clearAnswerErr } = await (adminSupabase as any)
       .from('report_answers')
       .update({ answer_value: "" })
@@ -423,25 +444,19 @@ export async function deleteLibraryItemAction(mediaId: string): Promise<{ error:
       console.error("⚠️ Failed to cascade clear media reference out of report_answers:", clearAnswerErr.message)
     }
 
-    const { data: linkedChild } = await adminSupabase
-      .from('children')
-      .select('id, profile_photo, profile_video')
-      .or(`profile_photo.eq.${mediaId},profile_video.eq.${mediaId}`)
-      .maybeSingle()
-
-    if (linkedChild) {
-      if (linkedChild.profile_photo === mediaId) {
+    if (child.profile_photo === mediaId || child.profile_video === mediaId) {
+      if (child.profile_photo === mediaId) {
         await adminSupabase
           .from('children')
           .update({ profile_photo: null })
-          .eq('id', linkedChild.id)
+          .eq('id', child.id)
       }
 
-      if (linkedChild.profile_video === mediaId) {
+      if (child.profile_video === mediaId) {
         await adminSupabase
           .from('children')
           .update({ profile_video: null })
-          .eq('id', linkedChild.id)
+          .eq('id', child.id)
       }
     }
 

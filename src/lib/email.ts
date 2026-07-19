@@ -12,13 +12,38 @@ const FROM = process.env.RESEND_FROM ?? "ROLF Children's Home <noreply@childrens
 // Shared layout
 // ---------------------------------------------------------------------------
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+function safeHref(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.startsWith("/")) return escapeHtml(trimmed)
+
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol === "https:" || url.protocol === "http:") {
+      return escapeHtml(url.toString())
+    }
+  } catch {
+    // Fall through to a non-navigating link.
+  }
+
+  return "#"
+}
+
 function layout(title: string, bodyHtml: string) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f8f8fa;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f8fa;padding:40px 0;">
@@ -54,7 +79,7 @@ function layout(title: string, bodyHtml: string) {
 }
 
 function btn(href: string, label: string) {
-  return `<a href="${href}" style="display:inline-block;margin-top:20px;padding:12px 28px;background:#3CB6B2;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">${label}</a>`
+  return `<a href="${safeHref(href)}" style="display:inline-block;margin-top:20px;padding:12px 28px;background:#3CB6B2;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">${escapeHtml(label)}</a>`
 }
 
 // Central send wrapper. Resend returns errors as a value (not a throw), so we
@@ -85,7 +110,7 @@ async function deliver(args: { to: string | string[]; subject: string; html: str
 
 export async function sendRegistrationReceivedEmail(to: string, fullName: string) {
   const body = `
-    <p>Hi ${fullName},</p>
+    <p>Hi ${escapeHtml(fullName)},</p>
     <p>Thank you for registering with ROLF Children&rsquo;s Home. Your account request has been received and is currently pending review by our administrative team.</p>
     <p>You will receive another email once your account has been approved. If you have any questions, please reach out to your ROLF contact directly.</p>
     <p style="color:#888;font-size:13px;margin-top:32px;">If you did not create this account, you can safely ignore this email.</p>
@@ -151,9 +176,9 @@ export async function sendAccountApprovedEmail(
   role: string,
   appUrl: string,
 ) {
-  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
+  const roleLabel = escapeHtml(role.charAt(0).toUpperCase() + role.slice(1))
   const body = `
-    <p>Hi ${fullName},</p>
+    <p>Hi ${escapeHtml(fullName)},</p>
     <p>Great news &mdash; your ROLF Children&rsquo;s Home account has been approved. You can now log in and access the platform as a <strong>${roleLabel}</strong>.</p>
     ${btn(`${appUrl}/login`, "Log In to ROLF")}
     <p style="color:#888;font-size:13px;margin-top:32px;">If you have any questions, please contact your ROLF administrator.</p>
@@ -171,7 +196,7 @@ export async function sendAccountApprovedEmail(
 
 export async function sendAccountDeniedEmail(to: string, fullName: string) {
   const body = `
-    <p>Hi ${fullName},</p>
+    <p>Hi ${escapeHtml(fullName)},</p>
     <p>After review, we were unable to approve your ROLF Children&rsquo;s Home account request at this time.</p>
     <p>If you believe this is an error or would like more information, please reach out to your ROLF contact directly.</p>
   `
@@ -188,7 +213,7 @@ export async function sendAccountDeniedEmail(to: string, fullName: string) {
 
 export async function sendPasswordChangedEmail(to: string, fullName: string) {
   const body = `
-    <p>Hi ${fullName},</p>
+    <p>Hi ${escapeHtml(fullName)},</p>
     <p>This is a confirmation that your ROLF Children&rsquo;s Home account password was recently changed.</p>
     <p>If you made this change, no action is needed.</p>
     <p style="color:#c0392b;font-size:14px;"><strong>If you did not change your password</strong>, please contact your ROLF administrator immediately.</p>
@@ -210,7 +235,7 @@ export async function sendSponsorInvitationEmail(
   appUrl: string,
 ) {
   const body = `
-    <p>Hi ${sponsorName},</p>
+    <p>Hi ${escapeHtml(sponsorName)},</p>
     <p>You&rsquo;ve been set up as a sponsor in the ROLF Children&rsquo;s Home system. We warmly invite you to create your donor portal account, where you can view updates about the child you are sponsoring.</p>
     ${btn(`${appUrl}/login`, "Access the Donor Portal")}
     <p style="color:#888;font-size:13px;margin-top:32px;">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
+import { escapeCSVValue } from '@/lib/csv'
 import { isAdminRole } from '@/lib/profiles'
 
 // 1. Explicitly type our schema-matched entities to defeat 'never[]' inference
@@ -32,12 +33,6 @@ async function verifyAdminGate() {
   if (!isAdminRole(profile.role)) {
     throw new Error('Unauthorized: Administrative clearance required.')
   }
-}
-
-function escapeCSVValue(val: any): string {
-  if (val === null || val === undefined) return ''
-  const str = String(val)
-  return `"${str.replace(/"/g, '""')}"`
 }
 
 export async function GET(request: NextRequest) {
@@ -189,7 +184,8 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `attachment; filename="intake_form_export_${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Unauthorized' }, { status: 403 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unauthorized'
+    return NextResponse.json({ error: message }, { status: 403 })
   }
 }

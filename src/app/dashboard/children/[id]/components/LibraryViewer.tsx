@@ -19,13 +19,14 @@ export interface MediaItem {
 interface Props {
     childId: string 
     mediaLibrary: MediaItem[]
+    canManageProfileMedia?: boolean
 }
 
 function mediaThumbnailUrl(mediaId: string): string {
     return `/api/media/${mediaId}/thumbnail`
 }
 
-export function LibraryViewer({ childId, mediaLibrary }: Props) {
+export function LibraryViewer({ childId, mediaLibrary, canManageProfileMedia = false }: Props) {
     const t = useTranslations()
     const [activeItem, setActiveItem] = useState<MediaItem | null>(null)
     const [isPending, startTransition] = useTransition()
@@ -173,26 +174,25 @@ export function LibraryViewer({ childId, mediaLibrary }: Props) {
             {activeItem && (
                 <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" onClick={closeTheater}>
                     
-                    {/* Top Action Bar */}
-                    <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-4" onClick={e => e.stopPropagation()}>
-                        
-                        {/* Set Profile Button */}
-                        {activeItem.usage_type === 'profile_picture' || activeItem.usage_type === 'profile_video' ? (
-                            <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-teal/20 border border-teal/30 text-teal text-xs font-bold tracking-wide">
-                                <CheckCircle2Icon className="size-4" />
-                                Current Profile {activeItem.media_type === 'photo' ? 'Picture' : 'Video'}
-                            </div>
-                        ) : (
-                            <button
-                                onClick={handleSetProfile}
-                                disabled={isPending}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold tracking-wide transition-all cursor-pointer disabled:opacity-50"
-                            >
-                                <UserCircleIcon className="size-4" />
-                                {indexingFace ? t('children.faceSearch.indexing') : isPending ? 'Updating...' : `Set as Profile ${activeItem.media_type === 'photo' ? 'Picture' : 'Video'}`}
-                            </button>
-                        )}
-                    </div>
+                    {canManageProfileMedia && (
+                        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-4" onClick={e => e.stopPropagation()}>
+                            {activeItem.usage_type === 'profile_picture' || activeItem.usage_type === 'profile_video' ? (
+                                <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-teal/20 border border-teal/30 text-teal text-xs font-bold tracking-wide">
+                                    <CheckCircle2Icon className="size-4" />
+                                    Current Profile {activeItem.media_type === 'photo' ? 'Picture' : 'Video'}
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleSetProfile}
+                                    disabled={isPending}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold tracking-wide transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                    <UserCircleIcon className="size-4" />
+                                    {indexingFace ? t('children.faceSearch.indexing') : isPending ? 'Updating...' : `Set as Profile ${activeItem.media_type === 'photo' ? 'Picture' : 'Video'}`}
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     {/* Previous Button */}
                     {currentIndex > 0 && (

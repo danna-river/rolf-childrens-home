@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic"
 // holds a single row that gets updated in place, so it never grows.
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret) {
+    console.error("[heartbeat] CRON_SECRET is not configured; refusing cron request.")
+    return NextResponse.json({ error: "Cron secret is not configured" }, { status: 500 })
+  }
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

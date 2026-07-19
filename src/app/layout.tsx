@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Nunito } from "next/font/google";
+import { PublicAnalytics } from "@/components/public-analytics";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,6 +37,7 @@ export default function RootLayout({
           before React hydrates, which would otherwise log a mismatch warning. */}
       <body className="min-h-full flex flex-col overflow-x-hidden" suppressHydrationWarning>
         {children}
+        <PublicAnalytics />
       </body>
     </html>
   );

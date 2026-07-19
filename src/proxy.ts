@@ -31,14 +31,7 @@ export async function proxy(request: NextRequest) {
 
   // 2. IMPORTANT: This refreshes the session token if it's expired.
   // It syncs the browser auth cookie directly with Next.js header streams.
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Diagnostic logging to see if middleware is picking up the user session
-  if (user) {
-    console.log(`📡 MIDDLEWARE: Authenticated session detected for user: ${user.email}`)
-  } else {
-    console.log('📡 MIDDLEWARE: No active authenticated session cookie found.')
-  }
+  await supabase.auth.getUser()
 
   return supabaseResponse
 }

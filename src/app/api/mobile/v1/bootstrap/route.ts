@@ -34,6 +34,7 @@ type MobileChildRow = {
   bio: string | null
   notes: string | null
   status: string | null
+  profile_complete: boolean | null
   created_at: string | null
   updated_at: string | null
   sync_version: number | null
@@ -64,6 +65,7 @@ function toMobileChildSnapshot(child: MobileChildRow, fallbackTime: Date) {
       status: child.status ?? 'active',
     },
     sync_version: child.sync_version ?? 0,
+    profile_complete: child.profile_complete ?? false,
     updated_at: toEpochMillis(child.updated_at ?? child.created_at, fallbackTime),
   }
 }
@@ -124,7 +126,7 @@ export async function POST(request: NextRequest) {
       ? []
       : await admin
         .from('children')
-        .select('id, id_rolf, first_name, last_name, birth_year, birth_month, birth_day, country, date_joined, career_aspiration, favorite_subject, hobby, bio, notes, status, created_at, updated_at, sync_version')
+        .select('id, id_rolf, first_name, last_name, birth_year, birth_month, birth_day, country, date_joined, career_aspiration, favorite_subject, hobby, bio, notes, status, profile_complete, created_at, updated_at, sync_version')
         .in('country', assignedCountries)
         .order('display_name')
 
@@ -133,11 +135,69 @@ export async function POST(request: NextRequest) {
     }
 
     const childRows = ('data' in children ? children.data ?? [] : []) as MobileChildRow[]
+    const childIds = childRows.map((child) => child.id)
+
+    // Intake catalog: every template (including inactive) with its questions.
+    // The phone evaluates eligibility offline, mirroring getEligibleIntakeForms.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intake tables are not in the generated Database schema yet.
+    const { data: templateRows, error: templateError } = await (admin as any)
+      .from('intake_templates')
+      .select(`
+        id,
+        title,
+        country,
+        status,
+        created_at,
+        template_questions (
+          id,
+          question_text,
+          field_type,
+          choices,
+          sort_order
+        )
+      `)
+      .order('created_at', { ascending: false })
+    if (templateError) throw new Error(`Could not read intake templates: ${templateError.message}`)
+
+    // Saved intake answers and the media library index, scoped to the snapshot.
+    let reportRows: {
+      id: string
+      child_id: string
+      template_id: string
+      report_answers: { question_id: string; answer_value: string | null }[] | null
+    }[] = []
+    let mediaRows: {
+      id: string
+      child_id: string
+      media_type: string | null
+      usage_type: string | null
+      filename: string | null
+      created_at: string | null
+    }[] = []
+
+    if (childIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- progress_reports is not in the generated Database schema yet.
+      const { data: reports, error: reportError } = await (admin as any)
+        .from('progress_reports')
+        .select('id, child_id, template_id, report_answers (question_id, answer_value)')
+        .in('child_id', childIds)
+      if (reportError) throw new Error(`Could not read progress reports: ${reportError.message}`)
+      reportRows = reports ?? []
+
+      const { data: media, error: mediaError } = await admin
+        .from('child_media')
+        .select('id, child_id, media_type, usage_type, filename, created_at')
+        .in('child_id', childIds)
+        .order('created_at', { ascending: false })
+      if (mediaError) throw new Error(`Could not read child media for bootstrap: ${mediaError.message}`)
+      mediaRows = media ?? []
+    }
 
     return mobileJson({
       server_time: now.toISOString(),
       device_status: 'active',
       staff_email: staff.email,
+      staff_role: staff.isAdmin ? 'admin' : 'staff',
       staff_countries: assignedCountries,
       countries: (countryRows ?? []).map((country) => ({
         name: country.name,
@@ -145,6 +205,39 @@ export async function POST(request: NextRequest) {
       })),
       id_blocks: [],
       children: childRows.map((child) => toMobileChildSnapshot(child, now)),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped intake rows, see selects above.
+      intake_templates: (templateRows ?? []).map((template: any) => ({
+        id: template.id,
+        title: template.title ?? '',
+        country: template.country ?? 'all',
+        status: template.status ?? 'active',
+        created_at: toEpochMillis(template.created_at, now),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        questions: (template.template_questions ?? []).map((question: any) => ({
+          id: question.id,
+          question_text: question.question_text ?? '',
+          field_type: question.field_type ?? 'text',
+          choices: question.choices ?? null,
+          sort_order: question.sort_order ?? 0,
+        })),
+      })),
+      progress_reports: reportRows.map((report) => ({
+        id: report.id,
+        child_id: report.child_id,
+        template_id: report.template_id,
+        answers: (report.report_answers ?? []).map((answer) => ({
+          question_id: answer.question_id,
+          answer_value: answer.answer_value ?? '',
+        })),
+      })),
+      media: mediaRows.map((media) => ({
+        id: media.id,
+        child_id: media.child_id,
+        media_type: media.media_type ?? 'photo',
+        usage_type: media.usage_type ?? 'library',
+        filename: media.filename ?? '',
+        created_at: toEpochMillis(media.created_at, now),
+      })),
       staff: {
         id: staff.userId,
         email: staff.email,

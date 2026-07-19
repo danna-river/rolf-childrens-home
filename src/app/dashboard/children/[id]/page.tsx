@@ -528,7 +528,7 @@ export default async function ChildProfilePage({
         {libraryItems.length > 0 && (
           <div className="rounded-xl border border-stone bg-white p-6 shadow-2xs sm:p-8">
             {/* Fixed: Passed id as childId prop */}
-            <LibraryViewer childId={id} mediaLibrary={libraryItems} />
+            <LibraryViewer childId={id} mediaLibrary={libraryItems} canManageProfileMedia />
           </div>
         )}
 
