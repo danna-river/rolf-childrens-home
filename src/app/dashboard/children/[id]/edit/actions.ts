@@ -550,8 +550,8 @@ export async function deleteChildAction(
       return { error: "blocked", blockers }
     }
 
-    // Best-effort: move the child's Drive files to the system trash folder before
-    // the DB rows cascade away. A Drive failure must not block the record delete.
+    // Move the child's Drive files to the system-trash folder (best effort; a
+    // Drive failure must not block the record delete).
     const { data: mediaRows } = await adminSupabase
       .from('child_media')
       .select('gdrive_file_id')
@@ -569,8 +569,33 @@ export async function deleteChildAction(
       }
     }
 
-    // Deleting the child cascades child_media, progress_reports + report_answers,
-    // face templates, and mobile upload sessions via their ON DELETE CASCADE FKs.
+    // child_media has NO foreign key to children (the table was recreated without
+    // one in migration 20260630165800), so a plain child delete would leave its
+    // media rows orphaned. Remove them explicitly, in this order:
+    //   1. clear the child's profile photo/video pointers (children -> child_media)
+    //      so nothing references the rows we are about to delete, whatever the
+    //      profile-pointer FK's on-delete rule happens to be;
+    //   2. delete the child_media rows (this cascades child_face_templates via
+    //      source_media_id);
+    //   3. delete the child, which cascades progress_reports + report_answers,
+    //      any remaining face template, and mobile upload sessions.
+    // Doing media cleanup before the child delete keeps a failed run retryable —
+    // the child still exists, so re-running the action re-attempts the cleanup.
+    await adminSupabase
+      .from('children')
+      .update({ profile_photo: null, profile_video: null })
+      .eq('id', childId)
+
+    const { error: mediaDeleteError } = await adminSupabase
+      .from('child_media')
+      .delete()
+      .eq('child_id', childId)
+
+    if (mediaDeleteError) {
+      console.error('[deleteChild] child_media delete failed:', mediaDeleteError.message)
+      return { error: "delete_failed" }
+    }
+
     const { error: deleteError } = await adminSupabase
       .from('children')
       .delete()

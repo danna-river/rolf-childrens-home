@@ -49,3 +49,6 @@ Staff-facing UI strings go through the i18n system in `src/i18n/` (`en.ts` is th
 - Does this string need a key in `src/i18n/locales/en.ts`, with a matching entry in `src/i18n/locales/fr.ts`?
 - If you're unsure whether new text belongs in the i18n system (e.g. admin-only debug text, or something that's arguably stored content, not UI chrome) or unsure of the correct French translation, **ask the developer** rather than guessing — don't silently hardcode a string or invent a French translation that ships to real users.
 - Don't add a key to `en.ts` without a matching `fr.ts` entry (the type will fail to compile, but check anyway before calling it done).
+
+@SOFTWARE_ARCHITECTURE_AND_SSOT.md
+@USER_GUIDE_NON_TECHNICAL.md
