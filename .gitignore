@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 supabase/migrations/20260611205713_restore_pre_sponsor_schema.sql
 supabase/recover.sql
+
+# Documents
+SOFTWARE_ARCHITECTURE_AND_SSOT.md
+USER_GUIDE_NON_TECHNICAL.md

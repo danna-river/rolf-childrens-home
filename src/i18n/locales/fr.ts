@@ -404,6 +404,26 @@ export const fr: Messages = {
     'Veuillez documenter clairement dans les notes ci-dessous pourquoi ce profil passe au statut inactif.',
   'children.edit.notesPlaceholder': 'Staff-only internal ledger notes in English (special circumstances, family tracing variables...)',
   'children.edit.saveChanges': 'Enregistrer les modifications',
+  'children.delete.dangerZone': 'Zone de danger',
+  'children.delete.dangerHelp':
+    "Supprimer définitivement cet enfant du système. Cette action est irréversible et réservée aux administrateurs.",
+  'children.delete.deleteChild': 'Supprimer cet enfant',
+  'children.delete.dialogTitle': 'Supprimer définitivement {name} ?',
+  'children.delete.willRemove':
+    "Cette action supprime définitivement la fiche de l'enfant, toutes ses photos et vidéos, et tous ses rapports de suivi. Elle est irréversible.",
+  'children.delete.confirmPrompt': 'Saisissez {idRolf} pour confirmer.',
+  'children.delete.confirmPlaceholder': "Saisir l'identifiant de l'enfant",
+  'children.delete.cancel': 'Annuler',
+  'children.delete.confirmButton': 'Supprimer définitivement',
+  'children.delete.deleting': 'Suppression…',
+  'children.delete.unauthorized': 'Seuls les administrateurs peuvent supprimer un enfant.',
+  'children.delete.genericError': "Impossible de supprimer l'enfant. Veuillez réessayer.",
+  'children.delete.blockedTitle': 'Cet enfant ne peut pas encore être supprimé',
+  'children.delete.blockedHelp':
+    "Supprimez d'abord les enregistrements ci-dessous, puis réessayez. Cela évite d'effacer par erreur l'historique des dons et des lettres.",
+  'children.delete.blockedSponsorships': '{count} enregistrement(s) de parrainage',
+  'children.delete.blockedLetters': '{count} fil(s) de lettres',
+  'children.delete.blockedUpdates': "{count} mise(s) à jour de l'enfant",
   'children.edit.englishOnlyHelp':
     'Veuillez remplir ce champ en anglais. Les informations enregistrées du profil de l’enfant sont stockées en anglais pour les communications avec les donateurs et la génération des biographies.',
   'children.media.photoTooLarge': 'La photo doit faire moins de {size} Mo.',

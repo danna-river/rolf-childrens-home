@@ -2,13 +2,22 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { updateChildAction, checkRolfIdForEdit, getLatestIdPreviewForEdit, deleteLibraryItemAction } from "./actions"
-import type { UpdateChildInput } from "./actions"
+import { updateChildAction, checkRolfIdForEdit, getLatestIdPreviewForEdit, deleteLibraryItemAction, deleteChildAction } from "./actions"
+import type { UpdateChildInput, DeleteChildBlockers } from "./actions"
 import type { Child } from "@/lib/types"
 import { calcAge, toDateString, SUBJECTS, Field, inputClass } from "../../components/form-utils"
 import { MediaPicker } from "../../components/MediaPicker"
 import { enrollChildProfilePhoto } from "@/lib/face/enroll"
 import { resolvePhotoSrc, resolveVideoThumbnail } from "@/lib/childMedia"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { AlertTriangleIcon, CornerUpLeftIcon, UploadCloudIcon, CheckCircle2Icon, Loader2Icon, FilmIcon, ImageIcon, Trash2Icon, PlayCircleIcon } from "lucide-react"
 import { useTranslations } from "@/i18n/client"
 import type { MessageKey } from "@/i18n/locales/en"
@@ -51,6 +60,47 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
   
   const [libraryItems, setLibraryItems] = useState(initialLibrary)
   const [pendingDeletions, setPendingDeletions] = useState<string[]>([])
+
+  // Admin-only permanent child deletion (Danger Zone dialog)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState("")
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteBlockers, setDeleteBlockers] = useState<DeleteChildBlockers | null>(null)
+
+  const rolfId = (child.id_rolf ?? "").trim()
+  const childName = (child.display_name ?? "").trim()
+  // The admin must type the ROLF ID to confirm; legacy records without one fall back to the name.
+  const deleteConfirmTarget = rolfId || childName
+  const deleteDialogLabel = rolfId ? `${childName} (${rolfId})` : childName
+  const deleteConfirmMatches =
+    deleteConfirmTarget.length > 0 &&
+    deleteConfirm.trim().toUpperCase() === deleteConfirmTarget.toUpperCase()
+
+  async function handleDeleteChild() {
+    if (!deleteConfirmMatches || deleting) return
+    setDeleting(true)
+    setDeleteError(null)
+    setDeleteBlockers(null)
+
+    const res = await deleteChildAction(child.id, deleteConfirm)
+
+    if (res.error) {
+      setDeleting(false)
+      if (res.error === "blocked" && res.blockers) {
+        setDeleteBlockers(res.blockers)
+      } else if (res.error === "unauthorized") {
+        setDeleteError(t("children.delete.unauthorized"))
+      } else {
+        setDeleteError(t("children.delete.genericError"))
+      }
+      return
+    }
+
+    // Deleted — the child no longer exists, so leave the edit page.
+    router.push("/dashboard/children")
+    router.refresh()
+  }
 
   const [form, setForm] = useState({
     id_rolf: child.id_rolf ?? "",
@@ -849,6 +899,31 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
             </Field>
           </div>
         </section>
+        {/* Danger Zone — permanent deletion, admins only */}
+        {isAdmin && (
+          <section className="bg-white rounded-xl border border-red-200 shadow-2xs">
+            <div className="p-5 space-y-3">
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-red-600 border-b border-red-100 pb-2 flex items-center gap-1.5">
+                <AlertTriangleIcon className="size-3.5" />
+                {t('children.delete.dangerZone')}
+              </h2>
+              <p className="text-xs text-navy/55 leading-relaxed">{t('children.delete.dangerHelp')}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirm("")
+                  setDeleteError(null)
+                  setDeleteBlockers(null)
+                  setDeleteOpen(true)
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 cursor-pointer"
+              >
+                <Trash2Icon className="size-4" />
+                {t('children.delete.deleteChild')}
+              </button>
+            </div>
+          </section>
+        )}
       </div>
 
       <div className="sticky bottom-0 bg-white border-t border-stone px-4 py-4 mt-auto z-40">
@@ -860,6 +935,80 @@ export function EditChildForm({ child, availableCountries, isAdmin, initialLibra
           {indexingFace ? t('children.faceSearch.indexing') : submitting ? t('children.register.saving') : mediaUploading ? t('children.register.processingMedia') : t('children.edit.saveChanges')}
         </button>
       </div>
+
+      {isAdmin && (
+        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-700">
+                <AlertTriangleIcon className="size-4 shrink-0" />
+                {t('children.delete.dialogTitle').replace('{name}', deleteDialogLabel)}
+              </DialogTitle>
+              <DialogDescription>{t('children.delete.willRemove')}</DialogDescription>
+            </DialogHeader>
+
+            {deleteBlockers ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                  <AlertTriangleIcon className="size-4 shrink-0" />
+                  {t('children.delete.blockedTitle')}
+                </p>
+                <ul className="list-disc pl-5 text-sm text-amber-800 space-y-0.5">
+                  {deleteBlockers.sponsorships > 0 && (
+                    <li>{t('children.delete.blockedSponsorships').replace('{count}', String(deleteBlockers.sponsorships))}</li>
+                  )}
+                  {deleteBlockers.letters > 0 && (
+                    <li>{t('children.delete.blockedLetters').replace('{count}', String(deleteBlockers.letters))}</li>
+                  )}
+                  {deleteBlockers.updates > 0 && (
+                    <li>{t('children.delete.blockedUpdates').replace('{count}', String(deleteBlockers.updates))}</li>
+                  )}
+                </ul>
+                <p className="text-xs text-amber-700 leading-relaxed">{t('children.delete.blockedHelp')}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label htmlFor="delete-confirm" className="block text-sm font-medium text-navy/70">
+                  {t('children.delete.confirmPrompt').replace('{idRolf}', deleteConfirmTarget)}
+                </label>
+                <input
+                  id="delete-confirm"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder={t('children.delete.confirmPlaceholder')}
+                  autoComplete="off"
+                  className={inputClass}
+                />
+                {deleteError && <p className="text-xs font-semibold text-red-600">{deleteError}</p>}
+              </div>
+            )}
+
+            <DialogFooter>
+              <DialogClose
+                render={
+                  <button
+                    type="button"
+                    className="rounded-lg border border-stone px-4 py-2 text-sm font-medium text-navy/70 transition-colors hover:bg-ice cursor-pointer"
+                  />
+                }
+              >
+                {t('children.delete.cancel')}
+              </DialogClose>
+              {!deleteBlockers && (
+                <button
+                  type="button"
+                  onClick={handleDeleteChild}
+                  disabled={!deleteConfirmMatches || deleting}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:bg-stone disabled:text-navy/35 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Trash2Icon className="size-4" />
+                  {deleting ? t('children.delete.deleting') : t('children.delete.confirmButton')}
+                </button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

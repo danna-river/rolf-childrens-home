@@ -400,6 +400,26 @@ export const en = {
     'Please document explicitly in the Notes window below why this individual profile is moving to an inactive status.',
   'children.edit.notesPlaceholder': 'Staff-only internal ledger notes in English (special circumstances, family tracing variables...)',
   'children.edit.saveChanges': 'Save Changes',
+  'children.delete.dangerZone': 'Danger Zone',
+  'children.delete.dangerHelp':
+    'Permanently remove this child from the system. This is irreversible and only administrators can do it.',
+  'children.delete.deleteChild': 'Delete this child',
+  'children.delete.dialogTitle': 'Permanently delete {name}?',
+  'children.delete.willRemove':
+    "This permanently deletes the child's record, every photo and video, and all progress reports. This cannot be undone.",
+  'children.delete.confirmPrompt': 'Type {idRolf} to confirm.',
+  'children.delete.confirmPlaceholder': 'Enter the child ID',
+  'children.delete.cancel': 'Cancel',
+  'children.delete.confirmButton': 'Delete permanently',
+  'children.delete.deleting': 'Deleting…',
+  'children.delete.unauthorized': 'Only administrators can delete children.',
+  'children.delete.genericError': 'The child could not be deleted. Please try again.',
+  'children.delete.blockedTitle': 'This child cannot be deleted yet',
+  'children.delete.blockedHelp':
+    'Remove the records below first, then try again. This protects donor and letter history from being erased by accident.',
+  'children.delete.blockedSponsorships': '{count} sponsorship record(s)',
+  'children.delete.blockedLetters': '{count} letter thread(s)',
+  'children.delete.blockedUpdates': '{count} child update(s)',
   'children.edit.englishOnlyHelp':
     'Please enter this field in English. Saved child profile information is stored in English for donor communications and bio generation.',
   'children.media.photoTooLarge': 'Photo must be under {size} MB.',

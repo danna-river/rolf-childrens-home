@@ -479,3 +479,112 @@ export async function deleteLibraryItemAction(mediaId: string): Promise<{ error:
     return { error: err instanceof Error ? err.message : "An unexpected error occurred." }
   }
 }
+
+export type DeleteChildBlockers = {
+  sponsorships: number
+  letters: number
+  updates: number
+}
+
+export type DeleteChildResult = {
+  error: string | null
+  /** Present only when deletion was refused because dependent records still reference the child. */
+  blockers?: DeleteChildBlockers
+}
+
+/**
+ * Permanently deletes a child and everything that cascades from it (media rows,
+ * progress reports + answers, face templates, mobile upload sessions). Admin only.
+ *
+ * Deletion is REFUSED — never silent-cascaded — when the child still has
+ * sponsorship records, pen-pal letter threads, or child updates. Those carry
+ * donor/financial/relationship history, and their foreign keys (NO ACTION /
+ * RESTRICT) would abort the delete at the database level anyway; we surface the
+ * counts so an admin knows exactly what to clear first.
+ *
+ * The caller must echo back the child's ROLF ID as a type-to-confirm guard.
+ */
+export async function deleteChildAction(
+  childId: string,
+  confirmIdRolf: string,
+): Promise<DeleteChildResult> {
+  try {
+    const { profile } = await requireAuth()
+    if (!isAdminRole(profile.role)) {
+      return { error: "unauthorized" }
+    }
+
+    const adminSupabase = await createAdminClient()
+
+    const { data: child } = await adminSupabase
+      .from('children')
+      .select('id, id_rolf, display_name')
+      .eq('id', childId)
+      .maybeSingle()
+
+    if (!child) return { error: "not_found" }
+
+    // Type-to-confirm guard: the typed value must match the child's ROLF ID
+    // (or display name when a legacy record has no ROLF ID).
+    const expected = (child.id_rolf ?? child.display_name ?? '').trim().toUpperCase()
+    if (!expected || confirmIdRolf.trim().toUpperCase() !== expected) {
+      return { error: "confirmation_mismatch" }
+    }
+
+    // Refuse deletion while donor/financial/relationship records point at the child.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pen_pal_threads / child_updates are not in the generated Database schema yet.
+    const anyDb = adminSupabase as any
+    const [sponsorships, letters, updates] = await Promise.all([
+      adminSupabase.from('sponsorships').select('id', { count: 'exact', head: true }).eq('child_id', childId),
+      anyDb.from('pen_pal_threads').select('id', { count: 'exact', head: true }).eq('child_id', childId),
+      anyDb.from('child_updates').select('id', { count: 'exact', head: true }).eq('child_id', childId),
+    ])
+
+    const blockers: DeleteChildBlockers = {
+      sponsorships: sponsorships.count ?? 0,
+      letters: letters.count ?? 0,
+      updates: updates.count ?? 0,
+    }
+
+    if (blockers.sponsorships > 0 || blockers.letters > 0 || blockers.updates > 0) {
+      return { error: "blocked", blockers }
+    }
+
+    // Best-effort: move the child's Drive files to the system trash folder before
+    // the DB rows cascade away. A Drive failure must not block the record delete.
+    const { data: mediaRows } = await adminSupabase
+      .from('child_media')
+      .select('gdrive_file_id')
+      .eq('child_id', childId)
+
+    if (mediaRows && mediaRows.length > 0) {
+      const { moveFileToSystemTrash } = await import('@/lib/googleDrive')
+      for (const row of mediaRows) {
+        if (!row.gdrive_file_id) continue
+        try {
+          await moveFileToSystemTrash(row.gdrive_file_id)
+        } catch {
+          console.warn(`[deleteChild] could not trash Drive file ${row.gdrive_file_id}; continuing.`)
+        }
+      }
+    }
+
+    // Deleting the child cascades child_media, progress_reports + report_answers,
+    // face templates, and mobile upload sessions via their ON DELETE CASCADE FKs.
+    const { error: deleteError } = await adminSupabase
+      .from('children')
+      .delete()
+      .eq('id', childId)
+
+    if (deleteError) {
+      console.error('[deleteChild] delete failed:', deleteError.message)
+      return { error: "delete_failed" }
+    }
+
+    revalidatePath('/dashboard/children')
+    return { error: null }
+  } catch (err) {
+    console.error('[deleteChild] unexpected error:', err)
+    return { error: "delete_failed" }
+  }
+}
