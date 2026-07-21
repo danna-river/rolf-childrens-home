@@ -8,6 +8,7 @@ type JsonRow = Record<string, unknown>
 type ExportTable = {
   name: string
   orderBy?: string
+  optional?: boolean
   redactedColumns?: string[]
 }
 
@@ -15,7 +16,7 @@ type TableBackupResult = {
   table: string
   rows: number
   columns: number
-  status: "ok" | "error"
+  status: "ok" | "skipped" | "error"
   error?: string
 }
 
@@ -31,18 +32,18 @@ const WRITE_BATCH_ROWS = 500
 // App-owned public tables only. Do not mirror Supabase internals like auth,
 // storage, realtime, cron, or vault into a spreadsheet.
 const EXPORT_TABLES: ExportTable[] = [
-  { name: "app_settings", orderBy: "id" },
+  { name: "app_settings", orderBy: "id", optional: true },
   { name: "countries", orderBy: "name" },
   { name: "profiles", orderBy: "created_at" },
   { name: "children", orderBy: "created_at" },
   { name: "child_media", orderBy: "created_at" },
   { name: "child_updates", orderBy: "created_at" },
-  { name: "media_deletion", orderBy: "soft_deleted_at" },
+  { name: "media_deletion", orderBy: "soft_deleted_at", optional: true },
   { name: "sponsors", orderBy: "created_at" },
   { name: "sponsorships", orderBy: "created_at" },
   { name: "intake_templates", orderBy: "created_at" },
   { name: "template_questions", orderBy: "sort_order" },
-  { name: "progress_reports", orderBy: "created_at" },
+  { name: "progress_reports", orderBy: "id" },
   { name: "report_answers", orderBy: "created_at" },
   { name: "pen_pal_threads", orderBy: "created_at" },
   { name: "pen_pal_messages", orderBy: "created_at" },
@@ -123,6 +124,11 @@ function applyRedactions(rows: JsonRow[], redactedColumns: string[] | undefined)
     }
     return copy
   })
+}
+
+function isMissingTableError(message: string) {
+  return message.includes("Could not find the table")
+    || message.includes("does not exist")
 }
 
 async function fetchTableRows(table: ExportTable) {
@@ -210,6 +216,55 @@ async function clearSheet(
   })
 }
 
+async function getSheetId(
+  sheets: ReturnType<typeof google.sheets>,
+  spreadsheetId: string,
+  sheetName: string,
+) {
+  const { data } = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties(sheetId,title)",
+  })
+  const sheet = data.sheets?.find((candidate) => candidate.properties?.title === sheetName)
+  const sheetId = sheet?.properties?.sheetId
+
+  if (sheetId === undefined || sheetId === null) {
+    throw new Error(`Could not resolve sheet id for ${sheetName}`)
+  }
+
+  return sheetId
+}
+
+async function resizeSheetGrid(
+  sheets: ReturnType<typeof google.sheets>,
+  spreadsheetId: string,
+  sheetName: string,
+  rowCount: number,
+  columnCount: number,
+) {
+  const sheetId = await getSheetId(sheets, spreadsheetId, sheetName)
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: {
+              sheetId,
+              gridProperties: {
+                rowCount: Math.max(rowCount, 1),
+                columnCount: Math.max(columnCount, 1),
+              },
+            },
+            fields: "gridProperties.rowCount,gridProperties.columnCount",
+          },
+        },
+      ],
+    },
+  })
+}
+
 async function writeValues(
   sheets: ReturnType<typeof google.sheets>,
   spreadsheetId: string,
@@ -242,10 +297,13 @@ async function writeTableSheet(
   await clearSheet(sheets, spreadsheetId, sheetName)
 
   if (rows.length === 0) {
-    await writeValues(sheets, spreadsheetId, sheetName, [
+    const values = [
       ["status", "synced_at"],
       ["empty", new Date().toISOString()],
-    ])
+    ]
+
+    await resizeSheetGrid(sheets, spreadsheetId, sheetName, values.length, values[0].length)
+    await writeValues(sheets, spreadsheetId, sheetName, values)
     return { columns: 2 }
   }
 
@@ -255,6 +313,7 @@ async function writeTableSheet(
     ...rows.map((row) => columns.map((column) => formatCell(row[column]))),
   ]
 
+  await resizeSheetGrid(sheets, spreadsheetId, sheetName, values.length, columns.length)
   await writeValues(sheets, spreadsheetId, sheetName, values)
   return { columns: columns.length }
 }
@@ -283,6 +342,7 @@ async function writeMetaSheet(
     ]),
   ]
 
+  await resizeSheetGrid(sheets, spreadsheetId, sheetName, values.length, values[0].length)
   await writeValues(sheets, spreadsheetId, sheetName, values)
 }
 
@@ -352,11 +412,12 @@ export async function backupSupabaseToGoogleSheets(): Promise<SheetsBackupResult
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown export error"
+      const status = table.optional && isMissingTableError(message) ? "skipped" : "error"
       results.push({
         table: table.name,
         rows: 0,
         columns: 0,
-        status: "error",
+        status,
         error: message,
       })
     }
