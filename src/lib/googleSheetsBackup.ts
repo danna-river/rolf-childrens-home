@@ -1,6 +1,6 @@
 import "server-only"
 
-import { google } from "googleapis"
+import { google, sheets_v4 } from "googleapis"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 type JsonRow = Record<string, unknown>
@@ -20,6 +20,20 @@ type TableBackupResult = {
   error?: string
 }
 
+type TableWrite = {
+  table: string
+  sheetName: string
+  rows: number
+  columns: number
+  values: unknown[][]
+}
+
+type ValueWrite = {
+  range: string
+  values: unknown[][]
+  bytes: number
+}
+
 export type SheetsBackupResult = {
   spreadsheetId: string
   syncedAt: string
@@ -27,7 +41,8 @@ export type SheetsBackupResult = {
 }
 
 const PAGE_SIZE = 1000
-const WRITE_BATCH_ROWS = 500
+const MAX_VALUE_BATCH_BYTES = 1_500_000
+const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000]
 
 // App-owned public tables only. Do not mirror Supabase internals like auth,
 // storage, realtime, cron, or vault into a spreadsheet.
@@ -84,6 +99,43 @@ function getSpreadsheetId() {
   }
 
   return spreadsheetId
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getErrorStatus(error: unknown) {
+  if (!error || typeof error !== "object") return null
+  const directCode = (error as { code?: unknown }).code
+  if (typeof directCode === "number") return directCode
+
+  const responseStatus = (error as { response?: { status?: unknown } }).response?.status
+  return typeof responseStatus === "number" ? responseStatus : null
+}
+
+function isRateLimitError(error: unknown) {
+  const status = getErrorStatus(error)
+  const message = error instanceof Error ? error.message : String(error)
+
+  return status === 429
+    || (status === 403 && /quota|rate|too many|resource_exhausted/i.test(message))
+}
+
+async function withSheetsRetry<T>(operation: () => Promise<T>) {
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await operation()
+    } catch (error) {
+      if (!isRateLimitError(error) || attempt === RETRY_DELAYS_MS.length) {
+        throw error
+      }
+
+      await sleep(RETRY_DELAYS_MS[attempt])
+    }
+  }
+
+  throw new Error("Sheets request failed")
 }
 
 function sanitizeSheetName(name: string) {
@@ -168,167 +220,198 @@ async function getExistingSheetNames(
 ) {
   const { data } = await sheets.spreadsheets.get({
     spreadsheetId,
-    fields: "sheets.properties.title",
-  })
-
-  return new Set(
-    (data.sheets ?? [])
-      .map((sheet) => sheet.properties?.title)
-      .filter((title): title is string => Boolean(title)),
-  )
-}
-
-async function ensureSheet(
-  sheets: ReturnType<typeof google.sheets>,
-  spreadsheetId: string,
-  existingSheetNames: Set<string>,
-  sheetName: string,
-) {
-  if (existingSheetNames.has(sheetName)) return
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          addSheet: {
-            properties: {
-              title: sheetName,
-              gridProperties: { frozenRowCount: 1 },
-            },
-          },
-        },
-      ],
-    },
-  })
-
-  existingSheetNames.add(sheetName)
-}
-
-async function clearSheet(
-  sheets: ReturnType<typeof google.sheets>,
-  spreadsheetId: string,
-  sheetName: string,
-) {
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `${quoteSheetName(sheetName)}!A:ZZZ`,
-  })
-}
-
-async function getSheetId(
-  sheets: ReturnType<typeof google.sheets>,
-  spreadsheetId: string,
-  sheetName: string,
-) {
-  const { data } = await sheets.spreadsheets.get({
-    spreadsheetId,
     fields: "sheets.properties(sheetId,title)",
   })
-  const sheet = data.sheets?.find((candidate) => candidate.properties?.title === sheetName)
-  const sheetId = sheet?.properties?.sheetId
 
-  if (sheetId === undefined || sheetId === null) {
-    throw new Error(`Could not resolve sheet id for ${sheetName}`)
+  const sheetMap = new Map<string, number>()
+  for (const sheet of data.sheets ?? []) {
+    const title = sheet.properties?.title
+    const sheetId = sheet.properties?.sheetId
+    if (title && sheetId !== undefined && sheetId !== null) {
+      sheetMap.set(title, sheetId)
+    }
   }
 
-  return sheetId
+  return sheetMap
 }
 
-async function resizeSheetGrid(
+async function prepareSheets(
   sheets: ReturnType<typeof google.sheets>,
   spreadsheetId: string,
-  sheetName: string,
-  rowCount: number,
-  columnCount: number,
+  existingSheets: Map<string, number>,
+  writes: TableWrite[],
 ) {
-  const sheetId = await getSheetId(sheets, spreadsheetId, sheetName)
+  const existingIds = new Set(existingSheets.values())
+  let nextSheetId = 100000
+  const requests: sheets_v4.Schema$Request[] = []
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          updateSheetProperties: {
-            properties: {
-              sheetId,
-              gridProperties: {
-                rowCount: Math.max(rowCount, 1),
-                columnCount: Math.max(columnCount, 1),
-              },
+  const allocateSheetId = () => {
+    while (existingIds.has(nextSheetId)) nextSheetId++
+    existingIds.add(nextSheetId)
+    return nextSheetId++
+  }
+
+  for (const write of writes) {
+    const rowCount = Math.max(write.values.length, 1)
+    const columnCount = Math.max(write.columns, 1)
+    const existingSheetId = existingSheets.get(write.sheetName)
+
+    if (existingSheetId === undefined) {
+      const sheetId = allocateSheetId()
+      existingSheets.set(write.sheetName, sheetId)
+      requests.push({
+        addSheet: {
+          properties: {
+            sheetId,
+            title: write.sheetName,
+            gridProperties: {
+              rowCount,
+              columnCount,
+              frozenRowCount: 1,
             },
-            fields: "gridProperties.rowCount,gridProperties.columnCount",
           },
         },
-      ],
+      })
+      continue
+    }
+
+    requests.push({
+      updateSheetProperties: {
+        properties: {
+          sheetId: existingSheetId,
+          gridProperties: {
+            rowCount,
+            columnCount,
+            frozenRowCount: 1,
+          },
+        },
+        fields: "gridProperties.rowCount,gridProperties.columnCount,gridProperties.frozenRowCount",
+      },
+    })
+  }
+
+  if (requests.length === 0) return
+
+  await withSheetsRetry(() => sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests,
     },
-  })
+  }))
 }
 
-async function writeValues(
-  sheets: ReturnType<typeof google.sheets>,
-  spreadsheetId: string,
+function rowByteLength(row: unknown[]) {
+  return Buffer.byteLength(JSON.stringify(row), "utf8") + 2
+}
+
+function createValueWrites(
   sheetName: string,
   values: unknown[][],
 ) {
-  if (values.length === 0) return
+  const writes: ValueWrite[] = []
+  let startRow = 1
+  let batch: unknown[][] = []
+  let batchBytes = 0
 
-  for (let start = 0; start < values.length; start += WRITE_BATCH_ROWS) {
-    const batch = values.slice(start, start + WRITE_BATCH_ROWS)
-    const rowNumber = start + 1
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${quoteSheetName(sheetName)}!A${rowNumber}`,
-      valueInputOption: "RAW",
-      requestBody: { values: batch },
+  for (let index = 0; index < values.length; index++) {
+    const row = values[index]
+    const nextBytes = rowByteLength(row)
+    if (batch.length > 0 && batchBytes + nextBytes > MAX_VALUE_BATCH_BYTES) {
+      writes.push({
+        range: `${quoteSheetName(sheetName)}!A${startRow}`,
+        values: batch,
+        bytes: batchBytes,
+      })
+      startRow = index + 1
+      batch = []
+      batchBytes = 0
+    }
+
+    batch.push(row)
+    batchBytes += nextBytes
+  }
+
+  if (batch.length > 0) {
+    writes.push({
+      range: `${quoteSheetName(sheetName)}!A${startRow}`,
+      values: batch,
+      bytes: batchBytes,
     })
   }
+
+  return writes
 }
 
-async function writeTableSheet(
+async function writeValueBatches(
   sheets: ReturnType<typeof google.sheets>,
   spreadsheetId: string,
-  existingSheetNames: Set<string>,
-  table: ExportTable,
-  rows: JsonRow[],
+  writes: TableWrite[],
 ) {
-  const sheetName = sanitizeSheetName(table.name)
-  await ensureSheet(sheets, spreadsheetId, existingSheetNames, sheetName)
-  await clearSheet(sheets, spreadsheetId, sheetName)
+  const valueWrites = writes.flatMap((write) =>
+    createValueWrites(write.sheetName, write.values),
+  )
+  let batchData: { range: string; values: unknown[][] }[] = []
+  let batchBytes = 0
 
+  const flush = async () => {
+    if (batchData.length === 0) return
+
+    const data = batchData
+    batchData = []
+    batchBytes = 0
+
+    await withSheetsRetry(() => sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: "RAW",
+        data,
+      },
+    }))
+  }
+
+  for (const write of valueWrites) {
+    if (batchData.length > 0 && batchBytes + write.bytes > MAX_VALUE_BATCH_BYTES) {
+      await flush()
+    }
+
+    batchData.push({ range: write.range, values: write.values })
+    batchBytes += write.bytes
+  }
+
+  await flush()
+}
+
+function buildTableWrite(table: ExportTable, rows: JsonRow[]) {
+  const sheetName = sanitizeSheetName(table.name)
   if (rows.length === 0) {
     const values = [
       ["status", "synced_at"],
       ["empty", new Date().toISOString()],
     ]
 
-    await resizeSheetGrid(sheets, spreadsheetId, sheetName, values.length, values[0].length)
-    await writeValues(sheets, spreadsheetId, sheetName, values)
-    return { columns: 2 }
+    return {
+      table: table.name,
+      sheetName,
+      rows: 0,
+      columns: values[0].length,
+      values,
+    }
   }
 
   const columns = collectColumns(rows)
-  const values = [
-    columns,
-    ...rows.map((row) => columns.map((column) => formatCell(row[column]))),
-  ]
-
-  await resizeSheetGrid(sheets, spreadsheetId, sheetName, values.length, columns.length)
-  await writeValues(sheets, spreadsheetId, sheetName, values)
-  return { columns: columns.length }
+  return {
+    table: table.name,
+    sheetName,
+    rows: rows.length,
+    columns: columns.length,
+    values: [
+      columns,
+      ...rows.map((row) => columns.map((column) => formatCell(row[column]))),
+    ],
+  }
 }
 
-async function writeMetaSheet(
-  sheets: ReturnType<typeof google.sheets>,
-  spreadsheetId: string,
-  existingSheetNames: Set<string>,
-  syncedAt: string,
-  results: TableBackupResult[],
-) {
-  const sheetName = "_backup_meta"
-  await ensureSheet(sheets, spreadsheetId, existingSheetNames, sheetName)
-  await clearSheet(sheets, spreadsheetId, sheetName)
-
+function buildMetaWrite(spreadsheetId: string, syncedAt: string, results: TableBackupResult[]) {
   const values = [
     ["synced_at", "spreadsheet_id", "table", "rows", "columns", "status", "error"],
     ...results.map((result) => [
@@ -342,44 +425,13 @@ async function writeMetaSheet(
     ]),
   ]
 
-  await resizeSheetGrid(sheets, spreadsheetId, sheetName, values.length, values[0].length)
-  await writeValues(sheets, spreadsheetId, sheetName, values)
-}
-
-async function resizeSheetColumns(
-  sheets: ReturnType<typeof google.sheets>,
-  spreadsheetId: string,
-  sheetName: string,
-  columnCount: number,
-) {
-  if (columnCount < 1) return
-
-  const { data } = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: "sheets.properties(sheetId,title)",
-  })
-  const sheet = data.sheets?.find((candidate) => candidate.properties?.title === sheetName)
-  const sheetId = sheet?.properties?.sheetId
-
-  if (sheetId === undefined || sheetId === null) return
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          autoResizeDimensions: {
-            dimensions: {
-              sheetId,
-              dimension: "COLUMNS",
-              startIndex: 0,
-              endIndex: Math.min(columnCount, 26),
-            },
-          },
-        },
-      ],
-    },
-  })
+  return {
+    table: "_backup_meta",
+    sheetName: "_backup_meta",
+    rows: results.length,
+    columns: values[0].length,
+    values,
+  }
 }
 
 export async function backupSupabaseToGoogleSheets(): Promise<SheetsBackupResult> {
@@ -389,25 +441,21 @@ export async function backupSupabaseToGoogleSheets(): Promise<SheetsBackupResult
 
   const spreadsheetId = getSpreadsheetId()
   const sheets = getSheetsClient()
-  const existingSheetNames = await getExistingSheetNames(sheets, spreadsheetId)
+  const existingSheets = await getExistingSheetNames(sheets, spreadsheetId)
   const syncedAt = new Date().toISOString()
   const results: TableBackupResult[] = []
+  const tableWrites: TableWrite[] = []
 
   for (const table of EXPORT_TABLES) {
     try {
       const rows = await fetchTableRows(table)
-      const { columns } = await writeTableSheet(
-        sheets,
-        spreadsheetId,
-        existingSheetNames,
-        table,
-        rows,
-      )
+      const write = buildTableWrite(table, rows)
+      tableWrites.push(write)
 
       results.push({
         table: table.name,
-        rows: rows.length,
-        columns,
+        rows: write.rows,
+        columns: write.columns,
         status: "ok",
       })
     } catch (error) {
@@ -423,13 +471,9 @@ export async function backupSupabaseToGoogleSheets(): Promise<SheetsBackupResult
     }
   }
 
-  await writeMetaSheet(sheets, spreadsheetId, existingSheetNames, syncedAt, results)
-  await resizeSheetColumns(
-    sheets,
-    spreadsheetId,
-    "_backup_meta",
-    7,
-  )
+  const writes = [...tableWrites, buildMetaWrite(spreadsheetId, syncedAt, results)]
+  await prepareSheets(sheets, spreadsheetId, existingSheets, writes)
+  await writeValueBatches(sheets, spreadsheetId, writes)
 
   return { spreadsheetId, syncedAt, tables: results }
 }
