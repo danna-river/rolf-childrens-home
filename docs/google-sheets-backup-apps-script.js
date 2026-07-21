@@ -35,9 +35,10 @@ function runSupabaseSheetsBackup() {
   Logger.log(body)
 }
 
-function installHourlySupabaseSheetsBackup() {
+function installDailySupabaseSheetsBackup() {
   ScriptApp.newTrigger("runSupabaseSheetsBackup")
     .timeBased()
-    .everyHours(1)
+    .everyDays(1)
+    .atHour(2)
     .create()
 }
